@@ -104,13 +104,23 @@ img, svg { display: block; max-width: 100%; }
 /* --------------------------------------------------------------------------
    Header / footer
    -------------------------------------------------------------------------- */
-.site-header { background: var(--mam-ink); }
+.site-header {
+  background: var(--mam-secondary);
+  border-bottom: 1px solid var(--mam-line);
+}
 
 .site-header__inner {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; min-height: 72px;
 }
 .site-header__logo img { height: 34px; width: auto; }
+
+/* .btn--ghost is designed for dark panels (the results CTA still uses it there),
+   so it needs a light-background variant inside the now-white header. */
+.site-header .btn--ghost { border-color: var(--mam-line-strong); color: var(--mam-text); }
+.site-header .btn--ghost:hover {
+  border-color: var(--mam-primary); color: var(--mam-primary); background: transparent;
+}
 
 .site-footer {
   margin-top: auto;
