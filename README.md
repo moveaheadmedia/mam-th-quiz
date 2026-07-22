@@ -9,20 +9,27 @@ No build step, no dependencies — plain HTML, CSS and JavaScript.
 
 ---
 
-## Go live: the one thing you must change
+## Go live
 
-Open `assets/js/config.js` and replace the placeholder:
+Everything the browser needs lives in `assets/js/config.js`, and both values are
+already set:
 
 ```js
-webhookUrl: 'REPLACE_WITH_N8N_PRODUCTION_WEBHOOK_URL',
+webhookUrl:       'https://n8n.moveaheadmedia.com/webhook/mam-service-quiz',
+spam.recaptchaSiteKey: '6LfBdF8t…'   // public key, safe in this repo
 ```
 
-You should also set `spam.recaptchaSiteKey` in the same file and add the
-server-side check in n8n — see [Spam protection](#spam-protection).
+What is left is on the n8n side, not here — the workflow has to exist, verify
+the reCAPTCHA token server-side, and allow this origin in CORS. See
+[Spam protection](#spam-protection) and
+[Storing leads in an n8n data table](#storing-leads-in-an-n8n-data-table).
 
-Until that is set the quiz still works end to end — it logs the payload to the
-browser console instead of sending it, so you can inspect exactly what n8n will
-receive.
+Blank `webhookUrl` and the quiz still works end to end — it logs the payload to
+the browser console instead of sending it, which is the easiest way to inspect
+exactly what n8n will receive.
+
+The quiz opens straight onto question 1; there is no splash screen or start
+button.
 
 ### n8n Webhook node settings
 

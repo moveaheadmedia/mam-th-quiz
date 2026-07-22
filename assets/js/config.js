@@ -16,7 +16,7 @@ window.MAM_CONFIG = {
        Respond .............. "Immediately" (or "Using Respond to Webhook")
        Allowed Origins (CORS) ... https://moveaheadmedia.github.io, https://www.moveaheadmedia.co.th
      -------------------------------------------------------------------- */
-  webhookUrl: 'REPLACE_WITH_N8N_PRODUCTION_WEBHOOK_URL',
+  webhookUrl: 'https://n8n.moveaheadmedia.com/webhook/mam-service-quiz',
 
   /* Milliseconds to wait for n8n before we give up and show results anyway.
      The user never gets blocked by a slow automation. */
@@ -36,7 +36,6 @@ window.MAM_CONFIG = {
      3. Behaviour
      -------------------------------------------------------------------- */
   autoAdvanceMs: 300,    // pause after picking an answer, so the tick is visible
-  showIntro: true,       // set false to drop users straight into Step 1
   persistAnswers: true,  // remember progress on refresh (sessionStorage)
   embedResize: true,     // post height to parent window when used in an iframe
 
@@ -58,7 +57,7 @@ window.MAM_CONFIG = {
        The SECRET key belongs in n8n credentials and must never appear in this
        file. Leave empty to disable — the quiz still works, and the payload
        reports configured:false so n8n can tell verification was skipped. */
-    recaptchaSiteKey: '',
+    recaptchaSiteKey: '6LfBdF8tAAAAABgwWbyFsy04A4u4VRBJJBNT0ZEV',
 
     /* Action name passed to grecaptcha.execute(). Verify this matches in n8n —
        it stops a token farmed from another page on your domain being replayed. */

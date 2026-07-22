@@ -233,8 +233,6 @@ img, svg { display: block; max-width: 100%; }
   box-shadow: var(--shadow-md);
   padding: 44px;
 }
-.card--intro { padding-block: 56px; text-align: center; }
-
 .card.is-entering { animation: cardIn .42s var(--ease) both; }
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(14px); }
@@ -261,35 +259,23 @@ img, svg { display: block; max-width: 100%; }
 }
 
 /* --------------------------------------------------------------------------
-   Intro
+   Trust strip — sits below question 1 only
    -------------------------------------------------------------------------- */
-.intro__title {
-  /* kit primary is a fixed 56px; clamped so it does not break small screens */
-  font-size: clamp(30px, 5.4vw, 52px);
-  line-height: 1.14;
-  max-width: 18ch;
-  margin: 0 auto;
-}
-.intro__title em { font-style: normal; color: var(--mam-primary); }
-
-.intro__lead {
-  font-size: 17px; line-height: 1.65; color: var(--mam-muted);
-  max-width: 58ch; margin: 20px auto 0;
-}
-
-.intro__facts {
+.trust {
   display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px;
-  margin: 30px 0 34px;
+  margin: 26px 0 0;
 }
-.intro__facts li {
+.trust li {
   display: flex; align-items: center; gap: 8px;
   background: var(--mam-accent); border-radius: 999px;
   padding: 9px 16px 9px 13px;
   font-size: 13px; font-weight: 600;
 }
-.intro__facts .icon { width: 17px; height: 17px; color: var(--mam-primary); }
+.trust .icon { width: 17px; height: 17px; color: var(--mam-primary); }
 
-.intro__meta { margin-top: 22px; font-size: 12px; color: var(--mam-grey-94); }
+.trust__meta {
+  margin-top: 14px; font-size: 12px; color: var(--mam-grey-94); text-align: center;
+}
 
 /* --------------------------------------------------------------------------
    Questions
@@ -568,7 +554,9 @@ img, svg { display: block; max-width: 100%; }
    -------------------------------------------------------------------------- */
 @media (max-width: 780px) {
   .card { padding: 30px 22px; border-radius: 18px; }
-  .card--intro { padding-block: 40px; }
+
+  .trust { gap: 8px; margin-top: 20px; }
+  .trust li { font-size: 12px; padding: 7px 13px 7px 11px; }
 
   .options,
   .form__grid,

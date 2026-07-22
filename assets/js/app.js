@@ -20,7 +20,7 @@
   };
 
   var state = {
-    screen: CFG.showIntro ? 'intro' : 'question',
+    screen: 'question',       // no splash screen — question 1 is the landing view
     index: 0,
     answers: {},
     lead: null,
@@ -96,17 +96,13 @@
   /* ── Progress bar ───────────────────────────────────────────────────── */
 
   function currentStepNumber() {
-    if (state.screen === 'intro') return 0;
     if (state.screen === 'question') return state.index + 1;
     if (state.screen === 'form') return 5;
     return 6;                                   // results — everything complete
   }
 
   function renderProgress() {
-    var showBar = state.screen !== 'intro';
-    el.progress.hidden = !showBar;
-    if (!showBar) return;
-
+    el.progress.hidden = false;
     var step = currentStepNumber();
 
     el.progressSteps.innerHTML = STEP_LABELS.map(function (label, i) {
@@ -130,23 +126,16 @@
 
   /* ── Screens ────────────────────────────────────────────────────────── */
 
-  function introHTML() {
+  /* Shown under question 1 only. The splash screen used to carry this proof;
+     it still has to land before the visitor decides whether to answer. */
+  function trustHTML() {
     return '' +
-    '<section class="card card--intro">' +
-      '<p class="eyebrow">Free service matcher</p>' +
-      '<h1 class="intro__title">Which digital marketing services does your business <em>actually</em> need?</h1>' +
-      '<p class="intro__lead">SEO, AI SEO, Google Ads, Social Media, Website Development — you should not have to guess. ' +
-        'Answer four quick questions and we will show you the mix we would genuinely recommend, and why.</p>' +
-      '<ul class="intro__facts">' +
-        '<li>' + icon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>') + '60 seconds, 4 questions</li>' +
-        '<li>' + icon('<path d="m12 3 2.6 5.6 6.1.8-4.5 4.2 1.2 6L12 16.8 6.6 19.6l1.2-6L3.3 9.4l6.1-.8L12 3Z"/>') + '4.8&#9733; from 51 Google reviews</li>' +
-        '<li>' + icon('<path d="M4 7.5 12 4l8 3.5v5c0 4.4-3.3 7.6-8 8.5-4.7-.9-8-4.1-8-8.5v-5Z"/><path d="m9 12 2 2 4-4"/>') + 'No obligation, no hard sell</li>' +
-      '</ul>' +
-      '<button class="btn btn--primary btn--lg" type="button" data-action="start">' +
-        'Start the quiz' + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') +
-      '</button>' +
-      '<p class="intro__meta">Trusted by Accor, Decathlon, The Mall, Brighton College and IHG Group.</p>' +
-    '</section>';
+    '<ul class="trust">' +
+      '<li>' + icon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>') + '60 seconds, 4 questions</li>' +
+      '<li>' + icon('<path d="m12 3 2.6 5.6 6.1.8-4.5 4.2 1.2 6L12 16.8 6.6 19.6l1.2-6L3.3 9.4l6.1-.8L12 3Z"/>') + '4.8&#9733; from 51 Google reviews</li>' +
+      '<li>' + icon('<path d="M4 7.5 12 4l8 3.5v5c0 4.4-3.3 7.6-8 8.5-4.7-.9-8-4.1-8-8.5v-5Z"/><path d="m9 12 2 2 4-4"/>') + 'No obligation, no hard sell</li>' +
+    '</ul>' +
+    '<p class="trust__meta">Trusted by Accor, Decathlon, The Mall, Brighton College and IHG Group.</p>';
   }
 
   function questionHTML() {
@@ -174,15 +163,20 @@
       '<h1 class="question__title">' + esc(question.title) + '</h1>' +
       '<p class="question__subtitle">' + esc(question.subtitle) + '</p>' +
       '<div class="options" role="radiogroup" aria-label="' + esc(question.title) + '">' + options + '</div>' +
-      '<div class="card__nav">' +
-        (state.index > 0 || CFG.showIntro
-          ? '<button type="button" class="btn btn--text" data-action="back">' +
-              icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + 'Back</button>'
-          : '<span></span>') +
-        (chosen ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
-            icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</button>' : '') +
-      '</div>' +
-    '</section>';
+      /* Question 1 with nothing chosen has neither button — emitting the nav
+         anyway would leave a divider rule above empty space. */
+      (state.index > 0 || chosen
+        ? '<div class="card__nav">' +
+            (state.index > 0
+              ? '<button type="button" class="btn btn--text" data-action="back">' +
+                  icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + 'Back</button>'
+              : '<span></span>') +
+            (chosen ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
+                icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</button>' : '') +
+          '</div>'
+        : '') +
+    '</section>' +
+    (state.index === 0 ? trustHTML() : '');
   }
 
   function formHTML() {
@@ -325,8 +319,7 @@
 
   function render(focusTarget) {
     var html;
-    if (state.screen === 'intro') html = introHTML();
-    else if (state.screen === 'question') html = questionHTML();
+    if (state.screen === 'question') html = questionHTML();
     else if (state.screen === 'form') html = formHTML();
     else html = resultsHTML();
 
@@ -373,11 +366,8 @@
 
   function goBack() {
     if (state.screen === 'form') { goToQuestion(D.QUESTIONS.length - 1); return; }
-    if (state.index > 0) { goToQuestion(state.index - 1); return; }
-    state.screen = 'intro';
-    save();
-    render();
-    scrollToTop();
+    if (state.index > 0) { goToQuestion(state.index - 1); }
+    /* Question 1 is the landing view, so there is nowhere further back. */
   }
 
   function selectOption(optionId) {
@@ -406,7 +396,7 @@
     state.delivery = null;
     state.startedAt = Date.now();
     state.index = 0;
-    state.screen = CFG.showIntro ? 'intro' : 'question';
+    state.screen = 'question';
     render();
     scrollToTop();
   }
@@ -522,8 +512,7 @@
     var action = event.target.closest('[data-action]');
     if (!action) return;
     var name = action.getAttribute('data-action');
-    if (name === 'start') { goToQuestion(0); }
-    else if (name === 'next') { advance(); }
+    if (name === 'next') { advance(); }
     else if (name === 'back') { goBack(); }
     else if (name === 'restart') { restart(); }
   });
