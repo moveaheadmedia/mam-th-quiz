@@ -145,13 +145,72 @@ it for a human rather than binning it.
 These sum into `client_spam_score` (capped at 100). A useful starting policy:
 **score ≥ 60 → route to a review queue, don't auto-reject.**
 
-### 4. Also worth doing in n8n
+### 4. Ready-made workflow
+
+`n8n/mam-quiz-leads.workflow.json` is an importable template that does all of the
+above and stores every submission in an n8n data table. See
+[Storing leads](#storing-leads-in-an-n8n-data-table).
+
+### 5. Also worth doing in n8n
 
 - **Rate limit** by IP and by email — a handful of submissions per hour is
   generous for a genuine visitor.
 - **Restrict CORS** on the Webhook node to your real origins (below). It won't
   stop a scripted POST, but it stops the form being embedded and abused elsewhere.
 - **Dedupe** on email so a double-click can't create two leads.
+
+---
+
+## Storing leads in an n8n data table
+
+`n8n/mam-quiz-leads.workflow.json` is an importable template:
+
+```
+Quiz Webhook → Verify reCAPTCHA → Build lead row → Insert lead row
+             → Respond to quiz → Needs review? → (review queue | clean lead)
+```
+
+Every submission is written to the table. Nothing is dropped — a `status` column
+marks each row `new` or `review`, so a bad heuristic can never lose you a lead.
+
+### Setup
+
+1. **Create the data table**, named exactly `MAM Quiz Leads`. The node looks it
+   up by name, not by ID, so the template is portable between instances.
+   The 30 columns are listed on a sticky note inside the workflow. Do **not**
+   add an `id` column — n8n generates row IDs itself.
+2. **Import** the JSON: n8n → Workflows → *Import from File*.
+3. **Create a Query Auth credential** named `reCAPTCHA secret`, parameter name
+   `secret`, value = your reCAPTCHA **secret** key. Select it on the
+   *Verify reCAPTCHA* node. Keeping it in credentials rather than in the node
+   means the secret is redacted from any workflow export.
+4. **Set Allowed Origins** on the Webhook node to your real domains.
+5. Copy the **Production URL** into `config.js` → `webhookUrl`.
+
+It imports and runs before step 3 — the reCAPTCHA node is set to
+`onError: continueRegularOutput`, so a missing credential can't break the run or
+lose the lead. Verification simply reports as failed.
+
+### What lands in each row
+
+Flat, one row per submission: the four lead fields; all four answers as readable
+labels; primary service, its URL, supporting services and budget tier;
+`all_ranked` and `spam_signals` as JSON strings; the reCAPTCHA verdict
+(`recaptcha_configured`, `recaptcha_success`, `recaptcha_score`);
+`client_spam_score`; and attribution (`utm_*`, `gclid`, `fbclid`, `page_url`,
+`referrer`, `user_agent`, `client_ip`, `seconds_to_complete`).
+
+### How `status` is decided
+
+`review` if `client_spam_score >= 60`, or if reCAPTCHA is configured but
+verification failed or scored under 0.5. Otherwise `new`.
+
+> **Harden this once your site key is live.** Out of the box the workflow treats
+> "reCAPTCHA not configured" as `new`, and it reads that flag *from the request* —
+> so anyone POSTing straight to the webhook can omit it and land in `new`. The
+> sticky note in the workflow gives the one-line replacement expression that
+> requires a Google-verified token unconditionally. Apply it as soon as
+> reCAPTCHA is working.
 
 ---
 
