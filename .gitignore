@@ -1,0 +1,14 @@
+# IDE
+.idea/
+*.iml
+
+# Local screenshot / diagnostic harness — not part of the site
+.preview/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
