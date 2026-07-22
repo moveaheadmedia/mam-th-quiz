@@ -17,6 +17,9 @@ Open `assets/js/config.js` and replace the placeholder:
 webhookUrl: 'REPLACE_WITH_N8N_PRODUCTION_WEBHOOK_URL',
 ```
 
+You should also set `spam.recaptchaSiteKey` in the same file and add the
+server-side check in n8n — see [Spam protection](#spam-protection).
+
 Until that is set the quiz still works end to end — it logs the payload to the
 browser console instead of sending it, so you can inspect exactly what n8n will
 receive.
@@ -60,12 +63,95 @@ receive.
     "page_url": "…", "referrer": "…", "user_agent": "…", "language": "en-GB",
     "screen": "1280x900", "seconds_to_complete": 47,
     "tracking": { "utm_source": "…", "gclid": "…" }
+  },
+  "security": {
+    "recaptcha": {
+      "provider": "recaptcha-v3",
+      "configured": true,        // false = no site key set, so no token was even attempted
+      "action": "quiz_submit",
+      "token": "03AFcWeA…"       // null if reCAPTCHA failed or timed out
+    },
+    "signals": { /* see Spam protection below */ },
+    "client_spam_score": 0       // 0–100, advisory
   }
 }
 ```
 
 `meta.tracking` picks up `utm_*`, `gclid` and `fbclid` from the page URL, so
 attribution survives into your CRM.
+
+---
+
+## Spam protection
+
+> **Read this before trusting anything in `security`.** This is a static site.
+> `webhookUrl` is in `config.js` in plain text, so anyone can read it and POST
+> straight to n8n — never loading the page, never running a single check below.
+> **The only real gate is verifying the reCAPTCHA token server-side in n8n.**
+> Everything the browser sends is a hint, and every hint is forgeable.
+
+The client **never blocks a submission.** It attaches signals and lets n8n
+decide, so a mistuned heuristic can't silently cost you a real lead.
+
+### 1. Turn on reCAPTCHA v3
+
+1. Create a v3 site at <https://www.google.com/recaptcha/admin> and add the
+   domains you serve from (`moveaheadmedia.github.io`, `www.moveaheadmedia.co.th`).
+   If you embed the quiz in an iframe on WordPress, **the parent page's domain is
+   the one that must be registered.**
+2. Put the **site** key in `config.js` → `spam.recaptchaSiteKey`.
+3. Put the **secret** key in n8n credentials. It must never appear in this repo.
+
+With no site key set, no Google script is loaded at all and the payload reports
+`configured: false` — so n8n can tell verification was skipped rather than failed.
+
+### 2. Verify the token in n8n (the step that actually stops bots)
+
+Add an **HTTP Request** node before anything else touches the lead:
+
+| Setting | Value |
+| --- | --- |
+| Method | `POST` |
+| URL | `https://www.google.com/recaptcha/api/siteverify` |
+| Body Content Type | `Form-Urlencoded` |
+| `secret` | your reCAPTCHA **secret** key |
+| `response` | `{{ $json.body.security.recaptcha.token }}` |
+
+Then reject in an **IF** node unless **all three** hold:
+
+- `success === true`
+- `action === "quiz_submit"` — stops a token farmed from another page on your
+  domain being replayed here
+- `score >= 0.5` — Google's suggested threshold; tune it after watching real traffic
+
+A missing token (`token: null`) with `configured: true` means reCAPTCHA broke or
+timed out for that visitor. Treat it as suspicious, not as proof of a bot — flag
+it for a human rather than binning it.
+
+### 3. Client signals (advisory)
+
+`security.signals` carries:
+
+| Signal | Meaning | Adds to score |
+| --- | --- | --- |
+| `honeypot_filled` | Hidden field was completed — humans can't see it | +60 |
+| `faster_than_minimum` | Form done faster than `spam.minSecondsOnForm` | +25 |
+| `name_contains_url` | Link spam in the name field | +20 |
+| `email_disposable` | Domain is in `spam.disposableEmailDomains` | +15 |
+| `name_has_no_letters` | No Latin or Thai letters in the name | +10 |
+| `phone_repeated_digit` | e.g. `1111111111` | +10 |
+| `seconds_on_form`, `seconds_total`, `email_domain`, `timezone` | Context for triage | — |
+
+These sum into `client_spam_score` (capped at 100). A useful starting policy:
+**score ≥ 60 → route to a review queue, don't auto-reject.**
+
+### 4. Also worth doing in n8n
+
+- **Rate limit** by IP and by email — a handful of submissions per hour is
+  generous for a genuine visitor.
+- **Restrict CORS** on the Webhook node to your real origins (below). It won't
+  stop a scripted POST, but it stops the form being embedded and abused elsewhere.
+- **Dedupe** on email so a double-click can't create two leads.
 
 ---
 
@@ -109,7 +195,7 @@ npx --yes serve .          # or any static server
 
 | Want to change… | Edit |
 | --- | --- |
-| Webhook, phone, links, behaviour flags | `assets/js/config.js` |
+| Webhook, phone, links, reCAPTCHA key, behaviour flags | `assets/js/config.js` |
 | Questions, answers, services, scoring weights | `assets/js/data.js` |
 | Scoring maths, payload shape | `assets/js/engine.js` |
 | Screen flow, validation, markup | `assets/js/app.js` |

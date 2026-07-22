@@ -91,7 +91,94 @@
     return answerId;
   }
 
-  function buildPayload(answers, lead, result, startedAt) {
+  /* ── reCAPTCHA v3 ──────────────────────────────────────────────────
+     Loaded lazily and only when a site key is configured, so no Google
+     script is fetched (and no user data leaves the page) otherwise.
+     ------------------------------------------------------------------ */
+
+  var recaptchaLoad = null;
+
+  function loadRecaptcha() {
+    var siteKey = (window.MAM_CONFIG.spam || {}).recaptchaSiteKey;
+    if (!siteKey) return Promise.resolve(false);
+    if (recaptchaLoad) return recaptchaLoad;
+
+    recaptchaLoad = new Promise(function (resolve) {
+      var script = document.createElement('script');
+      script.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(siteKey);
+      script.async = true;
+      script.onload = function () { resolve(true); };
+      script.onerror = function () {
+        console.warn('[MAM quiz] reCAPTCHA failed to load — submitting unverified.');
+        resolve(false);
+      };
+      document.head.appendChild(script);
+    });
+    return recaptchaLoad;
+  }
+
+  /** Resolves to a token, or null if unavailable. Never rejects. */
+  function recaptchaToken() {
+    var spam = window.MAM_CONFIG.spam || {};
+    if (!spam.recaptchaSiteKey) return Promise.resolve(null);
+
+    return loadRecaptcha().then(function (ready) {
+      if (!ready || !window.grecaptcha) return null;
+      return new Promise(function (resolve) {
+        var settled = false;
+        var done = function (value) { if (!settled) { settled = true; resolve(value); } };
+        /* Never let a hanging CAPTCHA hold the visitor's results hostage. */
+        setTimeout(function () { done(null); }, 6000);
+        window.grecaptcha.ready(function () {
+          window.grecaptcha
+            .execute(spam.recaptchaSiteKey, { action: spam.recaptchaAction || 'quiz_submit' })
+            .then(done, function (error) {
+              console.warn('[MAM quiz] reCAPTCHA execute failed:', error);
+              done(null);
+            });
+        });
+      });
+    });
+  }
+
+  /**
+   * Advisory only — computed in the browser, therefore trivially forgeable.
+   * n8n must treat this as a hint alongside its own server-side checks.
+   * @returns {{signals:Object, client_spam_score:number}}
+   */
+  function spamSignals(lead, timing, honeypotFilled) {
+    var spam = window.MAM_CONFIG.spam || {};
+    var email = (lead.email || '').toLowerCase();
+    var domain = email.split('@')[1] || '';
+    var digits = (lead.phone || '').replace(/\D/g, '');
+
+    var signals = {
+      honeypot_filled: !!honeypotFilled,
+      seconds_on_form: timing.secondsOnForm,
+      seconds_total: timing.secondsTotal,
+      faster_than_minimum: timing.secondsOnForm < (spam.minSecondsOnForm || 0),
+      name_contains_url: /https?:\/\/|www\.|\[url|<a\s/i.test(lead.name || ''),
+      name_has_no_letters: !/[a-z฀-๿]/i.test(lead.name || ''),
+      email_domain: domain,
+      email_disposable: (spam.disposableEmailDomains || []).indexOf(domain) !== -1,
+      phone_repeated_digit: digits.length > 0 && /^(\d)\1+$/.test(digits),
+      timezone: (function () {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return null; }
+      })()
+    };
+
+    var score = 0;
+    if (signals.honeypot_filled) score += 60;
+    if (signals.name_contains_url) score += 20;
+    if (signals.faster_than_minimum) score += 25;
+    if (signals.email_disposable) score += 15;
+    if (signals.name_has_no_letters) score += 10;
+    if (signals.phone_repeated_digit) score += 10;
+
+    return { signals: signals, client_spam_score: Math.min(score, 100) };
+  }
+
+  function buildPayload(answers, lead, result, startedAt, security) {
     var answerBlock = {};
     Object.keys(answers).forEach(function (questionId) {
       answerBlock[questionId] = { id: answers[questionId], label: labelOf(questionId, answers[questionId]) };
@@ -126,7 +213,10 @@
         screen: window.innerWidth + 'x' + window.innerHeight,
         seconds_to_complete: Math.round((Date.now() - startedAt) / 1000),
         tracking: readTracking()
-      }
+      },
+      /* Advisory. n8n MUST verify security.recaptcha.token server-side; every
+         other value here was produced by the browser and can be faked. */
+      security: security
     };
   }
 
@@ -174,6 +264,7 @@
 
   window.MAM_ENGINE = {
     score: score, buildPayload: buildPayload, submit: submit,
-    labelOf: labelOf, answerOption: answerOption
+    labelOf: labelOf, answerOption: answerOption,
+    loadRecaptcha: loadRecaptcha, recaptchaToken: recaptchaToken, spamSignals: spamSignals
   };
 })();

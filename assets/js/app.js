@@ -221,6 +221,12 @@
         '</button>' +
         '<p class="form__consent">We will only use these details to send your recommendation and follow up once. ' +
           'No lists, no spam &mdash; and you can tell us to stop at any time.</p>' +
+        /* Required by Google whenever reCAPTCHA runs — shown only when it does. */
+        ((CFG.spam || {}).recaptchaSiteKey
+          ? '<p class="form__legal">This site is protected by reCAPTCHA and the Google ' +
+            '<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and ' +
+            '<a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.</p>'
+          : '') +
       '</form>' +
       '<div class="card__nav card__nav--form">' +
         '<button type="button" class="btn btn--text" data-action="back">' +
@@ -331,7 +337,12 @@
     el.stageNote.textContent = state.screen === 'question' || state.screen === 'form'
       ? 'Your answers are private and are only used to build your recommendation.' : '';
 
-    if (state.screen === 'form') state.formShownAt = Date.now();
+    if (state.screen === 'form') {
+      state.formShownAt = Date.now();
+      /* Fetch the reCAPTCHA script while the visitor types, so requesting a
+         token at submit time costs nothing. */
+      ENGINE.loadRecaptcha();
+    }
     if (focusTarget !== false) {
       var heading = el.stage.querySelector('h1');
       if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
@@ -458,16 +469,8 @@
       return;
     }
 
-    /* Bot filters: honeypot + implausibly fast completion. */
-    var tooFast = Date.now() - state.formShownAt < 1500;
-    if (form.company_fax.value || tooFast) {
-      document.getElementById('formError').textContent =
-        'Something went wrong sending your details. Please try again in a moment.';
-      state.formShownAt = Date.now();
-      return;
-    }
-
     var button = document.getElementById('submitBtn');
+    if (button.disabled) return;                       // guard against double-submit
     button.disabled = true;
     button.classList.add('is-loading');
     button.innerHTML = '<span class="spinner" aria-hidden="true"></span>Building your plan&hellip;';
@@ -480,9 +483,28 @@
     };
     state.result = ENGINE.score(state.answers);
 
-    var payload = ENGINE.buildPayload(state.answers, state.lead, state.result, state.startedAt);
+    /* Signals are attached, never enforced — n8n decides. Blocking here would
+       mean a mistuned heuristic silently costs a real lead. */
+    var timing = {
+      secondsOnForm: Math.round((Date.now() - state.formShownAt) / 100) / 10,
+      secondsTotal: Math.round((Date.now() - state.startedAt) / 1000)
+    };
+    var assessment = ENGINE.spamSignals(state.lead, timing, form.company_fax.value);
 
-    ENGINE.submit(payload).then(function (delivery) {
+    ENGINE.recaptchaToken().then(function (token) {
+      var spam = CFG.spam || {};
+      var payload = ENGINE.buildPayload(state.answers, state.lead, state.result, state.startedAt, {
+        recaptcha: {
+          provider: 'recaptcha-v3',
+          configured: !!spam.recaptchaSiteKey,
+          action: spam.recaptchaAction || 'quiz_submit',
+          token: token
+        },
+        signals: assessment.signals,
+        client_spam_score: assessment.client_spam_score
+      });
+      return ENGINE.submit(payload);
+    }).then(function (delivery) {
       state.delivery = delivery;
       state.screen = 'results';
       save();

@@ -410,6 +410,14 @@ img, svg { display: block; max-width: 100%; }
 /* Honeypot — off-screen rather than display:none so bots still fill it. */
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
+/* Google's required reCAPTCHA disclosure — present but deliberately quiet. */
+.form__legal {
+  margin-top: 10px; font-size: 11px; line-height: 1.5;
+  color: var(--mam-grey-94); text-align: center; opacity: .75;
+}
+.form__legal a { color: inherit; text-decoration: underline; }
+.form__legal a:hover { color: var(--mam-primary); }
+
 .spinner {
   width: 15px; height: 15px; margin-right: 10px; flex: none;
   border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
