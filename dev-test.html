@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Scoring Sandbox — MAM Service Quiz (dev)</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #1a1d24; --line: #2a2f3a; --ink: #e7eaf0;
+    --mut: #9aa3b2; --accent: #6ea8fe; --good: #59d499; --bad: #ff7b7b;
+    --pri: #ffd166; --sup: #8be0c9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  header { padding: 20px 24px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0 0 4px; font-size: 18px; }
+  header p { margin: 0; color: var(--mut); font-size: 13px; }
+  .wrap { display: grid; grid-template-columns: 340px 1fr; gap: 0; min-height: calc(100vh - 66px); }
+  .controls { padding: 20px 24px; border-right: 1px solid var(--line); }
+  .out { padding: 20px 24px; overflow: auto; }
+  .q { margin-bottom: 18px; }
+  .q label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 13px; }
+  .q .hint { color: var(--mut); font-weight: 400; font-size: 12px; }
+  select {
+    width: 100%; padding: 9px 10px; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px; font: inherit;
+  }
+  .btnrow { display: flex; gap: 8px; margin-top: 6px; }
+  button {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; font: inherit; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--mut); margin: 0 0 10px; }
+  section { margin-bottom: 26px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 10px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; min-width: 150px;
+  }
+  .card .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .card.primary { border-color: var(--pri); }
+  .card.primary .tag { color: var(--pri); }
+  .card.support { border-color: var(--sup); }
+  .card.support .tag { color: var(--sup); }
+  .card .name { font-weight: 700; margin: 3px 0; }
+  .card .score { color: var(--mut); font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 7px 9px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { color: var(--mut); font-weight: 600; position: sticky; top: 0; background: var(--bg); }
+  td.pos { color: var(--good); }
+  td.neg { color: var(--bad); }
+  td.zero { color: #4a505c; }
+  tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
+  tr.ruledout td:first-child { color: var(--bad); }
+  tr.ranked-1 td.tot { color: var(--pri); }
+  .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; margin-left: 6px; }
+  .pill.pri { background: rgba(255,209,102,.15); color: var(--pri); }
+  .pill.sup { background: rgba(139,224,201,.15); color: var(--sup); }
+  .note { color: var(--mut); font-size: 12px; margin-top: 8px; }
+  code { background: var(--panel); padding: 1px 5px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Scoring Sandbox <span style="color:var(--mut);font-weight:400">— dev only, not shipped to visitors</span></h1>
+  <p>Pick answers below. Everything recomputes live from <code>assets/js/data.js</code> + <code>assets/js/engine.js</code> — the exact code the live quiz runs.</p>
+</header>
+
+<div class="wrap">
+  <div class="controls">
+    <div id="questions"></div>
+    <div class="btnrow">
+      <button id="randomize">Randomise</button>
+      <button id="clear">Clear all</button>
+    </div>
+    <p class="note">The challenge question (Q4) is weighted <code>&times;2</code> — its column below already reflects the multiplier.</p>
+  </div>
+
+  <div class="out">
+    <section>
+      <h2>Recommendation</h2>
+      <div id="recommendation" class="cards"></div>
+      <div id="budget" class="note"></div>
+    </section>
+
+    <section>
+      <h2>Score matrix — every service, every question</h2>
+      <table id="matrix">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+      <p class="note">
+        Green = points added · <span style="color:var(--bad)">Red total row label</span> = ruled out
+        (net &le; 0, dropped before ranking) · gold total = primary pick.
+        Services with no points from any answer are hidden.
+      </p>
+    </section>
+  </div>
+</div>
+
+<!-- Only the two files the scoring actually needs. No config, no network. -->
+<script src="assets/js/data.js"></script>
+<script src="assets/js/engine.js"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.MAM_DATA, E = window.MAM_ENGINE;
+  var QUESTIONS = D.QUESTIONS, SERVICES = D.SERVICES;
+  var answers = {};
+
+  var qWrap = document.getElementById('questions');
+
+  QUESTIONS.forEach(function (q) {
+    var div = document.createElement('div');
+    div.className = 'q';
+    var mult = q.weightMultiplier && q.weightMultiplier !== 1
+      ? ' <span class="hint">(&times;' + q.weightMultiplier + ')</span>' : '';
+    var opts = '<option value="">— not answered —</option>' + q.options.map(function (o) {
+      return '<option value="' + o.id + '">' + o.label + '</option>';
+    }).join('');
+    div.innerHTML =
+      '<label>' + q.title + mult + '<br><span class="hint">' + q.shortLabel + '</span></label>' +
+      '<select data-q="' + q.id + '">' + opts + '</select>';
+    qWrap.appendChild(div);
+  });
+
+  qWrap.addEventListener('change', function (e) {
+    var qid = e.target.getAttribute('data-q');
+    if (!qid) return;
+    if (e.target.value) answers[qid] = e.target.value;
+    else delete answers[qid];
+    render();
+  });
+
+  document.getElementById('randomize').addEventListener('click', function () {
+    QUESTIONS.forEach(function (q) {
+      var o = q.options[Math.floor(Math.random() * q.options.length)];
+      answers[q.id] = o.id;
+      qWrap.querySelector('[data-q="' + q.id + '"]').value = o.id;
+    });
+    render();
+  });
+
+  document.getElementById('clear').addEventListener('click', function () {
+    answers = {};
+    qWrap.querySelectorAll('select').forEach(function (s) { s.value = ''; });
+    render();
+  });
+
+  function optionFor(q, id) {
+    return q.options.filter(function (o) { return o.id === id; })[0] || null;
+  }
+
+  // Build the per-question contribution matrix ourselves (engine.score hides
+  // negatives), so the dev can see exactly how each service nets out.
+  function buildMatrix() {
+    var perService = {}; // id -> { qId: points, ... , total }
+    QUESTIONS.forEach(function (q) {
+      var opt = optionFor(q, answers[q.id]);
+      if (!opt) return;
+      var mult = q.weightMultiplier || 1;
+      Object.keys(opt.weights).forEach(function (sid) {
+        perService[sid] = perService[sid] || {};
+        perService[sid][q.id] = (perService[sid][q.id] || 0) + opt.weights[sid] * mult;
+      });
+    });
+    Object.keys(perService).forEach(function (sid) {
+      var t = 0;
+      QUESTIONS.forEach(function (q) { t += perService[sid][q.id] || 0; });
+      perService[sid].total = t;
+    });
+    return perService;
+  }
+
+  function render() {
+    var result = E.score(answers);
+    var matrix = buildMatrix();
+    renderRecommendation(result);
+    renderMatrix(matrix, result);
+  }
+
+  function renderRecommendation(result) {
+    var el = document.getElementById('recommendation');
+    if (!result.ranked.length) {
+      el.innerHTML = '<div class="card"><div class="score">No answers yet — pick some options.</div></div>';
+      document.getElementById('budget').textContent = '';
+      return;
+    }
+    var cards = '';
+    cards += card('primary', 'Primary', result.primary, result.scores[result.primary]);
+    result.supporting.forEach(function (id) {
+      cards += card('support', 'Supporting', id, result.scores[id]);
+    });
+    el.innerHTML = cards;
+
+    var b = result.budgetNote;
+    document.getElementById('budget').textContent = b
+      ? 'Budget tier: ' + b.tier + ' — ' + b.text : '';
+  }
+
+  function card(cls, tag, id, score) {
+    return '<div class="card ' + cls + '">' +
+      '<div class="tag">' + tag + '</div>' +
+      '<div class="name">' + SERVICES[id].name + '</div>' +
+      '<div class="score">' + score + ' pts · ' + id + '</div></div>';
+  }
+
+  function renderMatrix(matrix, result) {
+    var ids = Object.keys(matrix).sort(function (a, b) {
+      return matrix[b].total - matrix[a].total;
+    });
+    var thead = document.querySelector('#matrix thead');
+    var tbody = document.querySelector('#matrix tbody');
+
+    if (!ids.length) {
+      thead.innerHTML = '';
+      tbody.innerHTML = '<tr><td>Pick an answer to see the maths.</td></tr>';
+      return;
+    }
+
+    var head = '<tr><th>Service</th>';
+    QUESTIONS.forEach(function (q) {
+      head += '<th>' + q.shortLabel + (q.weightMultiplier > 1 ? ' &times;' + q.weightMultiplier : '') + '</th>';
+    });
+    head += '<th>Total</th></tr>';
+    thead.innerHTML = head;
+
+    var rankIndex = {};
+    result.ranked.forEach(function (id, i) { rankIndex[id] = i + 1; });
+
+    tbody.innerHTML = ids.map(function (id) {
+      var row = matrix[id];
+      var ruledOut = row.total <= 0;
+      var rank = rankIndex[id];
+      var badge = '';
+      if (id === result.primary) badge = '<span class="pill pri">primary</span>';
+      else if (result.supporting.indexOf(id) !== -1) badge = '<span class="pill sup">supporting</span>';
+
+      var cls = 'ranked-' + (rank || 0) + (ruledOut ? ' ruledout' : '');
+      var cells = '<td>' + SERVICES[id].name + badge + '</td>';
+      QUESTIONS.forEach(function (q) {
+        var v = row[q.id];
+        if (v === undefined) cells += '<td class="zero">·</td>';
+        else cells += '<td class="' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'zero') + '">' +
+          (v > 0 ? '+' + v : v) + '</td>';
+      });
+      cells += '<td class="tot">' + row.total + '</td>';
+      return '<tr class="' + cls + '">' + cells + '</tr>';
+    }).join('');
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
