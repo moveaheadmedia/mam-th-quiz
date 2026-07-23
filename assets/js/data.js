@@ -206,7 +206,7 @@
       options: [
         { id: 'leads',    label: 'I need more leads.',                    desc: 'Enquiries, calls and bookings — not just visitors.',
           phrase: 'you need more leads',
-          weights: { 'local-seo': 3, 'google-ads': 3, 'cro': 2, 'social': 1 } },
+          weights: { 'google-ads': 3, 'cro': 2, 'social': 3 } },
         { id: 'ranking',  label: "My website doesn't rank on Google.",    desc: 'Competitors are above you for the terms that matter.',
           phrase: "your site isn't ranking on Google",
           weights: { 'seo': 4, 'content': 2, 'local-seo': 1, 'ai-seo': 1 } },

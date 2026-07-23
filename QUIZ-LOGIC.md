@@ -95,7 +95,7 @@ Positive numbers push a service **up**; negative numbers actively rule a service
 
 | Answer | Services it boosts (points, before ×2) |
 |--------|-----------------------------------------|
-| I need more leads | Local SEO +3, Google Ads +3, CRO +2, Social +1 |
+| I need more leads | Google Ads +3, Social +3, CRO +2 |
 | My website doesn't rank on Google | SEO +4, Content +2, Local SEO +1, AI SEO +1 |
 | My business isn't visible in AI Search | AI SEO +4, Content +2, SEO +2 |
 | I need more traffic | SEO +3, Google Ads +2, Social +1, Content +1 |
@@ -133,15 +133,15 @@ flowchart TD
 
 | Service | Q1 (SME) | Q2 (Local) | Q3 (<50k) | Q4 (Leads ×2) | **Total** |
 |---------|:--:|:--:|:--:|:--:|:--:|
-| Local SEO | +2 | +3 | +2 | +6 | **13** |
 | Google Ads | +2 | +2 | +1 | +6 | **11** |
+| Social | +1 | +1 | +1 | +6 | **9** |
+| Local SEO | +2 | +3 | +2 | – | **7** |
 | CRO | – | – | – | +4 | **4** |
-| Social | +1 | +1 | +1 | +2 | **5** |
-| SEO | +1 | – | – | – | **1** |
 | Web Dev | +1 | – | +1 | – | **2** |
+| SEO | +1 | – | – | – | **1** |
 
-**Result → Primary: Local SEO · Supporting: Google Ads, Social**
+**Result → Primary: Google Ads · Supporting: Social, Local SEO**
 
 This is the intended path for a typical local SME chasing leads on a tight
-budget: own the map pack first, buy immediate demand with Google Ads, and use
-social to stay front-of-mind.
+budget: buy immediate demand with Google Ads, create demand on social, and keep
+Local SEO working the map pack underneath.
