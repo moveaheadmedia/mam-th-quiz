@@ -1,12 +1,14 @@
 /* ==========================================================================
    ENGINE — turns answers into a ranked set of service recommendations.
 
-   Scoring is additive: every chosen option contributes points to services,
-   the challenge question counts double, and mismatched services can be
-   pushed down with negative weights (e.g. Local SEO for an e-commerce brand).
+   V2 separates service fit from recommendation structure:
+   1. answer weights and cross-answer rules build transparent fit scores;
+   2. eligibility gates remove services that do not fit the selected context;
+   3. the challenge selects the valid primary-service pool; and
+   4. a complementary bundle rule chooses two supporting services.
    ========================================================================== */
 (function () {
-  'use strict';
+  "use strict";
 
   var D = window.MAM_DATA;
 
@@ -17,58 +19,503 @@
     return null;
   }
 
+  /** Pick the strongest scoring signal behind a grouped public service. */
+  function bestScoreSignal(scores, serviceId) {
+    var signalIds = (D.SCORE_GROUPS && D.SCORE_GROUPS[serviceId]) || [
+      serviceId,
+    ];
+    var winnerId = serviceId;
+    var winnerScore = scores[serviceId] || 0;
+
+    signalIds.forEach(function (signalId) {
+      var signalScore = scores[signalId] || 0;
+      if (signalScore > winnerScore) {
+        winnerId = signalId;
+        winnerScore = signalScore;
+      }
+    });
+
+    return { id: winnerId, score: winnerScore };
+  }
+
+  function collapseScoreGroups(scores, contributions, breakdown) {
+    Object.keys(D.SCORE_GROUPS || {}).forEach(function (serviceId) {
+      var winner = bestScoreSignal(scores, serviceId);
+      var signalIds = D.SCORE_GROUPS[serviceId];
+
+      scores[serviceId] = winner.score;
+      contributions[serviceId] = (contributions[winner.id] || []).slice();
+      if (breakdown[winner.id]) {
+        breakdown[serviceId] = Object.assign({}, breakdown[winner.id]);
+      }
+
+      signalIds.forEach(function (signalId) {
+        if (signalId === serviceId) return;
+        delete scores[signalId];
+        delete contributions[signalId];
+        delete breakdown[signalId];
+      });
+    });
+  }
+
+  function priorityIndex(order, serviceId) {
+    var index = order.indexOf(serviceId);
+    return index === -1 ? order.length : index;
+  }
+
+  function sortByScore(ids, scores, tieOrder) {
+    return ids.slice().sort(function (a, b) {
+      if (scores[b] !== scores[a]) return scores[b] - scores[a];
+      var tieDifference =
+        priorityIndex(tieOrder || [], a) -
+        priorityIndex(tieOrder || [], b);
+      if (tieDifference) return tieDifference;
+      return priorityIndex(D.PRIORITY, a) - priorityIndex(D.PRIORITY, b);
+    });
+  }
+
+  function allMatch(expected, answers) {
+    return Object.keys(expected || {}).every(function (questionId) {
+      return answers[questionId] === expected[questionId];
+    });
+  }
+
+  function ruleMatches(rule, answers) {
+    if (!allMatch(rule.when, answers)) return false;
+    if (!rule.any || !rule.any.length) return true;
+    return rule.any.some(function (alternative) {
+      return allMatch(alternative, answers);
+    });
+  }
+
+  function isEligible(serviceId, answers, isComplete) {
+    /* Partial answers power the developer sandbox. Do not hide a service until
+       all four signals are available and the final context is known. */
+    if (!isComplete) return true;
+
+    var challenge = answers.challenge;
+    var type = answers.type;
+    var budget = answers.budget;
+
+    if (serviceId === "local-seo") {
+      return type === "local" || type === "mixed";
+    }
+    if (serviceId === "web-dev" || serviceId === "uxui") {
+      return challenge === "website";
+    }
+    if (serviceId === "content") {
+      return ["ranking", "ai", "traffic"].indexOf(challenge) !== -1;
+    }
+    if (serviceId === "cro") {
+      return (
+        type === "ecommerce" ||
+        type === "mixed" ||
+        ["leads", "traffic", "website"].indexOf(challenge) !== -1
+      );
+    }
+    if (serviceId === "programmatic") {
+      return (
+        ["100to300", "over300"].indexOf(budget) !== -1 &&
+        ["national", "enterprise", "mixed"].indexOf(type) !== -1 &&
+        ["leads", "traffic"].indexOf(challenge) !== -1
+      );
+    }
+    if (serviceId === "consult") return challenge === "unsure";
+    /* These are delivery/engagement overlays in v2, not ranked services. */
+    if (serviceId === "reseller" || serviceId === "outcome") return false;
+    return true;
+  }
+
+  function tieOrderFor(challenge, answers) {
+    if (challenge === "leads") {
+      return answers.budget === "under50" || answers.type === "national"
+        ? ["social", "google-ads"]
+        : ["google-ads", "social"];
+    }
+    if (challenge === "traffic") {
+      return ["seo", "google-ads", "social"];
+    }
+    if (challenge === "ranking" && answers.type === "local") {
+      return ["local-seo", "seo"];
+    }
+    return (D.PRIMARY_POOLS && D.PRIMARY_POOLS[challenge]) || D.PRIORITY;
+  }
+
+  function strongestPaid(scores) {
+    return sortByScore(
+      ["google-ads", "social"],
+      scores,
+      ["google-ads", "social"],
+    )[0];
+  }
+
+  function supportPlan(answers, primary, scores) {
+    var challenge = answers.challenge;
+    var type = answers.type;
+    var budget = answers.budget;
+    var paid = strongestPaid(scores);
+
+    if (challenge === "leads") {
+      return {
+        id: type === "local" ? "local-leads" : "lead-generation",
+        candidates: [
+          primary === "google-ads" ? "social" : "google-ads",
+          type === "local" ? "local-seo" : "seo",
+        ],
+      };
+    }
+    if (challenge === "ranking") {
+      return type === "local"
+        ? {
+            id: "local-ranking",
+            candidates: ["seo", "google-ads"],
+          }
+        : {
+            id: "organic-ranking",
+            candidates: ["content", paid],
+          };
+    }
+    if (challenge === "ai") {
+      return {
+        id: "ai-visibility",
+        candidates: ["content", paid],
+      };
+    }
+    if (challenge === "traffic" && type === "ecommerce") {
+      return {
+        id: "ecommerce-traffic",
+        candidates: [paid, "cro"],
+      };
+    }
+    if (
+      challenge === "traffic" &&
+      budget === "over300" &&
+      (type === "national" || type === "enterprise")
+    ) {
+      return {
+        id: "scaled-traffic",
+        candidates: [paid, "programmatic"],
+      };
+    }
+    if (challenge === "traffic") {
+      return {
+        id: "core-traffic",
+        candidates: sortByScore(
+          ["seo", "google-ads", "social"],
+          scores,
+          ["seo", "google-ads", "social"],
+        ),
+      };
+    }
+    if (challenge === "website") {
+      return {
+        id:
+          type === "ecommerce" || type === "mixed"
+            ? "commerce-website"
+            : "website-foundation",
+        candidates: [
+          "uxui",
+          type === "ecommerce" || type === "mixed" ? "cro" : "seo",
+        ],
+      };
+    }
+    if (challenge === "unsure") {
+      return {
+        id: "strategy-discovery",
+        candidates: ["seo", paid],
+      };
+    }
+    return { id: "score-order", candidates: [] };
+  }
+
+  function deliveryFor(answers) {
+    var modes = {
+      sme: { mode: "managed", label: "Managed delivery" },
+      inhouse: { mode: "co-managed", label: "Co-managed with your team" },
+      enterprise: {
+        mode: "enterprise-governance",
+        label: "Enterprise programme governance",
+      },
+      agency: { mode: "white-label", label: "White-label delivery" },
+    };
+    var delivery = modes[answers.profile] || {
+      mode: "managed",
+      label: "Managed delivery",
+    };
+    var overlays = [];
+    if (answers.profile === "agency") overlays.push("white-label");
+    if (
+      answers.budget === "over300" &&
+      (answers.profile === "enterprise" || answers.type === "enterprise")
+    ) {
+      overlays.push("outcome-aligned");
+    }
+    return {
+      mode: delivery.mode,
+      label: delivery.label,
+      overlays: overlays,
+    };
+  }
+
+  function focusFor(answers, budgetNote) {
+    var modes = {
+      leads: "lead-generation",
+      ranking: "search-first",
+      ai: "ai-first",
+      traffic: "audience-growth",
+      website: "experience-upgrade",
+      unsure: "discovery",
+    };
+    return {
+      mode: modes[answers.challenge] || "discovery",
+      activeWorkstreams: budgetNote ? budgetNote.activeWorkstreams : null,
+    };
+  }
+
+  function phasesFor(budgetId, primary, supporting) {
+    if (!primary) return [];
+    var plan = [primary].concat(supporting);
+    if (budgetId === "under50") {
+      return [
+        { id: "now", label: "Start now", serviceIds: plan.slice(0, 1) },
+        { id: "roadmap", label: "Roadmap", serviceIds: plan.slice(1) },
+      ];
+    }
+    if (budgetId === "50to100" || budgetId === "100to300") {
+      return [
+        { id: "now", label: "Run now", serviceIds: plan.slice(0, 2) },
+        { id: "next", label: "Next phase", serviceIds: plan.slice(2) },
+      ];
+    }
+    if (budgetId === "over300") {
+      return [{ id: "now", label: "Integrated programme", serviceIds: plan }];
+    }
+    return [
+      {
+        id: "discovery",
+        label: "Size the budget first",
+        serviceIds: ["consult"],
+      },
+      {
+        id: "explore",
+        label: "Indicative recommendations",
+        serviceIds: plan.filter(function (id) {
+          return id !== "consult";
+        }),
+      },
+    ];
+  }
+
   /**
    * @param {Object} answers  { profile:'sme', type:'local', budget:'under50', challenge:'leads' }
-   * @returns {Object} { scores, ranked, primary, supporting, reasons, budgetNote }
+   * @returns {Object} Legacy recommendation fields plus v2 diagnostics and
+   *                   budget-aware implementation metadata.
    */
   function score(answers) {
+    answers = answers || {};
     var scores = {};
-    var contributions = {};   // serviceId -> [{ questionId, optionLabel, points }]
+    var contributions = {}; // serviceId -> [{ questionId, optionLabel, points }]
+    var breakdown = {};
+    var missingQuestionIds = [];
+    var invalidAnswers = [];
+
+    function addPoints(serviceId, points, sourceId, sourceLabel, extra) {
+      scores[serviceId] = (scores[serviceId] || 0) + points;
+      breakdown[serviceId] = breakdown[serviceId] || {
+        profile: 0,
+        type: 0,
+        budget: 0,
+        challenge: 0,
+        interactions: 0,
+        total: 0,
+      };
+      if (sourceId === "interaction") {
+        breakdown[serviceId].interactions += points;
+      } else {
+        breakdown[serviceId][sourceId] += points;
+      }
+      breakdown[serviceId].total += points;
+      if (points > 0) {
+        (contributions[serviceId] = contributions[serviceId] || []).push({
+          questionId: sourceId,
+          optionId: extra && extra.optionId,
+          ruleId: extra && extra.ruleId,
+          optionLabel: sourceLabel,
+          points: points,
+        });
+      }
+    }
 
     D.QUESTIONS.forEach(function (question) {
-      var option = optionFor(question, answers[question.id]);
-      if (!option) return;
-      var multiplier = question.weightMultiplier || 1;
+      var answerId = answers[question.id];
+      if (answerId === undefined || answerId === null || answerId === "") {
+        missingQuestionIds.push(question.id);
+        return;
+      }
+      var option = optionFor(question, answerId);
+      if (!option) {
+        invalidAnswers.push({ questionId: question.id, answerId: answerId });
+        return;
+      }
 
       Object.keys(option.weights).forEach(function (serviceId) {
-        var points = option.weights[serviceId] * multiplier;
-        scores[serviceId] = (scores[serviceId] || 0) + points;
-        if (points > 0) {
-          (contributions[serviceId] = contributions[serviceId] || []).push({
-            questionId: question.id,
-            optionId: option.id,
-            optionLabel: option.label,
-            points: points
-          });
-        }
+        addPoints(
+          serviceId,
+          option.weights[serviceId],
+          question.id,
+          option.label,
+          { optionId: option.id },
+        );
       });
     });
 
-    var ranked = Object.keys(scores)
-      .filter(function (id) { return scores[id] > 0 && D.SERVICES[id]; })
-      .sort(function (a, b) {
-        if (scores[b] !== scores[a]) return scores[b] - scores[a];
-        return D.PRIORITY.indexOf(a) - D.PRIORITY.indexOf(b);
+    var appliedRules = [];
+    (D.INTERACTION_RULES || []).forEach(function (rule) {
+      if (!ruleMatches(rule, answers)) return;
+      Object.keys(rule.weights).forEach(function (serviceId) {
+        addPoints(
+          serviceId,
+          rule.weights[serviceId],
+          "interaction",
+          rule.label,
+          { ruleId: rule.id },
+        );
       });
+      appliedRules.push({
+        id: rule.id,
+        label: rule.label,
+        weights: Object.assign({}, rule.weights),
+      });
+    });
 
-    var primary = ranked[0];
-    var supporting = ranked
-      .filter(function (id) { return id !== primary && D.PRIMARY_ONLY.indexOf(id) === -1; })
-      .slice(0, 2);
+    collapseScoreGroups(scores, contributions, breakdown);
+
+    var isComplete =
+      missingQuestionIds.length === 0 && invalidAnswers.length === 0;
+
+    var rawRanked = Object.keys(scores)
+      .filter(function (id) {
+        return (
+          scores[id] > 0 &&
+          D.SERVICES[id] &&
+          isEligible(id, answers, isComplete)
+        );
+      });
+    rawRanked = sortByScore(rawRanked, scores, D.PRIORITY);
+
+    var primary = rawRanked[0];
+    var supporting = [];
+    var primaryPool = [];
+    var supportRule = "score-order";
+
+    if (isComplete) {
+      primaryPool = ((D.PRIMARY_POOLS || {})[answers.challenge] || []).filter(
+        function (id) {
+          return (
+            scores[id] > 0 &&
+            D.SERVICES[id] &&
+            isEligible(id, answers, true)
+          );
+        },
+      );
+      primaryPool = sortByScore(
+        primaryPool,
+        scores,
+        tieOrderFor(answers.challenge, answers),
+      );
+      primary = primaryPool[0] || primary;
+
+      var plan = supportPlan(answers, primary, scores);
+      supportRule = plan.id;
+
+      function addSupporting(id) {
+        if (!id || id === primary || supporting.indexOf(id) !== -1) return;
+        if (!D.SERVICES[id] || scores[id] <= 0) return;
+        if (!isEligible(id, answers, true)) return;
+        if (D.PRIMARY_ONLY.indexOf(id) !== -1) return;
+        if (supporting.length < 2) supporting.push(id);
+      }
+
+      plan.candidates.forEach(addSupporting);
+      rawRanked.forEach(addSupporting);
+    } else {
+      supporting = rawRanked
+        .filter(function (id) {
+          return id !== primary && D.PRIMARY_ONLY.indexOf(id) === -1;
+        })
+        .slice(0, 2);
+    }
+
+    var ranked = [];
+    [primary].concat(supporting, rawRanked).forEach(function (id) {
+      if (id && ranked.indexOf(id) === -1) ranked.push(id);
+    });
+
+    var budgetNote = D.BUDGET_NOTES[answers.budget] || null;
+    var runnerUp = primaryPool.filter(function (id) {
+      return id !== primary;
+    })[0];
+    var scoreGap = runnerUp ? scores[primary] - scores[runnerUp] : null;
+    var confidence;
+    if (!isComplete) {
+      confidence = {
+        level: "low",
+        scoreGap: null,
+        reason: "Complete all four questions for a final recommendation.",
+      };
+    } else if (answers.budget === "unsure") {
+      confidence = {
+        level: "medium",
+        scoreGap: scoreGap,
+        reason: "The service direction is useful, but the budget still needs sizing.",
+      };
+    } else if (scoreGap !== null && scoreGap <= 1) {
+      confidence = {
+        level: "medium",
+        scoreGap: scoreGap,
+        reason: "The leading options are close, so validation should decide the final channel mix.",
+      };
+    } else {
+      confidence = {
+        level: "high",
+        scoreGap: scoreGap,
+        reason: "The selected challenge and business context point to a clear starting service.",
+      };
+    }
 
     return {
+      logicVersion: 2,
       scores: scores,
       ranked: ranked,
+      rawRanked: rawRanked,
       primary: primary,
       supporting: supporting,
+      isComplete: isComplete,
+      missingQuestionIds: missingQuestionIds,
+      invalidAnswers: invalidAnswers,
+      breakdown: {
+        byService: breakdown,
+        appliedRules: appliedRules,
+        primaryPool: primaryPool,
+        supportRule: supportRule,
+      },
+      appliedRules: appliedRules,
+      delivery: deliveryFor(answers),
+      focus: focusFor(answers, budgetNote),
+      confidence: confidence,
+      phases: isComplete
+        ? phasesFor(answers.budget, primary, supporting)
+        : [],
       /* Why each recommended service surfaced — used for the result copy. */
       reasonFor: function (serviceId) {
         var list = contributions[serviceId] || [];
-        if (!list.length) return '';
-        var top = list.slice().sort(function (a, b) { return b.points - a.points; })[0];
-        return top.optionLabel.replace(/\.$/, '');
+        if (!list.length) return "";
+        var top = list.slice().sort(function (a, b) {
+          return b.points - a.points;
+        })[0];
+        return top.optionLabel.replace(/\.$/, "");
       },
-      budgetNote: D.BUDGET_NOTES[answers.budget] || null
+      budgetNote: budgetNote,
     };
   }
 
@@ -77,8 +524,17 @@
   function readTracking() {
     var params = new URLSearchParams(window.location.search);
     var utm = {};
-    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid']
-      .forEach(function (key) { if (params.get(key)) utm[key] = params.get(key); });
+    [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "gclid",
+      "fbclid",
+    ].forEach(function (key) {
+      if (params.get(key)) utm[key] = params.get(key);
+    });
     return utm;
   }
 
@@ -104,12 +560,18 @@
     if (recaptchaLoad) return recaptchaLoad;
 
     recaptchaLoad = new Promise(function (resolve) {
-      var script = document.createElement('script');
-      script.src = 'https://www.google.com/recaptcha/api.js?render=' + encodeURIComponent(siteKey);
+      var script = document.createElement("script");
+      script.src =
+        "https://www.google.com/recaptcha/api.js?render=" +
+        encodeURIComponent(siteKey);
       script.async = true;
-      script.onload = function () { resolve(true); };
+      script.onload = function () {
+        resolve(true);
+      };
       script.onerror = function () {
-        console.warn('[MAM quiz] reCAPTCHA failed to load — submitting unverified.');
+        console.warn(
+          "[MAM quiz] reCAPTCHA failed to load — submitting unverified.",
+        );
         resolve(false);
       };
       document.head.appendChild(script);
@@ -126,14 +588,23 @@
       if (!ready || !window.grecaptcha) return null;
       return new Promise(function (resolve) {
         var settled = false;
-        var done = function (value) { if (!settled) { settled = true; resolve(value); } };
+        var done = function (value) {
+          if (!settled) {
+            settled = true;
+            resolve(value);
+          }
+        };
         /* Never let a hanging CAPTCHA hold the visitor's results hostage. */
-        setTimeout(function () { done(null); }, 6000);
+        setTimeout(function () {
+          done(null);
+        }, 6000);
         window.grecaptcha.ready(function () {
           window.grecaptcha
-            .execute(spam.recaptchaSiteKey, { action: spam.recaptchaAction || 'quiz_submit' })
+            .execute(spam.recaptchaSiteKey, {
+              action: spam.recaptchaAction || "quiz_submit",
+            })
             .then(done, function (error) {
-              console.warn('[MAM quiz] reCAPTCHA execute failed:', error);
+              console.warn("[MAM quiz] reCAPTCHA execute failed:", error);
               done(null);
             });
         });
@@ -148,23 +619,28 @@
    */
   function spamSignals(lead, timing, honeypotFilled) {
     var spam = window.MAM_CONFIG.spam || {};
-    var email = (lead.email || '').toLowerCase();
-    var domain = email.split('@')[1] || '';
-    var digits = (lead.phone || '').replace(/\D/g, '');
+    var email = (lead.email || "").toLowerCase();
+    var domain = email.split("@")[1] || "";
+    var digits = (lead.phone || "").replace(/\D/g, "");
 
     var signals = {
       honeypot_filled: !!honeypotFilled,
       seconds_on_form: timing.secondsOnForm,
       seconds_total: timing.secondsTotal,
       faster_than_minimum: timing.secondsOnForm < (spam.minSecondsOnForm || 0),
-      name_contains_url: /https?:\/\/|www\.|\[url|<a\s/i.test(lead.name || ''),
-      name_has_no_letters: !/[a-z฀-๿]/i.test(lead.name || ''),
+      name_contains_url: /https?:\/\/|www\.|\[url|<a\s/i.test(lead.name || ""),
+      name_has_no_letters: !/[a-z฀-๿]/i.test(lead.name || ""),
       email_domain: domain,
-      email_disposable: (spam.disposableEmailDomains || []).indexOf(domain) !== -1,
+      email_disposable:
+        (spam.disposableEmailDomains || []).indexOf(domain) !== -1,
       phone_repeated_digit: digits.length > 0 && /^(\d)\1+$/.test(digits),
       timezone: (function () {
-        try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return null; }
-      })()
+        try {
+          return Intl.DateTimeFormat().resolvedOptions().timeZone;
+        } catch (e) {
+          return null;
+        }
+      })(),
     };
 
     var score = 0;
@@ -181,42 +657,55 @@
   function buildPayload(answers, lead, result, startedAt, security) {
     var answerBlock = {};
     Object.keys(answers).forEach(function (questionId) {
-      answerBlock[questionId] = { id: answers[questionId], label: labelOf(questionId, answers[questionId]) };
+      answerBlock[questionId] = {
+        id: answers[questionId],
+        label: labelOf(questionId, answers[questionId]),
+      };
     });
 
     function serviceOut(id) {
-      return { id: id, name: D.SERVICES[id].name, url: D.SERVICES[id].url, score: result.scores[id] };
+      return {
+        id: id,
+        name: D.SERVICES[id].name,
+        url: D.SERVICES[id].url,
+        score: result.scores[id],
+      };
     }
 
     return {
-      source: 'mam-service-quiz',
+      source: "mam-service-quiz",
       version: 1,
       submitted_at: new Date().toISOString(),
       lead: {
         name: lead.name,
         website: lead.website,
         email: lead.email,
-        phone: lead.phone
+        phone: lead.phone,
       },
       answers: answerBlock,
       recommendation: {
+        logic_version: result.logicVersion || 1,
         primary: serviceOut(result.primary),
         supporting: result.supporting.map(serviceOut),
         all_ranked: result.ranked.map(serviceOut),
-        budget_tier: result.budgetNote ? result.budgetNote.tier : null
+        budget_tier: result.budgetNote ? result.budgetNote.tier : null,
+        delivery: result.delivery || null,
+        focus: result.focus || null,
+        confidence: result.confidence || null,
+        phases: result.phases || [],
       },
       meta: {
         page_url: window.location.href,
         referrer: document.referrer || null,
         user_agent: navigator.userAgent,
         language: navigator.language,
-        screen: window.innerWidth + 'x' + window.innerHeight,
+        screen: window.innerWidth + "x" + window.innerHeight,
         seconds_to_complete: Math.round((Date.now() - startedAt) / 1000),
-        tracking: readTracking()
+        tracking: readTracking(),
       },
       /* Advisory. n8n MUST verify security.recaptcha.token server-side; every
          other value here was produced by the browser and can be faked. */
-      security: security
+      security: security,
     };
   }
 
@@ -229,42 +718,56 @@
     var config = window.MAM_CONFIG;
     var url = config.webhookUrl;
 
-    if (!url || url.indexOf('REPLACE_WITH') === 0) {
-      console.warn('[MAM quiz] No webhook configured — payload not sent:', payload);
-      return Promise.resolve({ ok: false, reason: 'not-configured' });
+    if (!url || url.indexOf("REPLACE_WITH") === 0) {
+      console.warn(
+        "[MAM quiz] No webhook configured — payload not sent:",
+        payload,
+      );
+      return Promise.resolve({ ok: false, reason: "not-configured" });
     }
 
     var controller = new AbortController();
-    var timer = setTimeout(function () { controller.abort(); }, config.webhookTimeoutMs);
+    var timer = setTimeout(function () {
+      controller.abort();
+    }, config.webhookTimeoutMs);
 
     return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: controller.signal,
-      keepalive: true
-    }).then(function (response) {
-      clearTimeout(timer);
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      return { ok: true };
-    }).catch(function (error) {
-      clearTimeout(timer);
-      console.error('[MAM quiz] Webhook failed:', error);
-      return { ok: false, reason: String(error && error.message || error) };
-    });
+      keepalive: true,
+    })
+      .then(function (response) {
+        clearTimeout(timer);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return { ok: true };
+      })
+      .catch(function (error) {
+        clearTimeout(timer);
+        console.error("[MAM quiz] Webhook failed:", error);
+        return { ok: false, reason: String((error && error.message) || error) };
+      });
   }
 
   /** The full option object for a given answer, or null. */
   function answerOption(questionId, answerId) {
     for (var i = 0; i < D.QUESTIONS.length; i++) {
-      if (D.QUESTIONS[i].id === questionId) return optionFor(D.QUESTIONS[i], answerId);
+      if (D.QUESTIONS[i].id === questionId)
+        return optionFor(D.QUESTIONS[i], answerId);
     }
     return null;
   }
 
   window.MAM_ENGINE = {
-    score: score, buildPayload: buildPayload, submit: submit,
-    labelOf: labelOf, answerOption: answerOption,
-    loadRecaptcha: loadRecaptcha, recaptchaToken: recaptchaToken, spamSignals: spamSignals
+    score: score,
+    buildPayload: buildPayload,
+    submit: submit,
+    labelOf: labelOf,
+    answerOption: answerOption,
+    bestScoreSignal: bestScoreSignal,
+    loadRecaptcha: loadRecaptcha,
+    recaptchaToken: recaptchaToken,
+    spamSignals: spamSignals,
   };
 })();

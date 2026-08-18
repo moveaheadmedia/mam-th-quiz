@@ -263,6 +263,7 @@
     var article = /^[aeiou]/i.test(noun) ? 'an' : 'a';
     var challenge = (challengeOption && challengeOption.phrase) || 'you want to grow';
     var note = result.budgetNote;
+    var supportHeading = (note && note.supportHeading) || 'Then build on it with';
 
     var support = result.supporting.map(function (id) {
       return serviceCardHTML(id, 'support');
@@ -288,7 +289,7 @@
         serviceCardHTML(result.primary, 'primary') +
       '</div>' +
 
-      (support ? '<p class="results__rank results__rank--support">Then build on it with</p>' +
+      (support ? '<p class="results__rank results__rank--support">' + esc(supportHeading) + '</p>' +
         '<div class="results__support">' + support + '</div>' : '') +
 
       (note ? '<div class="budget-note">' +

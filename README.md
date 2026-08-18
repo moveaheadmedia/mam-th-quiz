@@ -61,10 +61,18 @@ button.
     "challenge": { "id": "traffic",   "label": "I need more traffic." }
   },
   "recommendation": {
-    "primary":    { "id": "seo", "name": "SEO", "url": "…", "score": 11 },
+    "logic_version": 2,
+    "primary":    { "id": "seo", "name": "SEO + AI Visibility", "url": "…", "score": 23 },
     "supporting": [ /* two more, same shape */ ],
-    "all_ranked": [ /* every scoring service, ranked */ ],
-    "budget_tier": "Scale"
+    "all_ranked": [ /* final recommendation order, then other eligible services */ ],
+    "budget_tier": "Scale",
+    "delivery": { "mode": "managed", "label": "Managed delivery", "overlays": [] },
+    "focus": { "mode": "audience-growth", "activeWorkstreams": 2 },
+    "confidence": { "level": "medium", "scoreGap": 0, "reason": "…" },
+    "phases": [
+      { "id": "now", "label": "Run now", "serviceIds": ["seo", "google-ads"] },
+      { "id": "next", "label": "Next phase", "serviceIds": ["cro"] }
+    ]
   },
   "meta": {
     "page_url": "…", "referrer": "…", "user_agent": "…", "language": "en-GB",
@@ -86,6 +94,12 @@ button.
 
 `meta.tracking` picks up `utm_*`, `gclid` and `fbclid` from the page URL, so
 attribution survives into your CRM.
+
+The transport `version` remains `1` so existing n8n mappings keep working;
+`recommendation.logic_version` identifies the new decision model. The bundled
+n8n workflow continues to store the legacy recommendation fields. Add explicit
+table columns/mappings if delivery, focus, confidence or phases also need to be
+persisted.
 
 ---
 
@@ -223,27 +237,22 @@ verification failed or scored under 0.5. Otherwise `new`.
 
 ## How the recommendation works
 
-`assets/js/data.js` holds the questions, the service catalogue and a weights map
-per answer option. Each answer adds points to services; the **challenge**
-question is weighted ×2 because it is the strongest signal. Negative weights
-actively rule services out — e.g. an E-commerce business gets `local-seo: -3`,
-so Local SEO can't surface for a business with no catchment area.
+Recommendation logic v2 uses four explicit layers:
 
-The top-scoring service becomes the headline recommendation and the next two
-become supporting cards. Ties break on `PRIORITY` order in `data.js`.
-`Free Strategy Consultation` is `PRIMARY_ONLY` — it can lead a result but never
-appears as a support card, because the consultation CTA is already on every
-results screen.
+1. Base fit points from the four answers.
+2. Cross-answer interaction points for cases such as Local + Leads.
+3. Eligibility gates and a challenge-specific primary pool.
+4. A complementary three-service bundle, phased by the selected budget.
 
-To change a recommendation, edit the weights — you should not need to touch
-`engine.js`.
+Challenge weights are already final: there is no hidden multiplier and there
+are no negative weights. `SEO + AI Visibility` has one combined public score;
+the AI challenge changes its focus to `ai-first`. White Label SEO and Outcome
+Marketing are delivery overlays rather than competing recommendation cards.
 
-### Known gap
-
-An **Agency / Consultant** who picks a specific challenge currently gets generic
-SEO ahead of White Label SEO, because the ×2 challenge weighting outweighs the
-audience signal. Agencies should arguably be pinned to White Label regardless of
-challenge. Not yet implemented.
+The engine preserves the original payload fields and adds `logic_version`,
+delivery, focus, confidence and phase metadata. See `QUIZ-LOGIC.md` for every
+weight, interaction, gate, bundle, tie rule, worked example and the expected
+distribution across all 600 valid combinations.
 
 ---
 
@@ -255,6 +264,17 @@ Nothing to install. Either open `index.html` directly, or serve it:
 npx --yes serve .          # or any static server
 ```
 
+Open `dev-test.html` for an interactive score-and-rule breakdown. Run the full
+600-combination regression suite on macOS with:
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc \
+  -e 'var window=this;' \
+  assets/js/data.js assets/js/engine.js tests/quiz-logic.test.js
+```
+
+`tests/quiz-logic.html` runs the same dependency-free suite in a browser.
+
 ---
 
 ## Editing content
@@ -262,8 +282,8 @@ npx --yes serve .          # or any static server
 | Want to change… | Edit |
 | --- | --- |
 | Webhook, phone, links, reCAPTCHA key, behaviour flags | `assets/js/config.js` |
-| Questions, answers, services, scoring weights | `assets/js/data.js` |
-| Scoring maths, payload shape | `assets/js/engine.js` |
+| Questions, answers, services, weights, interactions, budget framing | `assets/js/data.js` |
+| Eligibility, bundles, phasing, scoring maths, payload shape | `assets/js/engine.js` |
 | Screen flow, validation, markup | `assets/js/app.js` |
 | Styling | `assets/css/styles.css` |
 
