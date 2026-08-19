@@ -400,7 +400,13 @@
       id: "challenge",
       shortLabel: "Challenge",
       title: "What is your biggest marketing challenge right now?",
-      subtitle: "This is the single biggest factor in what we recommend.",
+      subtitle:
+        "Pick your main challenge. Add a second one if you have two — the main one still leads the plan.",
+      /* The only multi-select question. The first pick scores in full and the
+         second at SECONDARY_CHALLENGE_WEIGHT, so the challenge the client calls
+         biggest is still what drives the recommendation. */
+      multi: true,
+      maxSelections: 2,
       options: [
         {
           id: "leads",
@@ -468,6 +474,8 @@
           label: "I'm not sure where to start.",
           desc: "You know you need help, not which help.",
           phrase: "you're not yet sure where to start",
+          /* Knowing a second challenge means you are not unsure. */
+          exclusive: true,
           weights: {
             consult: 40,
             seo: 6,
@@ -566,6 +574,9 @@
     BUDGET_NOTES: BUDGET_NOTES,
     SCORE_GROUPS: SCORE_GROUPS,
     INTERACTION_RULES: INTERACTION_RULES,
+    /* What a second challenge is worth relative to the first. Every challenge
+       weight is even, so halving them keeps every score a whole number. */
+    SECONDARY_CHALLENGE_WEIGHT: 0.5,
     /* Tie-breaker: earlier = preferred when scores are level. */
     PRIORITY: [
       "seo",

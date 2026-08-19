@@ -51,17 +51,20 @@ button.
 ```jsonc
 {
   "source": "mam-service-quiz",
-  "version": 1,
+  "version": 2,
   "submitted_at": "2026-07-22T08:15:00.000Z",
   "lead": { "name": "…", "website": "https://…", "email": "…", "phone": "…" },
   "answers": {
     "profile":   { "id": "sme",       "label": "Small Business / SME" },
     "type":      { "id": "ecommerce", "label": "E-commerce Business" },
     "budget":    { "id": "100to300",  "label": "THB 100,001 – 300,000/month" },
-    "challenge": { "id": "traffic",   "label": "I need more traffic." }
+    "challenge": { "id": "traffic",   "label": "I need more traffic." },
+    // Only present when the visitor named a second challenge. `challenge`
+    // always holds the main one, so existing n8n mappings need no change.
+    "challenge_2": { "id": "ranking", "label": "My website doesn't rank on Google." }
   },
   "recommendation": {
-    "logic_version": 2,
+    "logic_version": 3,
     "primary":    { "id": "seo", "name": "SEO + AI Visibility", "url": "…", "score": 23 },
     "supporting": [ /* two more, same shape */ ],
     "all_ranked": [ /* final recommendation order, then other eligible services */ ],
@@ -237,7 +240,7 @@ verification failed or scored under 0.5. Otherwise `new`.
 
 ## How the recommendation works
 
-Recommendation logic v3 ranks services and shows the top three:
+Recommendation logic v4 ranks services and shows the top three:
 
 1. Base fit points from the four answers.
 2. Cross-answer interaction points for cases such as Local + Leads.
@@ -252,6 +255,13 @@ payback and compounding assets, and persona is a light nudge. All of the
 business logic lives in the weights and the eligibility gates, so the
 recommendation order always matches the scores.
 
+The challenge step takes a main answer and an optional second one. The main
+answer scores in full and the second at `SECONDARY_CHALLENGE_WEIGHT` (0.5), so
+the challenge the client called biggest still leads the plan. A service is
+eligible if it answers *either* stated challenge, and an interaction rule
+triggered by the second challenge applies at that same half weight. Answering
+one challenge produces exactly the result it always did.
+
 Challenge weights are already final: there is no hidden multiplier and there
 are no negative weights. `SEO + AI Visibility` has one combined public score;
 the AI challenge changes its focus to `ai-first`. White Label SEO and Outcome
@@ -260,7 +270,7 @@ Marketing are delivery overlays rather than competing recommendation cards.
 The engine preserves the original payload fields and adds `logic_version`,
 delivery, focus, confidence and phase metadata. See `QUIZ-LOGIC.md` for every
 weight, interaction, gate, tie rule, worked example and the expected
-distribution across all 600 valid combinations.
+distribution across all 2,600 valid combinations.
 
 ---
 
@@ -273,7 +283,7 @@ npx --yes serve .          # or any static server
 ```
 
 Open `dev-test.html` for an interactive score-and-rule breakdown. Run the full
-600-combination regression suite on macOS with:
+2,600-combination regression suite on macOS with:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc \

@@ -8,7 +8,7 @@
   var D = window.MAM_DATA;
   var ENGINE = window.MAM_ENGINE;
 
-  var STORAGE_KEY = 'mam-quiz-state-v1';
+  var STORAGE_KEY = 'mam-quiz-state-v2';
   var STEP_LABELS = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Get results'];
 
   var el = {
@@ -27,7 +27,8 @@
     result: null,
     startedAt: Date.now(),
     formShownAt: 0,
-    delivery: null
+    delivery: null,
+    notice: ''                // transient message under a multi-select question
   };
 
   /* ── Helpers ────────────────────────────────────────────────────────── */
@@ -77,8 +78,12 @@
     } catch (e) { /* ignore corrupt state */ }
   }
 
+  function chosenIds(questionId) {
+    return ENGINE.answerIds(state.answers[questionId]);
+  }
+
   function answeredCount() {
-    return D.QUESTIONS.filter(function (q) { return state.answers[q.id]; }).length;
+    return D.QUESTIONS.filter(function (q) { return chosenIds(q.id).length > 0; }).length;
   }
 
   function announceHeight() {
@@ -140,38 +145,73 @@
 
   function questionHTML() {
     var question = D.QUESTIONS[state.index];
-    var chosen = state.answers[question.id];
+    var multi = !!question.multi;
+    var limit = multi ? (question.maxSelections || 1) : 1;
+    var chosen = chosenIds(question.id);
 
     var options = question.options.map(function (option, i) {
-      var selected = chosen === option.id;
+      /* Position in the list is the rank: 1 is the answer the visitor called
+         their main one, and it scores accordingly. 0 means unselected. */
+      var rank = chosen.indexOf(option.id) + 1;
+      var selected = rank > 0;
+      var stateClass = selected ? (multi ? ' is-rank' + rank : ' is-selected') : '';
+      var rankLabel = rank === 1 ? 'Main challenge' : rank === 2 ? 'Also' : '';
       return '' +
-      '<button type="button" class="option' + (selected ? ' is-selected' : '') + '"' +
-        ' role="radio" aria-checked="' + selected + '" tabindex="' + (selected || (!chosen && i === 0) ? '0' : '-1') + '"' +
+      '<button type="button" class="option' + stateClass + '"' +
+        (multi
+          ? ' role="checkbox" aria-checked="' + selected + '"'
+          : ' role="radio" aria-checked="' + selected + '" tabindex="' +
+            (selected || (!chosen.length && i === 0) ? '0' : '-1') + '"') +
         ' data-option="' + esc(option.id) + '">' +
-        '<span class="option__key" aria-hidden="true">' + String.fromCharCode(65 + i) + '</span>' +
+        '<span class="option__key" aria-hidden="true">' +
+          (multi && selected ? rank : String.fromCharCode(65 + i)) + '</span>' +
         '<span class="option__body">' +
           '<span class="option__label">' + esc(option.label) + '</span>' +
+          (rankLabel ? '<span class="option__rank">' + esc(rankLabel) + '</span>' : '') +
           '<span class="option__desc">' + esc(option.desc) + '</span>' +
         '</span>' +
         '<span class="option__check" aria-hidden="true">' + icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>', 'icon--tick') + '</span>' +
       '</button>';
     }).join('');
 
+    /* One line that always says what to do next, so "up to two" never has to be
+       inferred from the tick marks. */
+    var hint = '';
+    if (multi) {
+      /* An exclusive answer cannot take a partner, so it must never be offered
+         one — the hint has to describe the choice actually on the table. */
+      var soleAnswer = chosen.some(function (id) {
+        var option = ENGINE.answerOption(question.id, id);
+        return option && option.exclusive;
+      });
+      var text = state.notice ||
+        (chosen.length === 0
+          ? 'Pick the challenge that matters most. You can add a second one if you have two.'
+          : soleAnswer
+            ? 'We will start by working out where your best opportunity is.'
+            : chosen.length < limit
+              ? 'Add a second challenge if you have one, or continue.'
+              : 'Your main challenge leads the plan; the second one shapes what supports it.');
+      hint = '<p class="options__hint' + (state.notice ? ' options__hint--warn' : '') +
+        '" role="status">' + esc(text) + '</p>';
+    }
+
     return '' +
     '<section class="card card--question">' +
       '<p class="eyebrow">Step ' + (state.index + 1) + ' of 5 &mdash; ' + esc(question.shortLabel) + '</p>' +
       '<h1 class="question__title">' + esc(question.title) + '</h1>' +
       '<p class="question__subtitle">' + esc(question.subtitle) + '</p>' +
-      '<div class="options" role="radiogroup" aria-label="' + esc(question.title) + '">' + options + '</div>' +
+      '<div class="options" role="' + (multi ? 'group' : 'radiogroup') + '"' +
+        ' aria-label="' + esc(question.title) + '">' + options + '</div>' + hint +
       /* Question 1 with nothing chosen has neither button — emitting the nav
          anyway would leave a divider rule above empty space. */
-      (state.index > 0 || chosen
+      (state.index > 0 || chosen.length
         ? '<div class="card__nav">' +
             (state.index > 0
               ? '<button type="button" class="btn btn--text" data-action="back">' +
                   icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + 'Back</button>'
               : '<span></span>') +
-            (chosen ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
+            (chosen.length ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
                 icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</button>' : '') +
           '</div>'
         : '') +
@@ -261,10 +301,14 @@
     var result = state.result;
     var firstName = (state.lead.name || '').trim().split(/\s+/)[0] || 'there';
     var typeOption = ENGINE.answerOption('type', state.answers.type);
-    var challengeOption = ENGINE.answerOption('challenge', state.answers.challenge);
+    var challengePhrases = ENGINE.answerOptions('challenge', state.answers.challenge)
+      .map(function (option) { return option.phrase; })
+      .filter(Boolean);
     var noun = (typeOption && typeOption.noun) || 'business';
     var article = /^[aeiou]/i.test(noun) ? 'an' : 'a';
-    var challenge = (challengeOption && challengeOption.phrase) || 'you want to grow';
+    var challenge = challengePhrases.length
+      ? challengePhrases.join(' and ')
+      : 'you want to grow';
     var note = result.budgetNote;
     var supportHeading = (note && note.supportHeading) || 'Then build on it with';
 
@@ -354,12 +398,15 @@
   function goToQuestion(index) {
     state.screen = 'question';
     state.index = index;
+    state.notice = '';
     save();
     render();
     scrollToTop();
   }
 
   function advance() {
+    if (!chosenIds(D.QUESTIONS[state.index].id).length) return;
+    state.notice = '';
     if (state.index < D.QUESTIONS.length - 1) {
       goToQuestion(state.index + 1);
     } else {
@@ -392,6 +439,46 @@
 
     if (alreadyChosen) { advance(); return; }
     setTimeout(advance, CFG.autoAdvanceMs);
+  }
+
+  /* Multi-select never auto-advances: the visitor may still be adding a second
+     answer, so moving on is always their explicit decision. */
+  function toggleOption(optionId) {
+    var question = D.QUESTIONS[state.index];
+    var limit = question.maxSelections || 1;
+    var option = ENGINE.answerOption(question.id, optionId);
+    var chosen = chosenIds(question.id);
+    var at = chosen.indexOf(optionId);
+
+    state.notice = '';
+
+    if (at !== -1) {
+      /* Deselecting the main answer promotes the second one — the list order
+         is the ranking, so there is never a gap at the top. */
+      chosen.splice(at, 1);
+    } else if (option && option.exclusive) {
+      chosen = [optionId];
+    } else {
+      chosen = chosen.filter(function (id) {
+        var other = ENGINE.answerOption(question.id, id);
+        return !(other && other.exclusive);
+      });
+      if (chosen.length >= limit) {
+        state.notice = 'You can pick up to ' + limit +
+          '. Deselect one first, then choose this instead.';
+      } else {
+        chosen.push(optionId);
+      }
+    }
+
+    state.answers[question.id] = chosen;
+    save();
+    render(false);
+
+    /* Every card is redrawn because the rank badges shift, so put focus back
+       where the visitor left it. */
+    var again = el.stage.querySelector('.option[data-option="' + optionId + '"]');
+    if (again) again.focus({ preventScroll: true });
   }
 
   function restart() {
@@ -513,7 +600,15 @@
 
   el.stage.addEventListener('click', function (event) {
     var option = event.target.closest('.option');
-    if (option) { selectOption(option.getAttribute('data-option')); return; }
+    if (option) {
+      var current = D.QUESTIONS[state.index];
+      if (state.screen === 'question' && current && current.multi) {
+        toggleOption(option.getAttribute('data-option'));
+      } else {
+        selectOption(option.getAttribute('data-option'));
+      }
+      return;
+    }
 
     var action = event.target.closest('[data-action]');
     if (!action) return;
@@ -537,6 +632,8 @@
   el.stage.addEventListener('keydown', function (event) {
     var option = event.target.closest('.option');
     if (!option) return;
+    var current = D.QUESTIONS[state.index];
+    if (state.screen === 'question' && current && current.multi) return;
     var keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
     if (!(event.key in keys)) return;
     event.preventDefault();
