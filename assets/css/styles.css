@@ -344,6 +344,39 @@ img, svg { display: block; max-width: 100%; }
 .option__check .icon { width: 13px; height: 13px; }
 .option.is-selected .option__check { opacity: 1; transform: scale(1); }
 
+/* Multi-select step. The main pick and the second pick must look different —
+   the main one carries twice the scoring weight, so the visitor has to be able
+   to see which is which at a glance. */
+.option.is-rank1 {
+  border-color: var(--mam-primary);
+  background: var(--mam-primary-soft);
+  box-shadow: 0 0 0 1px var(--mam-primary) inset;
+}
+.option.is-rank1 .option__key { background: var(--mam-primary); color: #fff; }
+.option.is-rank1 .option__check { opacity: 1; transform: scale(1); }
+
+.option.is-rank2 {
+  border-color: var(--mam-line-strong);
+  background: var(--mam-accent);
+}
+.option.is-rank2 .option__key { background: var(--mam-ink-soft); color: #fff; }
+.option.is-rank2 .option__check {
+  opacity: 1; transform: scale(1); background: var(--mam-ink-soft);
+}
+
+.option__rank {
+  font-size: 11px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.option.is-rank1 .option__rank { color: var(--mam-primary); }
+.option.is-rank2 .option__rank { color: var(--mam-muted); }
+
+.options__hint {
+  margin-top: 14px; font-size: 13.5px; line-height: 1.5;
+  color: var(--mam-muted);
+}
+.options__hint--warn { color: var(--mam-primary); font-weight: 700; }
+
 /* --------------------------------------------------------------------------
    Form
    -------------------------------------------------------------------------- */

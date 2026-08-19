@@ -19,6 +19,56 @@
     return null;
   }
 
+  function questionFor(questionId) {
+    for (var i = 0; i < D.QUESTIONS.length; i++) {
+      if (D.QUESTIONS[i].id === questionId) return D.QUESTIONS[i];
+    }
+    return null;
+  }
+
+  /* An answer is either one option id or, for a multi-select question, an
+     ordered list. Order carries meaning: the first entry is what the visitor
+     called their main answer. Everything downstream reads answers through
+     here, so a single id and a one-item list behave identically. */
+  function answerIds(answer) {
+    if (answer === undefined || answer === null || answer === "") return [];
+    if (!Array.isArray(answer)) return [answer];
+    return answer.filter(function (id) {
+      return id !== undefined && id !== null && id !== "";
+    });
+  }
+
+  /* The main answer scores in full; a second scores at the configured
+     fraction. Every challenge weight is even, so scores stay whole numbers. */
+  function rankWeight(index) {
+    if (index === 0) return 1;
+    var secondary = D.SECONDARY_CHALLENGE_WEIGHT;
+    return typeof secondary === "number" ? secondary : 0.5;
+  }
+
+  function challengeIds(answers) {
+    return answerIds(answers.challenge);
+  }
+
+  function hasChallenge(answers, challengeId) {
+    return challengeIds(answers).indexOf(challengeId) !== -1;
+  }
+
+  /* A service stays eligible if it answers *either* stated challenge. */
+  function anyChallenge(answers, challengeIdList) {
+    return challengeIdList.some(function (challengeId) {
+      return hasChallenge(answers, challengeId);
+    });
+  }
+
+  /* What a rule triggered by a given challenge is worth. A bonus fired by the
+     second challenge is scaled like that challenge, otherwise a secondary pick
+     would swing more points through a bonus than through its own weights. */
+  function challengeWeight(answers, challengeId) {
+    var index = challengeIds(answers).indexOf(challengeId);
+    return index === -1 ? 0 : rankWeight(index);
+  }
+
   /** Pick the strongest scoring signal behind a grouped public service. */
   function bestScoreSignal(scores, serviceId) {
     var signalIds = (D.SCORE_GROUPS && D.SCORE_GROUPS[serviceId]) || [
@@ -58,6 +108,25 @@
     });
   }
 
+  /* Identifies one reason. Keyed by option rather than by question, so a
+     second challenge counts as a reason of its own instead of being swallowed
+     by the first. */
+  function sourceKey(item) {
+    return item.questionId + ":" + (item.optionId || item.ruleId || "");
+  }
+
+  function bestUnusedContribution(list, usedSources) {
+    if (!list || !list.length) return null;
+    var byPoints = list.slice().sort(function (a, b) {
+      return b.points - a.points;
+    });
+    var used = usedSources || [];
+    var unused = byPoints.filter(function (item) {
+      return used.indexOf(sourceKey(item)) === -1;
+    });
+    return unused[0] || byPoints[0];
+  }
+
   function priorityIndex(order, serviceId) {
     var index = order.indexOf(serviceId);
     return index === -1 ? order.length : index;
@@ -76,8 +145,25 @@
 
   function allMatch(expected, answers) {
     return Object.keys(expected || {}).every(function (questionId) {
+      if (questionId === "challenge") {
+        return hasChallenge(answers, expected[questionId]);
+      }
       return answers[questionId] === expected[questionId];
     });
+  }
+
+  /* Scale a matched rule by the rank of the challenge that triggered it.
+     Rules with no challenge condition apply in full. */
+  function ruleScale(rule, answers) {
+    var triggers = [];
+    if (rule.when && rule.when.challenge) triggers.push(rule.when.challenge);
+    (rule.any || []).forEach(function (alternative) {
+      if (alternative.challenge) triggers.push(alternative.challenge);
+    });
+    if (!triggers.length) return 1;
+    return triggers.reduce(function (strongest, challengeId) {
+      return Math.max(strongest, challengeWeight(answers, challengeId));
+    }, 0);
   }
 
   function ruleMatches(rule, answers) {
@@ -93,28 +179,27 @@
        all four signals are available and the final context is known. */
     if (!isComplete) return true;
 
-    var challenge = answers.challenge;
     var type = answers.type;
     var budget = answers.budget;
+    var funded = ["100to300", "over300"].indexOf(budget) !== -1;
 
     if (serviceId === "local-seo") {
       /* A visibility service, not a lead channel — plus the discovery case,
          where a local business's map presence is a likely starting point. */
       return (
         (type === "local" || type === "mixed") &&
-        ["ranking", "ai", "unsure"].indexOf(challenge) !== -1
+        anyChallenge(answers, ["ranking", "ai", "unsure"])
       );
     }
     if (serviceId === "web-dev" || serviceId === "uxui") {
-      return challenge === "website";
+      return anyChallenge(answers, ["website"]);
     }
     if (serviceId === "content") {
       /* Content answers visibility problems. On a lead problem it only earns a
          place once the budget can fund it alongside the channels that convert. */
       return (
-        ["ranking", "ai", "traffic"].indexOf(challenge) !== -1 ||
-        (challenge === "leads" &&
-          ["100to300", "over300"].indexOf(budget) !== -1)
+        anyChallenge(answers, ["ranking", "ai", "traffic"]) ||
+        (anyChallenge(answers, ["leads"]) && funded)
       );
     }
     if (serviceId === "cro") {
@@ -123,19 +208,18 @@
       return (
         type === "ecommerce" ||
         type === "mixed" ||
-        challenge === "website" ||
-        (["leads", "traffic"].indexOf(challenge) !== -1 &&
-          ["100to300", "over300"].indexOf(budget) !== -1)
+        anyChallenge(answers, ["website"]) ||
+        (anyChallenge(answers, ["leads", "traffic"]) && funded)
       );
     }
     if (serviceId === "programmatic") {
       return (
-        ["100to300", "over300"].indexOf(budget) !== -1 &&
+        funded &&
         ["national", "enterprise", "mixed"].indexOf(type) !== -1 &&
-        ["leads", "traffic"].indexOf(challenge) !== -1
+        anyChallenge(answers, ["leads", "traffic"])
       );
     }
-    if (serviceId === "consult") return challenge === "unsure";
+    if (serviceId === "consult") return anyChallenge(answers, ["unsure"]);
     /* These are delivery/engagement overlays in v2, not ranked services. */
     if (serviceId === "reseller" || serviceId === "outcome") return false;
     return true;
@@ -179,8 +263,11 @@
       website: "experience-upgrade",
       unsure: "discovery",
     };
+    var stated = challengeIds(answers);
     return {
-      mode: modes[answers.challenge] || "discovery",
+      mode: modes[stated[0]] || "discovery",
+      secondaryMode: stated.length > 1 ? modes[stated[1]] || null : null,
+      challengeCount: stated.length,
       activeWorkstreams: budgetNote ? budgetNote.activeWorkstreams : null,
     };
   }
@@ -260,35 +347,78 @@
     }
 
     D.QUESTIONS.forEach(function (question) {
-      var answerId = answers[question.id];
-      if (answerId === undefined || answerId === null || answerId === "") {
+      var selected = answerIds(answers[question.id]);
+      if (!selected.length) {
         missingQuestionIds.push(question.id);
         return;
       }
-      var option = optionFor(question, answerId);
-      if (!option) {
+
+      function reject(answerId) {
         invalidAnswers.push({ questionId: question.id, answerId: answerId });
+      }
+
+      /* Reject a malformed selection outright rather than scoring part of it.
+         A silently half-scored question is far harder to notice than a result
+         that reports itself incomplete. */
+      var limit = question.multi ? question.maxSelections || 1 : 1;
+      if (selected.length > limit) {
+        reject(answers[question.id]);
+        return;
+      }
+      var duplicated = selected.some(function (answerId, index) {
+        return selected.indexOf(answerId) !== index;
+      });
+      if (duplicated) {
+        reject(answers[question.id]);
         return;
       }
 
-      Object.keys(option.weights).forEach(function (serviceId) {
-        addPoints(
-          serviceId,
-          option.weights[serviceId],
-          question.id,
-          option.label,
-          { optionId: option.id },
-        );
+      var options = selected.map(function (answerId) {
+        return optionFor(question, answerId);
+      });
+      var unknown = options.some(function (option) {
+        return !option;
+      });
+      if (unknown) {
+        options.forEach(function (option, index) {
+          if (!option) reject(selected[index]);
+        });
+        return;
+      }
+      /* An exclusive answer contradicts anything paired with it — "I'm not sure
+         where to start" cannot be true alongside a specific problem. */
+      var exclusive = options.some(function (option) {
+        return option.exclusive;
+      });
+      if (exclusive && options.length > 1) {
+        reject(answers[question.id]);
+        return;
+      }
+
+      options.forEach(function (option, index) {
+        var multiplier = rankWeight(index);
+        Object.keys(option.weights).forEach(function (serviceId) {
+          addPoints(
+            serviceId,
+            option.weights[serviceId] * multiplier,
+            question.id,
+            option.label,
+            { optionId: option.id, rank: index + 1 },
+          );
+        });
       });
     });
 
     var appliedRules = [];
     (D.INTERACTION_RULES || []).forEach(function (rule) {
       if (!ruleMatches(rule, answers)) return;
+      var scale = ruleScale(rule, answers);
+      var applied = {};
       Object.keys(rule.weights).forEach(function (serviceId) {
+        applied[serviceId] = rule.weights[serviceId] * scale;
         addPoints(
           serviceId,
-          rule.weights[serviceId],
+          applied[serviceId],
           "interaction",
           rule.label,
           { ruleId: rule.id },
@@ -297,7 +427,8 @@
       appliedRules.push({
         id: rule.id,
         label: rule.label,
-        weights: Object.assign({}, rule.weights),
+        scale: scale,
+        weights: applied,
       });
     });
 
@@ -364,7 +495,7 @@
     }
 
     return {
-      logicVersion: 2,
+      logicVersion: 3,
       scores: scores,
       ranked: ranked,
       rawRanked: rawRanked,
@@ -390,31 +521,15 @@
          answers already used by earlier cards and each one cites what actually
          sets it apart, falling back to its strongest reason if nothing is
          left. */
-      reasonFor: function (serviceId, usedQuestionIds) {
-        var list = contributions[serviceId] || [];
-        if (!list.length) return "";
-        var byPoints = list.slice().sort(function (a, b) {
-          return b.points - a.points;
-        });
-        var used = usedQuestionIds || [];
-        var unused = byPoints.filter(function (item) {
-          return used.indexOf(item.questionId) === -1;
-        });
-        return (unused[0] || byPoints[0]).optionLabel.replace(/\.$/, "");
+      reasonFor: function (serviceId, usedSources) {
+        var best = bestUnusedContribution(contributions[serviceId], usedSources);
+        return best ? best.optionLabel.replace(/\.$/, "") : "";
       },
       /* The question each card's reason came from, so the caller can keep the
          three lines distinct without knowing how scoring works. */
-      reasonSourceFor: function (serviceId, usedQuestionIds) {
-        var list = contributions[serviceId] || [];
-        if (!list.length) return null;
-        var byPoints = list.slice().sort(function (a, b) {
-          return b.points - a.points;
-        });
-        var used = usedQuestionIds || [];
-        var unused = byPoints.filter(function (item) {
-          return used.indexOf(item.questionId) === -1;
-        });
-        return (unused[0] || byPoints[0]).questionId;
+      reasonSourceFor: function (serviceId, usedSources) {
+        var best = bestUnusedContribution(contributions[serviceId], usedSources);
+        return best ? sourceKey(best) : null;
       },
       budgetNote: budgetNote,
     };
@@ -558,10 +673,22 @@
   function buildPayload(answers, lead, result, startedAt, security) {
     var answerBlock = {};
     Object.keys(answers).forEach(function (questionId) {
+      var selected = answerIds(answers[questionId]);
+      if (!selected.length) return;
+      /* Downstream automations read answers.<questionId>.label, so the main
+         answer keeps exactly the shape it has always had. A second selection is
+         published beside it under a new key, which existing workflows ignore —
+         the data is already flowing whenever a column is added for it. */
       answerBlock[questionId] = {
-        id: answers[questionId],
-        label: labelOf(questionId, answers[questionId]),
+        id: selected[0],
+        label: labelOf(questionId, selected[0]),
       };
+      selected.slice(1).forEach(function (answerId, index) {
+        answerBlock[questionId + "_" + (index + 2)] = {
+          id: answerId,
+          label: labelOf(questionId, answerId),
+        };
+      });
     });
 
     function serviceOut(id) {
@@ -575,7 +702,7 @@
 
     return {
       source: "mam-service-quiz",
-      version: 1,
+      version: 2,
       submitted_at: new Date().toISOString(),
       lead: {
         name: lead.name,
@@ -651,13 +778,20 @@
       });
   }
 
-  /** The full option object for a given answer, or null. */
-  function answerOption(questionId, answerId) {
-    for (var i = 0; i < D.QUESTIONS.length; i++) {
-      if (D.QUESTIONS[i].id === questionId)
-        return optionFor(D.QUESTIONS[i], answerId);
-    }
-    return null;
+  /** Every option object behind an answer, in the order the visitor ranked them. */
+  function answerOptions(questionId, answer) {
+    var question = questionFor(questionId);
+    if (!question) return [];
+    return answerIds(answer)
+      .map(function (answerId) {
+        return optionFor(question, answerId);
+      })
+      .filter(Boolean);
+  }
+
+  /** The main option object for a given answer, or null. */
+  function answerOption(questionId, answer) {
+    return answerOptions(questionId, answer)[0] || null;
   }
 
   window.MAM_ENGINE = {
@@ -665,7 +799,9 @@
     buildPayload: buildPayload,
     submit: submit,
     labelOf: labelOf,
+    answerIds: answerIds,
     answerOption: answerOption,
+    answerOptions: answerOptions,
     bestScoreSignal: bestScoreSignal,
     loadRecaptcha: loadRecaptcha,
     recaptchaToken: recaptchaToken,

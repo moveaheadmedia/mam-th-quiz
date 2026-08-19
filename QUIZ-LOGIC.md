@@ -1,7 +1,12 @@
-# Service Recommendation Quiz — Logic v3
+# Service Recommendation Quiz — Logic v4
 
-This document is the plain-English specification for all **600 combinations**
-of 4 personas × 5 business types × 5 budgets × 6 challenges.
+This document is the plain-English specification for all **2,600 combinations**
+of 4 personas × 5 business types × 5 budgets × 26 challenge selections.
+
+The challenge step takes a main answer and an optional second one, so its 6
+answers produce 26 selections: each answer alone, plus each ordered pair of the
+5 combinable answers (20). Order is part of the selection —
+`[website, ranking]` is a different brief from `[ranking, website]`.
 
 > Source of truth: `assets/js/data.js` contains the services, base weights,
 > interaction weights and budget framing. `assets/js/engine.js` contains the
@@ -13,8 +18,10 @@ The three cards are the three highest-scoring eligible services, in score
 order. Rank 1 is the primary; ranks 2 and 3 are the supporting
 recommendations. There is no separate bundle layer that can reorder them.
 
-1. Add the weights of the selected answers.
-2. Add any matching cross-answer interaction weights.
+1. Add the weights of the selected answers. A second challenge counts at
+   `SECONDARY_CHALLENGE_WEIGHT` (0.5); every other answer counts in full.
+2. Add any matching cross-answer interaction weights, scaled by the rank of the
+   challenge that triggered them.
 3. Drop services that are not eligible for this context.
 4. Sort by score. First is primary, next two support it.
 5. Phase those three according to budget.
@@ -112,6 +119,18 @@ answer rather than earning its place.
 The dominant signal, on its own scale. A service that does not answer the
 stated challenge scores nothing here.
 
+This is the only multi-select question. The visitor names a main challenge and
+may add one more, to a maximum of two. **The main answer scores at the values
+below; a second scores at half of them.** Every weight in the table is even, so
+halving always yields a whole number and the one-point tie rule keeps its
+meaning.
+
+"I'm not sure where to start" is marked `exclusive`: knowing a second challenge
+means you are not unsure, so it cannot be paired with anything. Selecting more
+than two answers, the same answer twice, or an exclusive answer alongside
+another is rejected outright — the result reports itself incomplete rather than
+scoring half a question.
+
 | Answer | Services it boosts |
 | --- | --- |
 | I need more leads | Google Ads +24, Social +18, CRO +12, SEO +8, Content +4, Programmatic +4 |
@@ -127,7 +146,10 @@ what the client says is wrong is what drives the recommendation.
 ## 4. Cross-answer interaction weights
 
 Some combinations mean more than their individual answers. Each matching rule
-is applied once after the base points are added.
+is applied once after the base points are added, scaled by the rank of the
+challenge that triggered it: a rule fired by the second challenge applies at
+half strength. Without that, a second answer would swing more points through a
+bonus than through its own weights.
 
 | Combination | Additional points | Purpose |
 | --- | --- | --- |
@@ -144,6 +166,9 @@ the persona and business type are Enterprise.
 ## 5. Eligibility gates
 
 Gates prevent a high incidental score from producing a contextually wrong card.
+Where a gate names a challenge, it is satisfied by **either** stated challenge —
+a client whose main challenge is a website upgrade and whose second is ranking
+keeps both the website services and the ranking services in play.
 
 | Service | Eligible when |
 | --- | --- |
@@ -263,8 +288,12 @@ eligible.
 
 ## 9. Exhaustive regression target
 
-The automated test enumerates every one of the 600 valid answer tuples. The
-expected primary distribution is:
+The automated test enumerates every one of the 2,600 valid answer tuples: the
+600 single-challenge cases below, plus 2,000 two-challenge cases.
+
+Answering one challenge produces byte-for-byte the result it produced before
+multi-select existed, which is asserted for all 600 cases. The single-challenge
+distribution is therefore unchanged:
 
 | Primary | Cases |
 | --- | ---: |
@@ -285,8 +314,7 @@ frequency.
 Social is never primary. It is the second card in most lead plans, which is the
 role it actually plays: demand creation alongside demand capture.
 
-The 600 combinations produce 24 distinct three-service plans, up from 15 under
-v2.
+The 600 single-challenge combinations produce 28 distinct three-service plans.
 
 The full top-three appearance target is:
 
@@ -303,6 +331,42 @@ The full top-three appearance target is:
 | CRO | 77 |
 | Programmatic | 8 |
 
-The appearances total 1,800: exactly three recommendations for every valid
-answer combination. White Label SEO and Outcome Marketing appear as overlays,
-not ranked cards.
+The appearances total 1,800: exactly three recommendations for every
+single-challenge combination. White Label SEO and Outcome Marketing appear as
+overlays, not ranked cards.
+
+### Across all 2,600 selections
+
+Adding the 2,000 two-challenge cases gives the full baseline the suite asserts:
+
+| Primary | Cases | | Service | Top-three appearances |
+| --- | ---: | --- | --- | ---: |
+| SEO + AI Visibility | 1,645 | | SEO + AI Visibility | 2,403 |
+| Google Ads | 468 | | Google Ads | 1,506 |
+| Website Development | 263 | | Content | 1,188 |
+| Free Strategy Consultation | 100 | | Social Media Marketing | 939 |
+| UX/UI | 88 | | Website Development | 608 |
+| Local SEO | 34 | | UX/UI | 520 |
+| CRO | 2 | | Local SEO | 256 |
+| **Total** | **2,600** | | CRO | 251 |
+| | | | Consultation | 100 |
+| | | | Programmatic | 29 |
+
+Appearances total 7,800 — three cards for every selection. Social is still
+never primary. Every score stays a whole number, and no selection produces
+fewer than three cards.
+
+The 2,600 selections produce 55 distinct three-service plans, up from 28 with a
+single challenge — the measurable gain from letting a client name a second
+problem.
+
+Two properties the suite enforces specifically, because they are what a naive
+"add both challenges together" implementation gets wrong:
+
+- **A website upgrade named as the main challenge always keeps a website
+  service in the plan** — all 400 such cases. Summing both challenges at full
+  weight drops Website Development out of the cards entirely in some contexts,
+  because SEO is the only service scoring on all six challenges and wins on
+  breadth rather than fit.
+- **Order changes the plan** in a large majority of the 1,000 unordered pairs.
+  If it did not, the "main challenge" promise on screen would be decorative.

@@ -332,40 +332,110 @@
 
         var qWrap = document.getElementById("questions");
 
-        QUESTIONS.forEach(function (q) {
-          var div = document.createElement("div");
-          div.className = "q";
-          var mult =
-            q.weightMultiplier && q.weightMultiplier !== 1
-              ? ' <span class="hint">(&times;' + q.weightMultiplier + ")</span>"
-              : "";
-          var opts =
-            '<option value="">— not answered —</option>' +
+        var SECOND_WEIGHT = D.SECONDARY_CHALLENGE_WEIGHT || 0.5;
+
+        function questionById(qid) {
+          return QUESTIONS.filter(function (q) {
+            return q.id === qid;
+          })[0];
+        }
+
+        function selectFor(qid, slot) {
+          return qWrap.querySelector(
+            '[data-q="' + qid + '"][data-slot="' + slot + '"]',
+          );
+        }
+
+        /* The second slot can never offer the answer already chosen as main,
+           nor an answer that has to stand alone. */
+        function optionListHTML(q, slot, excludeId) {
+          var placeholder =
+            slot === "second" ? "— no second answer —" : "— not answered —";
+          return (
+            '<option value="">' +
+            placeholder +
+            "</option>" +
             q.options
+              .filter(function (o) {
+                if (slot !== "second") return true;
+                return !o.exclusive && o.id !== excludeId;
+              })
               .map(function (o) {
                 return '<option value="' + o.id + '">' + o.label + "</option>";
               })
-              .join("");
-          div.innerHTML =
+              .join("")
+          );
+        }
+
+        function syncSecond(q) {
+          var second = selectFor(q.id, "second");
+          if (!second) return;
+          var mainId = selectFor(q.id, "main").value;
+          var mainOption = optionFor(q, mainId);
+          var wanted = second.value;
+          var locked = !mainId || (mainOption && mainOption.exclusive);
+          second.innerHTML = optionListHTML(q, "second", mainId);
+          second.value = locked ? "" : wanted;
+          if (second.value !== wanted) second.value = "";
+          second.disabled = !!locked;
+        }
+
+        /* One place that turns the controls into an answers object, so the
+           sandbox and the live quiz agree on the shape the engine receives. */
+        function collect() {
+          answers = {};
+          QUESTIONS.forEach(function (q) {
+            var mainId = selectFor(q.id, "main").value;
+            if (!mainId) return;
+            if (!q.multi) {
+              answers[q.id] = mainId;
+              return;
+            }
+            var second = selectFor(q.id, "second");
+            var secondId = second && !second.disabled ? second.value : "";
+            answers[q.id] = secondId ? [mainId, secondId] : [mainId];
+          });
+        }
+
+        QUESTIONS.forEach(function (q) {
+          var div = document.createElement("div");
+          div.className = "q";
+          var html =
             "<label>" +
             q.title +
-            mult +
             '<br><span class="hint">' +
             q.shortLabel +
+            (q.multi ? " &middot; main answer scores &times;1" : "") +
             "</span></label>" +
             '<select data-q="' +
             q.id +
-            '">' +
-            opts +
+            '" data-slot="main">' +
+            optionListHTML(q, "main") +
             "</select>";
+          if (q.multi) {
+            html +=
+              '<label style="margin-top:10px"><span class="hint">' +
+              "Second answer (optional) &middot; scores &times;" +
+              SECOND_WEIGHT +
+              "</span></label>" +
+              '<select data-q="' +
+              q.id +
+              '" data-slot="second" disabled>' +
+              optionListHTML(q, "second", "") +
+              "</select>";
+          }
+          div.innerHTML = html;
           qWrap.appendChild(div);
         });
 
         qWrap.addEventListener("change", function (e) {
           var qid = e.target.getAttribute("data-q");
           if (!qid) return;
-          if (e.target.value) answers[qid] = e.target.value;
-          else delete answers[qid];
+          var q = questionById(qid);
+          if (q && q.multi && e.target.getAttribute("data-slot") === "main") {
+            syncSecond(q);
+          }
+          collect();
           render();
         });
 
@@ -373,18 +443,33 @@
           .getElementById("randomize")
           .addEventListener("click", function () {
             QUESTIONS.forEach(function (q) {
-              var o = q.options[Math.floor(Math.random() * q.options.length)];
-              answers[q.id] = o.id;
-              qWrap.querySelector('[data-q="' + q.id + '"]').value = o.id;
+              var main =
+                q.options[Math.floor(Math.random() * q.options.length)];
+              selectFor(q.id, "main").value = main.id;
+              if (!q.multi) return;
+              syncSecond(q);
+              var pool = q.options.filter(function (o) {
+                return !o.exclusive && o.id !== main.id;
+              });
+              /* Roughly half of random cases exercise a second answer. */
+              var takeSecond =
+                !main.exclusive && pool.length && Math.random() < 0.5;
+              selectFor(q.id, "second").value = takeSecond
+                ? pool[Math.floor(Math.random() * pool.length)].id
+                : "";
             });
+            collect();
             render();
           });
 
         document.getElementById("clear").addEventListener("click", function () {
-          answers = {};
           qWrap.querySelectorAll("select").forEach(function (s) {
             s.value = "";
           });
+          QUESTIONS.forEach(function (q) {
+            if (q.multi) syncSecond(q);
+          });
+          collect();
           render();
         });
 
@@ -401,13 +486,15 @@
         function buildMatrix() {
           var perService = {}; // id -> { qId: points, ... , total }
           QUESTIONS.forEach(function (q) {
-            var opt = optionFor(q, answers[q.id]);
-            if (!opt) return;
-            var mult = q.weightMultiplier || 1;
-            Object.keys(opt.weights).forEach(function (sid) {
-              perService[sid] = perService[sid] || {};
-              perService[sid][q.id] =
-                (perService[sid][q.id] || 0) + opt.weights[sid] * mult;
+            E.answerIds(answers[q.id]).forEach(function (id, index) {
+              var opt = optionFor(q, id);
+              if (!opt) return;
+              var mult = index === 0 ? 1 : SECOND_WEIGHT;
+              Object.keys(opt.weights).forEach(function (sid) {
+                perService[sid] = perService[sid] || {};
+                perService[sid][q.id] =
+                  (perService[sid][q.id] || 0) + opt.weights[sid] * mult;
+              });
             });
           });
           Object.keys(perService).forEach(function (sid) {
@@ -613,7 +700,26 @@
             rules.length
               ? rules
                   .map(function (r) {
-                    return "<div>" + r.label + "</div>";
+                    /* A bonus fired by the second answer applies at that
+                       answer's weight, so show the scale when it is not full. */
+                    var scaled =
+                      r.scale !== undefined && r.scale !== 1
+                        ? ' <span class="muted">&times;' + r.scale + "</span>"
+                        : "";
+                    var points = Object.keys(r.weights || {})
+                      .map(function (sid) {
+                        return sid + " +" + r.weights[sid];
+                      })
+                      .join(", ");
+                    return (
+                      "<div>" +
+                      r.label +
+                      scaled +
+                      (points
+                        ? ' <span class="muted">(' + points + ")</span>"
+                        : "") +
+                      "</div>"
+                    );
                   })
                   .join("")
               : '<span class="muted">None</span>',

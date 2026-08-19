@@ -679,7 +679,7 @@
       var label = caseLabel(answerSet);
       var breakdown = result.breakdown;
 
-      equal(result.logicVersion, 2, label + " logic version");
+      equal(result.logicVersion, 3, label + " logic version");
       assert(breakdown && typeof breakdown === "object", label + " breakdown");
       assert(breakdown.byService && typeof breakdown.byService === "object", label + " service breakdown");
       assert(Array.isArray(breakdown.appliedRules), label + " breakdown rules");
@@ -1075,7 +1075,7 @@
 
   test("incomplete and invalid answers use safe numeric fallback behavior", function () {
     var empty = E.score({});
-    equal(empty.logicVersion, 2, "empty logic version");
+    equal(empty.logicVersion, 3, "empty logic version");
     equal(empty.isComplete, false, "empty completeness");
     deepEqual(
       empty.missingQuestionIds,
@@ -1139,6 +1139,379 @@
     deepEqual(nullResult.scores, {}, "null scores");
     deepEqual(nullResult.ranked, [], "null ranking");
   });
+
+  /* ======================================================================
+     Ranked multi-select: the challenge step accepts a main answer and an
+     optional second one, worth half. Everything below is additional to the
+     600 single-answer cases above, which must keep passing untouched.
+     ====================================================================== */
+
+  function challengeQuestion() {
+    return question("challenge");
+  }
+
+  function soloOptionIds() {
+    return challengeQuestion()
+      .options.filter(function (option) {
+        return option.exclusive;
+      })
+      .map(function (option) {
+        return option.id;
+      });
+  }
+
+  function combinableIds() {
+    return challengeQuestion()
+      .options.filter(function (option) {
+        return !option.exclusive;
+      })
+      .map(function (option) {
+        return option.id;
+      });
+  }
+
+  /* Every selection a visitor can legally make: each answer alone, plus each
+     ordered pair of combinable answers. Order is part of the selection —
+     [website, ranking] is a different brief from [ranking, website]. */
+  function challengeSelections() {
+    var selections = optionIds("challenge").map(function (id) {
+      return [id];
+    });
+    var combinable = combinableIds();
+    combinable.forEach(function (main) {
+      combinable.forEach(function (second) {
+        if (main !== second) selections.push([main, second]);
+      });
+    });
+    return selections;
+  }
+
+  function allSelectionCases() {
+    var out = [];
+    optionIds("profile").forEach(function (profile) {
+      optionIds("type").forEach(function (type) {
+        optionIds("budget").forEach(function (budget) {
+          challengeSelections().forEach(function (challenge) {
+            var answerSet = answers(profile, type, budget, challenge);
+            out.push({ answers: answerSet, result: E.score(answerSet) });
+          });
+        });
+      });
+    });
+    return out;
+  }
+
+  var selectionCases;
+
+  test("the challenge step is the only ranked multi-select", function () {
+    D.QUESTIONS.forEach(function (item) {
+      if (item.id === "challenge") return;
+      assert(!item.multi, item.id + " must stay single-select");
+    });
+    var challenge = challengeQuestion();
+    assert(challenge.multi, "challenge must be multi-select");
+    equal(challenge.maxSelections, 2, "challenge selection cap");
+    equal(D.SECONDARY_CHALLENGE_WEIGHT, 0.5, "secondary challenge weight");
+    deepEqual(soloOptionIds(), ["unsure"], "answers that cannot take a partner");
+
+    /* Halving must not introduce fractions, or the "a one-point lead is a real
+       lead" tie rule stops meaning anything. */
+    challenge.options.forEach(function (option) {
+      Object.keys(option.weights).forEach(function (serviceId) {
+        equal(
+          option.weights[serviceId] % 2,
+          0,
+          "challenge/" + option.id + "/" + serviceId + " must be even to halve cleanly",
+        );
+      });
+    });
+  });
+
+  test("one challenge scores the same however it is expressed", function () {
+    var checked = 0;
+    combinations.forEach(function (item) {
+      var asList = E.score(
+        answers(
+          item.answers.profile,
+          item.answers.type,
+          item.answers.budget,
+          [item.answers.challenge],
+        ),
+      );
+      deepEqual(asList.scores, item.result.scores, caseLabel(item.answers) + " scores");
+      deepEqual(topThree(asList), topThree(item.result), caseLabel(item.answers) + " cards");
+      equal(asList.isComplete, true, caseLabel(item.answers) + " completeness");
+      checked += 1;
+    });
+    equal(checked, 600, "single-answer cases re-checked as one-item lists");
+  });
+
+  test("every legal selection produces a complete three-card plan", function () {
+    selectionCases = allSelectionCases();
+    equal(selectionCases.length, 2600, "total legal answer combinations");
+    equal(challengeSelections().length, 26, "challenge selections (6 single + 20 ordered pairs)");
+
+    selectionCases.forEach(function (item) {
+      var label = caseLabel(item.answers);
+      assert(item.result.isComplete, label + " must be complete");
+      assert(D.SERVICES[item.result.primary], label + " needs a real primary");
+      equal(item.result.supporting.length, 2, label + " supporting count");
+      topThree(item.result).forEach(function (serviceId) {
+        assert(D.SERVICES[serviceId], label + " unknown service " + serviceId);
+        assert(
+          item.result.scores[serviceId] % 1 === 0,
+          label + " fractional score for " + serviceId,
+        );
+      });
+      equal(
+        unique(topThree(item.result)).length,
+        3,
+        label + " must not repeat a service across its cards",
+      );
+    });
+  });
+
+  test("a second challenge counts exactly half of a first", function () {
+    var context = { profile: "sme", type: "national", budget: "100to300" };
+    function scoreWith(challenge) {
+      return E.score({
+        profile: context.profile,
+        type: context.type,
+        budget: context.budget,
+        challenge: challenge,
+      }).scores;
+    }
+    var mainOnly = scoreWith(["traffic"]);
+    var secondOnly = scoreWith(["ranking"]);
+    var both = scoreWith(["traffic", "ranking"]);
+    var rankingWeights = challengeQuestion().options.filter(function (option) {
+      return option.id === "ranking";
+    })[0].weights;
+
+    Object.keys(rankingWeights).forEach(function (serviceId) {
+      equal(
+        both[serviceId] - (mainOnly[serviceId] || 0),
+        rankingWeights[serviceId] / 2,
+        "second challenge contribution to " + serviceId,
+      );
+    });
+    /* And the reverse ordering must not produce the same scores, or the
+       ranking the visitor gave us is being thrown away. */
+    var flipped = scoreWith(["ranking", "traffic"]);
+    assert(
+      inspect(flipped) !== inspect(both),
+      "swapping main and second challenge must change the scores",
+    );
+    assert(secondOnly.seo > 0, "sanity: ranking alone scores SEO");
+  });
+
+  test("order of the two challenges changes the plan often enough to matter", function () {
+    var flipped = 0;
+    var pairs = 0;
+    var combinable = combinableIds();
+    optionIds("profile").forEach(function (profile) {
+      optionIds("type").forEach(function (type) {
+        optionIds("budget").forEach(function (budget) {
+          combinable.forEach(function (a, i) {
+            combinable.slice(i + 1).forEach(function (b) {
+              pairs += 1;
+              var forward = topThree(E.score(answers(profile, type, budget, [a, b])));
+              var reverse = topThree(E.score(answers(profile, type, budget, [b, a])));
+              if (forward.join(">") !== reverse.join(">")) flipped += 1;
+            });
+          });
+        });
+      });
+    });
+    equal(pairs, 1000, "unordered challenge pairs across every context");
+    /* If order almost never mattered, the "main challenge" promise on screen
+       would be decorative. */
+    assert(
+      flipped >= 600,
+      "order changed the plan in only " + flipped + " of " + pairs + " pairs",
+    );
+  });
+
+  test("a website upgrade named as the main challenge always keeps a website service", function () {
+    var checked = 0;
+    optionIds("profile").forEach(function (profile) {
+      optionIds("type").forEach(function (type) {
+        optionIds("budget").forEach(function (budget) {
+          combinableIds().forEach(function (second) {
+            if (second === "website") return;
+            var result = E.score(answers(profile, type, budget, ["website", second]));
+            var cards = topThree(result);
+            assert(
+              cards.indexOf("web-dev") !== -1 || cards.indexOf("uxui") !== -1,
+              caseLabel(answers(profile, type, budget, ["website", second])) +
+                " dropped every website service from the plan",
+            );
+            checked += 1;
+          });
+        });
+      });
+    });
+    equal(checked, 400, "website-as-main cases checked");
+  });
+
+  test("interaction bonuses scale with the challenge that fires them", function () {
+    function ruleWeights(challenge, ruleId) {
+      var applied = E.score(
+        answers("sme", "local", "under50", challenge),
+      ).appliedRules.filter(function (rule) {
+        return rule.id === ruleId;
+      })[0];
+      return applied || null;
+    }
+    var full = ruleWeights(["ranking", "leads"], "local-search-ranking");
+    var half = ruleWeights(["leads", "ranking"], "local-search-ranking");
+    assert(full && half, "the local ranking rule must fire in both orderings");
+    equal(full.scale, 1, "rule scale when its challenge is main");
+    equal(half.scale, 0.5, "rule scale when its challenge is second");
+    equal(full.weights["local-seo"], 14, "full-strength local ranking bonus");
+    equal(half.weights["local-seo"], 7, "half-strength local ranking bonus");
+  });
+
+  test("malformed selections are rejected rather than half-scored", function () {
+    function rejected(challenge, label) {
+      var result = E.score(answers("sme", "local", "under50", challenge));
+      equal(result.isComplete, false, label + " must not be complete");
+      deepEqual(
+        result.invalidAnswers,
+        [{ questionId: "challenge", answerId: challenge }],
+        label + " diagnostics",
+      );
+      deepEqual(result.phases, [], label + " phases");
+    }
+    rejected(["leads", "ranking", "ai"], "three challenges");
+    rejected(["leads", "leads"], "the same challenge twice");
+    rejected(["unsure", "leads"], "an exclusive answer paired with another");
+    rejected(["leads", "unsure"], "another answer paired with an exclusive one");
+
+    var empty = E.score(answers("sme", "local", "under50", []));
+    equal(empty.isComplete, false, "empty selection must not be complete");
+    deepEqual(empty.missingQuestionIds, ["challenge"], "empty selection is missing, not invalid");
+
+    /* An exclusive answer on its own is perfectly valid. */
+    var solo = E.score(answers("sme", "local", "under50", ["unsure"]));
+    equal(solo.isComplete, true, "an exclusive answer alone must be valid");
+    equal(solo.primary, "consult", "exclusive answer primary");
+  });
+
+  test("full 2,600-selection distributions match the v4 baseline", function () {
+    var primaries = countBy(
+      selectionCases.map(function (item) {
+        return item.result.primary;
+      }),
+    );
+    var appearances = countBy(
+      selectionCases.reduce(function (all, item) {
+        return all.concat(topThree(item.result));
+      }, []),
+    );
+
+    deepEqual(
+      primaries,
+      {
+        seo: 1645,
+        "google-ads": 468,
+        "web-dev": 263,
+        consult: 100,
+        uxui: 88,
+        "local-seo": 34,
+        cro: 2,
+      },
+      "primary distribution",
+    );
+    deepEqual(
+      appearances,
+      {
+        seo: 2403,
+        "google-ads": 1506,
+        content: 1188,
+        social: 939,
+        "web-dev": 608,
+        uxui: 520,
+        "local-seo": 256,
+        cro: 251,
+        consult: 100,
+        programmatic: 29,
+      },
+      "top-three appearances",
+    );
+
+    var total = Object.keys(appearances).reduce(function (sum, id) {
+      return sum + appearances[id];
+    }, 0);
+    equal(total, 7800, "three cards for every one of the 2,600 selections");
+    assert(!primaries.social, "Social must never be the primary recommendation");
+    assert(!primaries.reseller && !primaries.outcome, "overlays must never be ranked");
+  });
+
+  test("the payload keeps the shape existing automations already read", function () {
+    var stubbed = [];
+    function stub(key, value) {
+      if (root[key] === undefined) {
+        root[key] = value;
+        stubbed.push(key);
+      }
+    }
+    stub("location", { href: "http://test.local/quiz", search: "" });
+    stub("document", { referrer: "" });
+    stub("navigator", { userAgent: "jsc", language: "en" });
+    stub("innerWidth", 1280);
+    stub("innerHeight", 800);
+    stub("URLSearchParams", function () {
+      this.get = function () {
+        return null;
+      };
+    });
+
+    try {
+      assertPayloadShape();
+    } finally {
+      stubbed.forEach(function (key) {
+        delete root[key];
+      });
+    }
+  });
+
+  function assertPayloadShape() {
+    var result = E.score(answers("sme", "local", "under50", ["website", "ranking"]));
+    var payload = E.buildPayload(
+      answers("sme", "local", "under50", ["website", "ranking"]),
+      { name: "Test", email: "t@example.com", phone: "0812345678", website: "" },
+      result,
+      Date.now(),
+      {},
+    );
+    /* Existing workflows read answers.challenge.label. That path must keep
+       resolving to the main challenge, with the second published beside it. */
+    equal(payload.answers.challenge.id, "website", "main challenge id");
+    equal(
+      payload.answers.challenge.label,
+      "My website needs an upgrade.",
+      "main challenge label",
+    );
+    equal(payload.answers.challenge_2.id, "ranking", "second challenge id");
+    equal(
+      payload.answers.challenge_2.label,
+      "My website doesn't rank on Google.",
+      "second challenge label",
+    );
+    equal(payload.answers.profile.id, "sme", "single-answer questions unchanged");
+    assert(!payload.answers.profile_2, "single-answer questions gain no second key");
+
+    var single = E.buildPayload(
+      answers("sme", "local", "under50", "leads"),
+      { name: "Test", email: "t@example.com", phone: "0812345678", website: "" },
+      E.score(answers("sme", "local", "under50", "leads")),
+      Date.now(),
+      {},
+    );
+    equal(single.answers.challenge.id, "leads", "one-challenge main id");
+    assert(!single.answers.challenge_2, "one challenge publishes no second key");
+  }
 
   function run() {
     if (!D || !E) {
