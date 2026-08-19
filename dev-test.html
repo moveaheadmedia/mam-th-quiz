@@ -208,7 +208,51 @@
         font-size: 12px;
         margin-top: 8px;
       }
-      .metadata {
+      .facts {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 8px 16px;
+        margin: 12px 0 0;
+        padding: 14px 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        font-size: 13px;
+      }
+      .facts dt {
+        color: var(--mut);
+      }
+      .facts dd {
+        margin: 0;
+      }
+      .facts .muted {
+        color: var(--mut);
+      }
+      .facts .lvl-high {
+        color: var(--good);
+      }
+      .facts .lvl-medium {
+        color: var(--pri);
+      }
+      .facts .lvl-low {
+        color: var(--bad);
+      }
+      details.raw {
+        margin-top: 10px;
+      }
+      details.raw summary {
+        color: var(--mut);
+        font-size: 12px;
+        cursor: pointer;
+      }
+      details.raw pre {
+        margin: 8px 0 0;
+        padding: 12px 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--mut);
+        font-size: 12px;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
       }
@@ -242,8 +286,8 @@
           <button id="clear">Clear all</button>
         </div>
         <p class="note">
-          V2 combines answer weights with explicit cross-answer rules,
-          eligibility gates and challenge-specific bundles.
+          Rank order is the recommendation: 1st is primary, 2nd and 3rd are
+          supporting. Budget sets phasing and eligibility, never service choice.
         </p>
       </div>
 
@@ -252,7 +296,11 @@
           <h2>Recommendation</h2>
           <div id="recommendation" class="cards"></div>
           <div id="budget" class="note"></div>
-          <pre id="metadata" class="note metadata"></pre>
+          <dl id="metadata" class="facts"></dl>
+          <details class="raw">
+            <summary>Raw result JSON</summary>
+            <pre id="rawjson"></pre>
+          </details>
         </section>
 
         <section>
@@ -407,7 +455,8 @@
             el.innerHTML =
               '<div class="card"><div class="score">No answers yet — pick some options.</div></div>';
             document.getElementById("budget").textContent = "";
-            document.getElementById("metadata").textContent = "";
+            document.getElementById("metadata").innerHTML = "";
+            document.getElementById("rawjson").textContent = "";
             return;
           }
           var cards = "";
@@ -426,20 +475,151 @@
           document.getElementById("budget").textContent = b
             ? "Budget tier: " + b.tier + " — " + b.text
             : "";
-          document.getElementById("metadata").textContent = JSON.stringify(
+          renderFacts(result);
+          document.getElementById("rawjson").textContent = JSON.stringify(
             {
               complete: result.isComplete,
               focus: result.focus || null,
               delivery: result.delivery || null,
               confidence: result.confidence || null,
               phases: result.phases || [],
-              primaryPool: result.breakdown.primaryPool,
-              supportRule: result.breakdown.supportRule,
+              ranked: result.ranked,
               appliedRules: result.breakdown.appliedRules,
             },
             null,
             2,
           );
+        }
+
+        /* The engine speaks in kebab-case ids; the sandbox reads better in prose. */
+        function humanise(value) {
+          if (!value) return "";
+          return String(value)
+            .replace(/-/g, " ")
+            .replace(/^./, function (c) {
+              return c.toUpperCase();
+            });
+        }
+
+        function serviceNames(ids) {
+          return (ids || [])
+            .map(function (id) {
+              return (SERVICES[id] && SERVICES[id].name) || id;
+            })
+            .join(", ");
+        }
+
+        function fact(term, value) {
+          if (!value) return "";
+          return "<dt>" + term + "</dt><dd>" + value + "</dd>";
+        }
+
+        function renderFacts(result) {
+          var focus = result.focus || {};
+          var delivery = result.delivery || {};
+          var confidence = result.confidence || {};
+          var breakdown = result.breakdown || {};
+          var streams = focus.activeWorkstreams;
+          var gap = confidence.scoreGap;
+          var overlays = delivery.overlays || [];
+          var rules = breakdown.appliedRules || [];
+          var phases = (result.phases || []).filter(function (p) {
+            return p.serviceIds && p.serviceIds.length;
+          });
+          var rows = "";
+
+          rows += fact(
+            "Status",
+            result.isComplete
+              ? "All four questions answered"
+              : '<span class="muted">Waiting on ' +
+                  (result.missingQuestionIds || []).length +
+                  " more answer(s)</span>",
+          );
+          rows += fact(
+            "Focus",
+            humanise(focus.mode) +
+              (streams
+                ? ' <span class="muted">· ' +
+                  streams +
+                  " active workstream" +
+                  (streams === 1 ? "" : "s") +
+                  "</span>"
+                : ""),
+          );
+          rows += fact(
+            "Delivery",
+            delivery.label +
+              (overlays.length
+                ? ' <span class="muted">· ' +
+                  overlays.map(humanise).join(", ") +
+                  "</span>"
+                : ""),
+          );
+          rows += fact(
+            "Confidence",
+            '<span class="lvl-' +
+              confidence.level +
+              '">' +
+              humanise(confidence.level) +
+              "</span>" +
+              (gap === null || gap === undefined
+                ? ""
+                : ' <span class="muted">· ' +
+                  gap +
+                  " pt gap to runner-up</span>") +
+              '<div class="muted">' +
+              (confidence.reason || "") +
+              "</div>",
+          );
+          if (phases.length) {
+            rows += fact(
+              "Sequence",
+              phases
+                .map(function (p) {
+                  return (
+                    "<div>" +
+                    p.label +
+                    ': <span class="muted">' +
+                    serviceNames(p.serviceIds) +
+                    "</span></div>"
+                  );
+                })
+                .join(""),
+            );
+          }
+          rows += fact(
+            "Ranking",
+            (result.ranked || [])
+              .map(function (id, i) {
+                var role =
+                  i === 0 ? "primary" : i < 3 ? "supporting" : "not shown";
+                return (
+                  "<div>" +
+                  (i + 1) +
+                  ". " +
+                  ((SERVICES[id] && SERVICES[id].name) || id) +
+                  ' <span class="muted">' +
+                  result.scores[id] +
+                  " pts · " +
+                  role +
+                  "</span></div>"
+                );
+              })
+              .join(""),
+          );
+          rows += fact(
+            "Rules fired",
+            rules.length
+              ? rules
+                  .map(function (r) {
+                    return "<div>" + r.label + "</div>";
+                  })
+                  .join("")
+              : '<span class="muted">None</span>',
+          );
+
+          document.getElementById("metadata").innerHTML = rows;
         }
 
         function card(cls, tag, id, score) {

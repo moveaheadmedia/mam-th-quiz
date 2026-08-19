@@ -98,19 +98,34 @@
     var budget = answers.budget;
 
     if (serviceId === "local-seo") {
-      return type === "local" || type === "mixed";
+      /* A visibility service, not a lead channel — plus the discovery case,
+         where a local business's map presence is a likely starting point. */
+      return (
+        (type === "local" || type === "mixed") &&
+        ["ranking", "ai", "unsure"].indexOf(challenge) !== -1
+      );
     }
     if (serviceId === "web-dev" || serviceId === "uxui") {
       return challenge === "website";
     }
     if (serviceId === "content") {
-      return ["ranking", "ai", "traffic"].indexOf(challenge) !== -1;
+      /* Content answers visibility problems. On a lead problem it only earns a
+         place once the budget can fund it alongside the channels that convert. */
+      return (
+        ["ranking", "ai", "traffic"].indexOf(challenge) !== -1 ||
+        (challenge === "leads" &&
+          ["100to300", "over300"].indexOf(budget) !== -1)
+      );
     }
     if (serviceId === "cro") {
+      /* Optimising conversion needs traffic worth optimising: an e-commerce or
+         mixed model, a website rebuild, or enough budget to be running volume. */
       return (
         type === "ecommerce" ||
         type === "mixed" ||
-        ["leads", "traffic", "website"].indexOf(challenge) !== -1
+        challenge === "website" ||
+        (["leads", "traffic"].indexOf(challenge) !== -1 &&
+          ["100to300", "over300"].indexOf(budget) !== -1)
       );
     }
     if (serviceId === "programmatic") {
@@ -124,108 +139,6 @@
     /* These are delivery/engagement overlays in v2, not ranked services. */
     if (serviceId === "reseller" || serviceId === "outcome") return false;
     return true;
-  }
-
-  function tieOrderFor(challenge, answers) {
-    if (challenge === "leads") {
-      return answers.budget === "under50" || answers.type === "national"
-        ? ["social", "google-ads"]
-        : ["google-ads", "social"];
-    }
-    if (challenge === "traffic") {
-      return ["seo", "google-ads", "social"];
-    }
-    if (challenge === "ranking" && answers.type === "local") {
-      return ["local-seo", "seo"];
-    }
-    return (D.PRIMARY_POOLS && D.PRIMARY_POOLS[challenge]) || D.PRIORITY;
-  }
-
-  function strongestPaid(scores) {
-    return sortByScore(
-      ["google-ads", "social"],
-      scores,
-      ["google-ads", "social"],
-    )[0];
-  }
-
-  function supportPlan(answers, primary, scores) {
-    var challenge = answers.challenge;
-    var type = answers.type;
-    var budget = answers.budget;
-    var paid = strongestPaid(scores);
-
-    if (challenge === "leads") {
-      return {
-        id: type === "local" ? "local-leads" : "lead-generation",
-        candidates: [
-          primary === "google-ads" ? "social" : "google-ads",
-          type === "local" ? "local-seo" : "seo",
-        ],
-      };
-    }
-    if (challenge === "ranking") {
-      return type === "local"
-        ? {
-            id: "local-ranking",
-            candidates: ["seo", "google-ads"],
-          }
-        : {
-            id: "organic-ranking",
-            candidates: ["content", paid],
-          };
-    }
-    if (challenge === "ai") {
-      return {
-        id: "ai-visibility",
-        candidates: ["content", paid],
-      };
-    }
-    if (challenge === "traffic" && type === "ecommerce") {
-      return {
-        id: "ecommerce-traffic",
-        candidates: [paid, "cro"],
-      };
-    }
-    if (
-      challenge === "traffic" &&
-      budget === "over300" &&
-      (type === "national" || type === "enterprise")
-    ) {
-      return {
-        id: "scaled-traffic",
-        candidates: [paid, "programmatic"],
-      };
-    }
-    if (challenge === "traffic") {
-      return {
-        id: "core-traffic",
-        candidates: sortByScore(
-          ["seo", "google-ads", "social"],
-          scores,
-          ["seo", "google-ads", "social"],
-        ),
-      };
-    }
-    if (challenge === "website") {
-      return {
-        id:
-          type === "ecommerce" || type === "mixed"
-            ? "commerce-website"
-            : "website-foundation",
-        candidates: [
-          "uxui",
-          type === "ecommerce" || type === "mixed" ? "cro" : "seo",
-        ],
-      };
-    }
-    if (challenge === "unsure") {
-      return {
-        id: "strategy-discovery",
-        candidates: ["seo", paid],
-      };
-    }
-    return { id: "score-order", candidates: [] };
   }
 
   function deliveryFor(answers) {
@@ -403,58 +316,25 @@
       });
     rawRanked = sortByScore(rawRanked, scores, D.PRIORITY);
 
+    /* The score order IS the recommendation. Everything that shapes it —
+       business type, challenge, eligibility and interaction rules — has already
+       been applied, so the top service is primary and the next two support it.
+       No per-challenge pool may override what the scoring decided. */
     var primary = rawRanked[0];
-    var supporting = [];
-    var primaryPool = [];
-    var supportRule = "score-order";
+    var supporting = rawRanked
+      .filter(function (id) {
+        return id !== primary && D.PRIMARY_ONLY.indexOf(id) === -1;
+      })
+      .slice(0, 2);
 
-    if (isComplete) {
-      primaryPool = ((D.PRIMARY_POOLS || {})[answers.challenge] || []).filter(
-        function (id) {
-          return (
-            scores[id] > 0 &&
-            D.SERVICES[id] &&
-            isEligible(id, answers, true)
-          );
-        },
-      );
-      primaryPool = sortByScore(
-        primaryPool,
-        scores,
-        tieOrderFor(answers.challenge, answers),
-      );
-      primary = primaryPool[0] || primary;
-
-      var plan = supportPlan(answers, primary, scores);
-      supportRule = plan.id;
-
-      function addSupporting(id) {
-        if (!id || id === primary || supporting.indexOf(id) !== -1) return;
-        if (!D.SERVICES[id] || scores[id] <= 0) return;
-        if (!isEligible(id, answers, true)) return;
-        if (D.PRIMARY_ONLY.indexOf(id) !== -1) return;
-        if (supporting.length < 2) supporting.push(id);
-      }
-
-      plan.candidates.forEach(addSupporting);
-      rawRanked.forEach(addSupporting);
-    } else {
-      supporting = rawRanked
-        .filter(function (id) {
-          return id !== primary && D.PRIMARY_ONLY.indexOf(id) === -1;
-        })
-        .slice(0, 2);
-    }
-
+    /* The three cards, then the rest of the eligible field behind them. */
     var ranked = [];
     [primary].concat(supporting, rawRanked).forEach(function (id) {
       if (id && ranked.indexOf(id) === -1) ranked.push(id);
     });
 
     var budgetNote = D.BUDGET_NOTES[answers.budget] || null;
-    var runnerUp = primaryPool.filter(function (id) {
-      return id !== primary;
-    })[0];
+    var runnerUp = supporting[0];
     var scoreGap = runnerUp ? scores[primary] - scores[runnerUp] : null;
     var confidence;
     if (!isComplete) {
@@ -496,8 +376,6 @@
       breakdown: {
         byService: breakdown,
         appliedRules: appliedRules,
-        primaryPool: primaryPool,
-        supportRule: supportRule,
       },
       appliedRules: appliedRules,
       delivery: deliveryFor(answers),
@@ -506,14 +384,37 @@
       phases: isComplete
         ? phasesFor(answers.budget, primary, supporting)
         : [],
-      /* Why each recommended service surfaced — used for the result copy. */
-      reasonFor: function (serviceId) {
+      /* Why each recommended service surfaced — used for the result copy.
+         The challenge dominates every score, so asking each card for its single
+         biggest contribution prints the same sentence three times. Pass the
+         answers already used by earlier cards and each one cites what actually
+         sets it apart, falling back to its strongest reason if nothing is
+         left. */
+      reasonFor: function (serviceId, usedQuestionIds) {
         var list = contributions[serviceId] || [];
         if (!list.length) return "";
-        var top = list.slice().sort(function (a, b) {
+        var byPoints = list.slice().sort(function (a, b) {
           return b.points - a.points;
-        })[0];
-        return top.optionLabel.replace(/\.$/, "");
+        });
+        var used = usedQuestionIds || [];
+        var unused = byPoints.filter(function (item) {
+          return used.indexOf(item.questionId) === -1;
+        });
+        return (unused[0] || byPoints[0]).optionLabel.replace(/\.$/, "");
+      },
+      /* The question each card's reason came from, so the caller can keep the
+         three lines distinct without knowing how scoring works. */
+      reasonSourceFor: function (serviceId, usedQuestionIds) {
+        var list = contributions[serviceId] || [];
+        if (!list.length) return null;
+        var byPoints = list.slice().sort(function (a, b) {
+          return b.points - a.points;
+        });
+        var used = usedQuestionIds || [];
+        var unused = byPoints.filter(function (item) {
+          return used.indexOf(item.questionId) === -1;
+        });
+        return (unused[0] || byPoints[0]).questionId;
       },
       budgetNote: budgetNote,
     };

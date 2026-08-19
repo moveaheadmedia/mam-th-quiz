@@ -237,12 +237,20 @@ verification failed or scored under 0.5. Otherwise `new`.
 
 ## How the recommendation works
 
-Recommendation logic v2 uses four explicit layers:
+Recommendation logic v3 ranks services and shows the top three:
 
 1. Base fit points from the four answers.
 2. Cross-answer interaction points for cases such as Local + Leads.
-3. Eligibility gates and a challenge-specific primary pool.
-4. A complementary three-service bundle, phased by the selected budget.
+3. Eligibility gates drop services that do not fit the context.
+4. Sort by score — 1st is the primary, 2nd and 3rd are the supporting
+   recommendations — then phase those three by the selected budget.
+
+The four questions are deliberately unequal. The challenge carries the largest
+weights — it is the client telling us what is actually wrong. Business type
+shapes which channel answers it, budget shifts the emphasis between fast
+payback and compounding assets, and persona is a light nudge. All of the
+business logic lives in the weights and the eligibility gates, so the
+recommendation order always matches the scores.
 
 Challenge weights are already final: there is no hidden multiplier and there
 are no negative weights. `SEO + AI Visibility` has one combined public score;
@@ -251,7 +259,7 @@ Marketing are delivery overlays rather than competing recommendation cards.
 
 The engine preserves the original payload fields and adds `logic_version`,
 delivery, focus, confidence and phase metadata. See `QUIZ-LOGIC.md` for every
-weight, interaction, gate, bundle, tie rule, worked example and the expected
+weight, interaction, gate, tie rule, worked example and the expected
 distribution across all 600 valid combinations.
 
 ---
@@ -283,7 +291,7 @@ Open `dev-test.html` for an interactive score-and-rule breakdown. Run the full
 | --- | --- |
 | Webhook, phone, links, reCAPTCHA key, behaviour flags | `assets/js/config.js` |
 | Questions, answers, services, weights, interactions, budget framing | `assets/js/data.js` |
-| Eligibility, bundles, phasing, scoring maths, payload shape | `assets/js/engine.js` |
+| Eligibility, ranking, phasing, scoring maths, payload shape | `assets/js/engine.js` |
 | Screen flow, validation, markup | `assets/js/app.js` |
 | Styling | `assets/css/styles.css` |
 

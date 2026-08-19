@@ -229,9 +229,12 @@
     '</section>';
   }
 
-  function serviceCardHTML(serviceId, variant) {
+  function serviceCardHTML(serviceId, variant, usedReasons) {
     var service = D.SERVICES[serviceId];
-    var reason = state.result.reasonFor(serviceId);
+    var used = usedReasons || [];
+    var reason = state.result.reasonFor(serviceId, used);
+    var source = state.result.reasonSourceFor(serviceId, used);
+    if (source) used.push(source);
     var chips = service.deliverables.map(function (item) {
       return '<li>' + esc(item) + '</li>';
     }).join('');
@@ -265,8 +268,10 @@
     var note = result.budgetNote;
     var supportHeading = (note && note.supportHeading) || 'Then build on it with';
 
+    var usedReasons = [];
+    var primaryCard = serviceCardHTML(result.primary, 'primary', usedReasons);
     var support = result.supporting.map(function (id) {
-      return serviceCardHTML(id, 'support');
+      return serviceCardHTML(id, 'support', usedReasons);
     }).join('');
 
     var deliveryWarning = state.delivery && !state.delivery.ok && state.delivery.reason !== 'not-configured'
@@ -286,7 +291,7 @@
 
       '<div class="results__primary">' +
         '<p class="results__rank">Start here</p>' +
-        serviceCardHTML(result.primary, 'primary') +
+        primaryCard +
       '</div>' +
 
       (support ? '<p class="results__rank results__rank--support">' + esc(supportHeading) + '</p>' +

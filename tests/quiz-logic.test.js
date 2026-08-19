@@ -169,78 +169,113 @@
     })[0];
   }
 
-  function strongestPaid(scores) {
-    return strongest(["google-ads", "social"], scores);
+  /* Eligibility restated from the business rules, independently of engine.js,
+     so a change of heart in the engine has to be a deliberate change here too. */
+  function eligible(serviceId, answerSet) {
+    var challenge = answerSet.challenge;
+    var type = answerSet.type;
+    var budget = answerSet.budget;
+
+    if (serviceId === "local-seo") {
+      return (
+        (type === "local" || type === "mixed") &&
+        ["ranking", "ai", "unsure"].indexOf(challenge) !== -1
+      );
+    }
+    if (serviceId === "web-dev" || serviceId === "uxui") {
+      return challenge === "website";
+    }
+    if (serviceId === "content") {
+      return (
+        ["ranking", "ai", "traffic"].indexOf(challenge) !== -1 ||
+        (challenge === "leads" &&
+          ["100to300", "over300"].indexOf(budget) !== -1)
+      );
+    }
+    if (serviceId === "cro") {
+      return (
+        type === "ecommerce" ||
+        type === "mixed" ||
+        challenge === "website" ||
+        (["leads", "traffic"].indexOf(challenge) !== -1 &&
+          ["100to300", "over300"].indexOf(budget) !== -1)
+      );
+    }
+    if (serviceId === "programmatic") {
+      return (
+        ["100to300", "over300"].indexOf(budget) !== -1 &&
+        ["national", "enterprise", "mixed"].indexOf(type) !== -1 &&
+        ["leads", "traffic"].indexOf(challenge) !== -1
+      );
+    }
+    if (serviceId === "consult") return challenge === "unsure";
+    if (serviceId === "reseller" || serviceId === "outcome") return false;
+    return true;
   }
 
-  function strongestCore(scores, excluded) {
-    var omitted = excluded || [];
-    return strongest(
-      ["seo", "google-ads", "social"].filter(function (id) {
-        return omitted.indexOf(id) === -1;
-      }),
-      scores,
-    );
+  /* Additive scoring rebuilt from the raw data, so the oracle below never
+     borrows the engine's own arithmetic. */
+  function recomputeScores(answerSet) {
+    var scores = {};
+    function add(serviceId, points) {
+      scores[serviceId] = (scores[serviceId] || 0) + points;
+    }
+    D.QUESTIONS.forEach(function (q) {
+      var option = null;
+      q.options.forEach(function (o) {
+        if (o.id === answerSet[q.id]) option = o;
+      });
+      if (!option) return;
+      Object.keys(option.weights || {}).forEach(function (serviceId) {
+        add(serviceId, option.weights[serviceId]);
+      });
+    });
+    (D.INTERACTION_RULES || []).forEach(function (rule) {
+      var matches = Object.keys(rule.when || {}).every(function (key) {
+        return answerSet[key] === rule.when[key];
+      });
+      if (matches && rule.any) {
+        matches = rule.any.some(function (condition) {
+          return Object.keys(condition).every(function (key) {
+            return answerSet[key] === condition[key];
+          });
+        });
+      }
+      if (!matches) return;
+      Object.keys(rule.weights).forEach(function (serviceId) {
+        add(serviceId, rule.weights[serviceId]);
+      });
+    });
+    return scores;
   }
 
-  /* This is intentionally a business-rule oracle, not another copy of the
-     additive weight calculation. Canonical score tests below cover the maths. */
-  function expectedTopThree(answerSet, scores) {
-    var primary;
-    var second;
-
-    if (answerSet.challenge === "leads") {
-      if (scores.social > scores["google-ads"]) primary = "social";
-      else if (scores["google-ads"] > scores.social) primary = "google-ads";
-      else primary = answerSet.type === "national" ? "social" : "google-ads";
-      return [
-        primary,
-        primary === "social" ? "google-ads" : "social",
-        answerSet.type === "local" ? "local-seo" : "seo",
-      ];
-    }
-
-    if (answerSet.challenge === "ranking") {
-      if (answerSet.type === "local") {
-        return ["local-seo", "seo", "google-ads"];
-      }
-      return ["seo", "content", strongestPaid(scores)];
-    }
-
-    if (answerSet.challenge === "ai") {
-      return ["seo", "content", strongestPaid(scores)];
-    }
-
-    if (answerSet.challenge === "traffic") {
-      primary = strongestCore(scores);
-      if (answerSet.type === "ecommerce") {
-        return [primary, "google-ads", "cro"];
-      }
-      second = strongestCore(scores, [primary]);
-      if (
-        answerSet.budget === "over300" &&
-        (answerSet.type === "national" || answerSet.type === "enterprise")
-      ) {
-        return [primary, second, "programmatic"];
-      }
-      return [
-        primary,
-        second,
-        strongestCore(scores, [primary, second]),
-      ];
-    }
-
-    if (answerSet.challenge === "website") {
-      return [
-        "web-dev",
-        "uxui",
-        answerSet.type === "ecommerce" || answerSet.type === "mixed"
-          ? "cro"
-          : "seo",
-      ];
-    }
-
-    return ["consult", "seo", strongestPaid(scores)];
+  /* The oracle in one sentence: the three cards are the three highest-scoring
+     eligible services, in that order. No pools, no bundles, no per-challenge
+     reordering — if the business logic wants a different answer, the weights
+     have to say so. */
+  function expectedTopThree(answerSet) {
+    var scores = recomputeScores(answerSet);
+    var ranked = Object.keys(scores)
+      .filter(function (serviceId) {
+        return (
+          scores[serviceId] > 0 &&
+          D.SERVICES[serviceId] &&
+          eligible(serviceId, answerSet)
+        );
+      })
+      .sort(function (a, b) {
+        if (scores[b] !== scores[a]) return scores[b] - scores[a];
+        return D.PRIORITY.indexOf(a) - D.PRIORITY.indexOf(b);
+      });
+    var primary = ranked[0];
+    var supporting = ranked
+      .filter(function (serviceId) {
+        return (
+          serviceId !== primary && D.PRIMARY_ONLY.indexOf(serviceId) === -1
+        );
+      })
+      .slice(0, 2);
+    return [primary].concat(supporting);
   }
 
   function assertScoreSubset(result, expected, label) {
@@ -255,11 +290,15 @@
 
   function expectedAppliedRuleIds(answerSet) {
     var ids = [];
-    if (answerSet.budget === "under50" && answerSet.challenge === "leads") {
-      ids.push("focused-lead-generation");
-    }
     if (answerSet.type === "local" && answerSet.challenge === "leads") {
       ids.push("local-lead-generation");
+    }
+    if (
+      answerSet.budget === "over300" &&
+      answerSet.challenge === "leads" &&
+      (answerSet.type === "national" || answerSet.type === "enterprise")
+    ) {
+      ids.push("scaled-demand-generation");
     }
     if (answerSet.type === "local" && answerSet.challenge === "ranking") {
       ids.push("local-search-ranking");
@@ -268,50 +307,19 @@
       ids.push("ecommerce-traffic-efficiency");
     }
     if (
+      answerSet.budget === "over300" &&
+      answerSet.challenge === "traffic" &&
+      (answerSet.type === "national" || answerSet.type === "enterprise")
+    ) {
+      ids.push("scaled-reach");
+    }
+    if (
       answerSet.challenge === "ai" &&
       (answerSet.profile === "enterprise" || answerSet.type === "enterprise")
     ) {
       ids.push("enterprise-ai-content");
     }
     return ids;
-  }
-
-  function expectedSupportRule(answerSet) {
-    if (answerSet.challenge === "leads") {
-      return answerSet.type === "local" ? "local-leads" : "lead-generation";
-    }
-    if (answerSet.challenge === "ranking") {
-      return answerSet.type === "local" ? "local-ranking" : "organic-ranking";
-    }
-    if (answerSet.challenge === "ai") return "ai-visibility";
-    if (answerSet.challenge === "traffic") {
-      if (answerSet.type === "ecommerce") return "ecommerce-traffic";
-      if (
-        answerSet.budget === "over300" &&
-        (answerSet.type === "national" || answerSet.type === "enterprise")
-      ) {
-        return "scaled-traffic";
-      }
-      return "core-traffic";
-    }
-    if (answerSet.challenge === "website") {
-      return answerSet.type === "ecommerce" || answerSet.type === "mixed"
-        ? "commerce-website"
-        : "website-foundation";
-    }
-    return "strategy-discovery";
-  }
-
-  function expectedPrimaryPoolMembers(answerSet) {
-    var pool = D.PRIMARY_POOLS[answerSet.challenge].slice();
-    if (
-      answerSet.challenge === "ranking" &&
-      answerSet.type !== "local" &&
-      answerSet.type !== "mixed"
-    ) {
-      return ["seo"];
-    }
-    return pool;
   }
 
   function expectedPhases(answerSet, result) {
@@ -378,7 +386,7 @@
     });
   });
 
-  test("all configured weight targets and primary pools are valid", function () {
+  test("all configured weight targets are valid", function () {
     D.QUESTIONS.forEach(function (item) {
       item.options.forEach(function (option) {
         Object.keys(option.weights).forEach(function (serviceId) {
@@ -391,10 +399,28 @@
         });
       });
     });
-    Object.keys(D.PRIMARY_POOLS).forEach(function (challengeId) {
-      D.PRIMARY_POOLS[challengeId].forEach(function (serviceId) {
-        assert(D.SERVICES[serviceId], "unknown primary-pool service " + serviceId);
+    assert(
+      !D.PRIMARY_POOLS,
+      "primary pools must not come back — rank order is the recommendation",
+    );
+    /* Budget may shift emphasis, but never uniformly: a service that gains the
+       same points at every tier is riding the budget answer rather than earning
+       its place, which is what put Local SEO into small-budget lead plans. */
+    var tiers = question("budget").options.filter(function (option) {
+      return Object.keys(option.weights || {}).length > 0;
+    });
+    Object.keys(D.SERVICES).forEach(function (serviceId) {
+      var awarded = tiers.map(function (option) {
+        return (option.weights || {})[serviceId] || 0;
       });
+      var everywhere = awarded.every(function (points) {
+        return points > 0;
+      });
+      if (!everywhere) return;
+      assert(
+        unique(awarded).length > 1,
+        "budget awards " + serviceId + " the same points at every tier",
+      );
     });
     deepEqual(Object.keys(D.SCORE_GROUPS || {}), [], "v2 must not retain an AI-SEO shadow score");
   });
@@ -405,10 +431,11 @@
         return rule.id;
       }),
       [
-        "focused-lead-generation",
         "local-lead-generation",
+        "scaled-demand-generation",
         "local-search-ranking",
         "ecommerce-traffic-efficiency",
+        "scaled-reach",
         "enterprise-ai-content",
       ],
       "interaction IDs",
@@ -430,97 +457,171 @@
     });
   });
 
-  test("canonical local lead plans switch appropriately by budget", function () {
-    var focused = E.score(answers("sme", "local", "under50", "leads"));
-    deepEqual(topThree(focused), ["social", "google-ads", "local-seo"], "focused local leads");
+  test("the worked SME lead persona returns Google Ads, Social, SEO", function () {
+    /* The reference persona: a local SME on a small budget that needs leads.
+       Paid search captures demand that already exists, social creates more of
+       it cheaply, and SEO + AI Visibility is the long game underneath. */
+    var result = E.score(answers("sme", "local", "under50", "leads"));
+    deepEqual(topThree(result), ["google-ads", "social", "seo"], "SME lead persona");
     assertScoreSubset(
-      focused,
-      { social: 24, "google-ads": 23, "local-seo": 17, seo: 10, cro: 6 },
-      "focused local leads",
-    );
-
-    var growth = E.score(answers("sme", "local", "50to100", "leads"));
-    deepEqual(topThree(growth), ["google-ads", "social", "local-seo"], "growth local leads");
-    assertScoreSubset(
-      growth,
-      { "google-ads": 24, social: 20, "local-seo": 17, seo: 11, cro: 6 },
-      "growth local leads",
+      result,
+      { "google-ads": 37, social: 27, seo: 9 },
+      "SME lead persona",
     );
   });
 
-  test("canonical national lead tie favours Social", function () {
-    var result = E.score(answers("agency", "national", "over300", "leads"));
-    deepEqual(topThree(result), ["social", "google-ads", "seo"], "national lead bundle");
+  test("budget shifts the plan without overriding the challenge", function () {
+    var shifted = 0;
+    optionIds("profile").forEach(function (profile) {
+      optionIds("type").forEach(function (type) {
+        optionIds("challenge").forEach(function (challenge) {
+          var plans = optionIds("budget").map(function (budget) {
+            return topThree(E.score(answers(profile, type, budget, challenge))).join(">");
+          });
+          if (unique(plans).length > 1) shifted += 1;
+        });
+      });
+    });
+    /* Budget must matter — a bigger budget should be able to buy a broader
+       plan — without becoming the thing that decides the recommendation. */
+    assert(shifted >= 40, "budget changed too few plans: " + shifted);
+    assert(shifted <= 80, "budget is overriding the challenge: " + shifted);
+
+    /* The reference persona keeps its answer at every budget it can fund. */
+    ["under50", "50to100"].forEach(function (budget) {
+      deepEqual(
+        topThree(E.score(answers("sme", "local", budget, "leads"))),
+        ["google-ads", "social", "seo"],
+        budget + " local SME lead plan",
+      );
+    });
+  });
+
+  test("lead plans lead with demand capture unless the budget buys an engine", function () {
+    allCases()
+      .filter(function (answerSet) {
+        return answerSet.challenge === "leads";
+      })
+      .forEach(function (answerSet) {
+        var result = E.score(answerSet);
+        var label = caseLabel(answerSet);
+        var scaled =
+          answerSet.budget === "over300" &&
+          (answerSet.type === "national" || answerSet.type === "enterprise");
+        if (scaled) {
+          /* At this budget the brief changes: build demand, do not just buy it. */
+          assert(
+            ["seo", "google-ads"].indexOf(result.primary) !== -1,
+            label + " scaled lead primary was " + result.primary,
+          );
+        } else {
+          equal(result.primary, "google-ads", label + " lead primary");
+        }
+      });
+  });
+
+  test("Local SEO is a search-visibility service, never a lead channel", function () {
+    allCases().forEach(function (answerSet) {
+      var result = E.score(answerSet);
+      if (topThree(result).indexOf("local-seo") === -1) return;
+      assert(
+        answerSet.type === "local" || answerSet.type === "mixed",
+        caseLabel(answerSet) + " must not surface Local SEO for a non-local business",
+      );
+      assert(
+        answerSet.challenge === "ranking" || answerSet.challenge === "ai",
+        caseLabel(answerSet) + " must not surface Local SEO outside a visibility challenge",
+      );
+    });
+  });
+
+  test("canonical local ranking plan makes Local SEO primary", function () {
+    var result = E.score(answers("inhouse", "local", "100to300", "ranking"));
+    deepEqual(topThree(result), ["local-seo", "seo", "content"], "local ranking bundle");
     assertScoreSubset(
       result,
-      { social: 22, "google-ads": 22, seo: 19 },
-      "national lead tie",
+      { "local-seo": 40, seo: 38, content: 26, "google-ads": 12, social: 9 },
+      "local ranking",
+    );
+  });
+
+  test("content earns second place on ranking and AI visibility", function () {
+    allCases()
+      .filter(function (answerSet) {
+        return (
+          (answerSet.challenge === "ranking" || answerSet.challenge === "ai") &&
+          answerSet.type !== "local" &&
+          answerSet.type !== "mixed"
+        );
+      })
+      .forEach(function (answerSet) {
+        var plan = topThree(E.score(answerSet));
+        deepEqual(plan.slice(0, 2), ["seo", "content"], caseLabel(answerSet) + " visibility pair");
+      });
+
+    var national = E.score(answers("sme", "national", "under50", "ranking"));
+    assertScoreSubset(
+      national,
+      { seo: 36, content: 24, "google-ads": 13 },
+      "national ranking",
     );
   });
 
   test("canonical enterprise AI plan applies its content interaction once", function () {
     var result = E.score(answers("enterprise", "enterprise", "over300", "ai"));
-    deepEqual(topThree(result), ["seo", "content", "google-ads"], "enterprise AI bundle");
+    deepEqual(topThree(result), ["seo", "content", "social"], "enterprise AI bundle");
     assertScoreSubset(
       result,
-      { seo: 31, content: 22, "google-ads": 13, social: 13, programmatic: 8 },
+      { seo: 44, content: 40, social: 9, "google-ads": 7 },
       "enterprise AI",
     );
   });
 
-  test("canonical local ranking plan makes Local SEO primary", function () {
-    var result = E.score(answers("inhouse", "local", "100to300", "ranking"));
-    deepEqual(topThree(result), ["local-seo", "seo", "google-ads"], "local ranking bundle");
-    assertScoreSubset(
-      result,
-      { "local-seo": 28, seo: 25, "google-ads": 15, social: 11, content: 11 },
-      "local ranking",
-    );
-  });
-
-  test("canonical traffic plans enforce CRO and scaled-media bundles", function () {
+  test("canonical traffic plans keep CRO for e-commerce and scale for enterprise", function () {
     var ecommerce = E.score(answers("sme", "ecommerce", "under50", "traffic"));
-    deepEqual(topThree(ecommerce), ["seo", "google-ads", "cro"], "e-commerce traffic bundle");
+    deepEqual(topThree(ecommerce), ["google-ads", "seo", "cro"], "e-commerce traffic bundle");
     assertScoreSubset(
       ecommerce,
-      { seo: 21, "google-ads": 21, social: 19, cro: 19 },
+      { "google-ads": 32, cro: 28, seo: 28, social: 27 },
       "e-commerce traffic",
     );
 
     var local = E.score(answers("sme", "local", "under50", "traffic"));
     deepEqual(topThree(local), ["google-ads", "seo", "social"], "local SME traffic bundle");
-    assertScoreSubset(local, { "google-ads": 19, seo: 18, social: 17 }, "local SME traffic");
+    assertScoreSubset(local, { "google-ads": 31, seo: 25, social: 25 }, "local SME traffic");
 
-    var scaled = E.score(answers("agency", "national", "over300", "traffic"));
-    deepEqual(topThree(scaled), ["seo", "google-ads", "programmatic"], "scaled traffic bundle");
-    assertScoreSubset(
-      scaled,
-      { seo: 27, "google-ads": 20, social: 19, programmatic: 8 },
-      "scaled traffic",
-    );
+    /* A very large media budget is what actually makes scaled reach buyable. */
+    var national = E.score(answers("agency", "national", "over300", "traffic"));
+    deepEqual(topThree(national), ["seo", "programmatic", "google-ads"], "scaled traffic bundle");
+    assertScoreSubset(national, { seo: 38, programmatic: 27, "google-ads": 26 }, "scaled traffic");
   });
 
-  test("canonical website plans keep UX/UI second and select the right third service", function () {
+  test("website plans scale from a redesign to a rebuild as budget allows", function () {
+    /* Below THB 50k a redesign is the realistic move; a full rebuild is what a
+       larger budget actually buys. */
     var ecommerce = E.score(answers("sme", "ecommerce", "under50", "website"));
-    deepEqual(topThree(ecommerce), ["web-dev", "uxui", "cro"], "e-commerce website bundle");
-    assertScoreSubset(ecommerce, { "web-dev": 24, uxui: 18, cro: 14, seo: 13 }, "e-commerce website");
+    deepEqual(topThree(ecommerce), ["uxui", "web-dev", "cro"], "small-budget website bundle");
+    assertScoreSubset(ecommerce, { uxui: 32, "web-dev": 30, cro: 20 }, "small-budget website");
+
+    var funded = E.score(answers("sme", "ecommerce", "over300", "website"));
+    deepEqual(topThree(funded), ["web-dev", "uxui", "cro"], "funded website bundle");
+    assertScoreSubset(funded, { "web-dev": 38, uxui: 24, cro: 22 }, "funded website");
 
     var mixed = E.score(answers("inhouse", "mixed", "50to100", "website"));
-    deepEqual(topThree(mixed), ["web-dev", "uxui", "cro"], "mixed website bundle");
-    assertScoreSubset(mixed, { "web-dev": 24, uxui: 18, seo: 16, cro: 11 }, "mixed website");
+    deepEqual(topThree(mixed), ["web-dev", "uxui", "seo"], "mixed website bundle");
 
     var national = E.score(answers("sme", "national", "under50", "website"));
-    deepEqual(topThree(national), ["web-dev", "uxui", "seo"], "national website bundle");
+    deepEqual(topThree(national), ["uxui", "web-dev", "seo"], "national website bundle");
   });
 
   test("canonical consultation and AI plans preserve challenge intent", function () {
     var unsure = E.score(answers("enterprise", "enterprise", "unsure", "unsure"));
     deepEqual(topThree(unsure), ["consult", "seo", "google-ads"], "consultation bundle");
-    assertScoreSubset(unsure, { consult: 30, seo: 14, "google-ads": 9, social: 9 }, "consultation");
+    assertScoreSubset(unsure, { consult: 40, seo: 14, "google-ads": 8, social: 8 }, "consultation");
 
     var ai = E.score(answers("agency", "national", "unsure", "ai"));
     deepEqual(topThree(ai), ["seo", "content", "social"], "national AI bundle");
-    assertScoreSubset(ai, { seo: 25, content: 12, social: 8, "google-ads": 7 }, "national AI");
+    assertScoreSubset(ai, { seo: 38, content: 27, social: 9, "google-ads": 5 }, "national AI");
   });
 
   test("all 600 complete cases have a coherent result shape", function () {
@@ -601,13 +702,15 @@
         deepEqual(appliedRule.weights, configuredRule.weights, label + " applied rule weights for " + appliedRule.id);
       });
 
-      deepEqual(
-        breakdown.primaryPool.slice().sort(),
-        expectedPrimaryPoolMembers(answerSet).sort(),
-        label + " primary-pool membership",
+      assert(
+        !("primaryPool" in breakdown) && !("supportRule" in breakdown),
+        label + " must not expose pool/bundle overrides",
       );
-      equal(breakdown.primaryPool[0], result.primary, label + " sorted primary-pool winner");
-      equal(breakdown.supportRule, expectedSupportRule(answerSet), label + " support rule");
+      deepEqual(
+        result.ranked.slice(0, 3),
+        [result.primary].concat(result.supporting),
+        label + " ranked order must lead with the three cards",
+      );
 
       Object.keys(result.scores).forEach(function (serviceId) {
         var row = breakdown.byService[serviceId];
@@ -688,9 +791,7 @@
         label + " confidence score gap",
       );
       assert(typeof result.confidence.reason === "string" && result.confidence.reason.length > 0, label + " confidence reason");
-      var otherPrimary = breakdown.primaryPool.filter(function (serviceId) {
-        return serviceId !== result.primary;
-      })[0];
+      var otherPrimary = result.supporting[0];
       var expectedGap = otherPrimary
         ? result.scores[result.primary] - result.scores[otherPrimary]
         : null;
@@ -728,7 +829,7 @@
     );
   });
 
-  test("all 600 primary and top-three distributions match the v2 baseline", function () {
+  test("all 600 primary and top-three distributions match the v3 baseline", function () {
     var primaryCounts = countBy(
       combinations.map(function (item) {
         return item.result.primary;
@@ -743,27 +844,27 @@
     deepEqual(
       primaryCounts,
       {
-        seo: 275,
-        "google-ads": 69,
-        social: 36,
-        "local-seo": 20,
-        "web-dev": 100,
+        seo: 278,
+        "google-ads": 102,
+        "web-dev": 80,
         consult: 100,
+        "local-seo": 20,
+        uxui: 20,
       },
       "primary distribution",
     );
     deepEqual(
       appearanceCounts,
       {
-        seo: 540,
-        "google-ads": 452,
-        social: 220,
-        content: 180,
+        seo: 514,
+        "google-ads": 324,
+        social: 291,
+        content: 206,
         "web-dev": 100,
         uxui: 100,
         consult: 100,
-        cro: 60,
-        "local-seo": 40,
+        "local-seo": 80,
+        cro: 77,
         programmatic: 8,
       },
       "top-three distribution",
@@ -779,14 +880,14 @@
 
   test("primary eligibility and support-only constraints hold exhaustively", function () {
     var allowed = {
-      leads: ["google-ads", "social"],
+      leads: ["google-ads", "seo"],
       ranking: ["seo", "local-seo"],
       ai: ["seo"],
-      traffic: ["seo", "google-ads", "social"],
-      website: ["web-dev"],
+      traffic: ["seo", "google-ads"],
+      website: ["web-dev", "uxui"],
       unsure: ["consult"],
     };
-    var supportOnly = ["content", "cro", "uxui", "programmatic", "reseller", "outcome"];
+    var supportOnly = ["content", "cro", "programmatic", "reseller", "outcome"];
     var actionable = 0;
     var coreActionable = 0;
 
@@ -830,16 +931,32 @@
       var label = caseLabel(item.answers);
       if (recommendations.indexOf("programmatic") !== -1) {
         programmaticCases.push(item);
-        equal(item.answers.budget, "over300", label + " Programmatic budget");
-        equal(item.answers.challenge, "traffic", label + " Programmatic challenge");
         assert(
-          item.answers.type === "national" || item.answers.type === "enterprise",
+          ["100to300", "over300"].indexOf(item.answers.budget) !== -1,
+          label + " Programmatic budget",
+        );
+        assert(
+          ["leads", "traffic"].indexOf(item.answers.challenge) !== -1,
+          label + " Programmatic challenge",
+        );
+        assert(
+          ["national", "enterprise", "mixed"].indexOf(item.answers.type) !== -1,
           label + " Programmatic business type",
         );
       }
       if (item.result.primary === "local-seo") {
         equal(item.answers.type, "local", label + " Local SEO primary type");
         equal(item.answers.challenge, "ranking", label + " Local SEO primary challenge");
+      }
+      if (recommendations.indexOf("local-seo") !== -1) {
+        assert(
+          ["ranking", "ai", "unsure"].indexOf(item.answers.challenge) !== -1,
+          label + " Local SEO is a visibility or discovery answer only",
+        );
+        assert(
+          item.answers.challenge !== "leads",
+          label + " Local SEO must never appear in a lead plan",
+        );
       }
       if (item.result.primary === "consult") {
         equal(item.answers.challenge, "unsure", label + " Consultation primary challenge");
@@ -849,17 +966,15 @@
   });
 
   test("tie rules are deterministic and one-point leads remain real wins", function () {
-    var nationalLeadTies = combinations.filter(function (item) {
+    /* Lead plans no longer hinge on a coin-flip between the two paid channels:
+       Google Ads wins outright everywhere, so there is nothing left to tie. */
+    var paidLeadTies = combinations.filter(function (item) {
       return (
-        item.answers.type === "national" &&
         item.answers.challenge === "leads" &&
         item.result.scores["google-ads"] === item.result.scores.social
       );
     });
-    equal(nationalLeadTies.length, 16, "National lead tie count");
-    nationalLeadTies.forEach(function (item) {
-      equal(item.result.primary, "social", caseLabel(item.answers) + " tie winner");
-    });
+    equal(paidLeadTies.length, 0, "paid lead tie count");
 
     var ecommerceTrafficTies = combinations.filter(function (item) {
       return (
@@ -869,21 +984,28 @@
         item.result.scores.seo === item.result.scores["google-ads"]
       );
     });
-    equal(ecommerceTrafficTies.length, 5, "SME e-commerce traffic tie count");
+    equal(ecommerceTrafficTies.length, 2, "SME e-commerce traffic tie count");
     ecommerceTrafficTies.forEach(function (item) {
       equal(item.result.primary, "seo", caseLabel(item.answers) + " tie winner");
     });
 
     var localLead = E.score(answers("sme", "local", "under50", "leads"));
     equal(localLead.result, undefined, "result objects must not be nested unexpectedly");
-    equal(localLead.scores.social - localLead.scores["google-ads"], 1, "local lead score gap");
-    equal(localLead.primary, "social", "one-point Social win");
+    equal(localLead.scores["google-ads"] - localLead.scores.social, 10, "local lead score gap");
+    equal(localLead.primary, "google-ads", "Google Ads leads the lead plan");
 
+    /* The same local business with the same traffic problem should get a
+       different lead channel once it can fund a compounding one. */
+    var localTrafficPrimary = {};
     optionIds("budget").forEach(function (budget) {
-      var localTraffic = E.score(answers("sme", "local", budget, "traffic"));
-      equal(localTraffic.scores["google-ads"] - localTraffic.scores.seo, 1, budget + " local traffic gap");
-      equal(localTraffic.primary, "google-ads", budget + " one-point Google win");
+      localTrafficPrimary[budget] = E.score(
+        answers("sme", "local", budget, "traffic"),
+      ).primary;
     });
+    equal(localTrafficPrimary.under50, "google-ads", "small-budget local traffic");
+    equal(localTrafficPrimary["50to100"], "google-ads", "growth-budget local traffic");
+    equal(localTrafficPrimary["100to300"], "seo", "scale-budget local traffic");
+    equal(localTrafficPrimary.over300, "seo", "enterprise-budget local traffic");
   });
 
   test("answer object key order cannot alter scoring", function () {
@@ -929,14 +1051,17 @@
         });
       });
     });
-    equal(changedByBudget, 16, "persona/type/challenge groups whose primary changes by budget");
+    equal(changedByBudget, 32, "persona/type/challenge groups whose primary changes by budget");
 
     var focusedLeadCases = combinations.filter(function (item) {
       return item.answers.budget === "under50" && item.answers.challenge === "leads";
     });
     equal(focusedLeadCases.length, 20, "focused lead case count");
     focusedLeadCases.forEach(function (item) {
-      equal(item.result.primary, "social", caseLabel(item.answers) + " focused lead primary");
+      /* A small budget funds fewer workstreams; it does not change which
+         channel generates leads fastest. */
+      equal(item.result.primary, "google-ads", caseLabel(item.answers) + " focused lead primary");
+      equal(item.result.phases[0].serviceIds.length, 1, caseLabel(item.answers) + " focused lead phasing");
     });
 
     combinations
@@ -968,7 +1093,7 @@
     equal(empty.confidence.scoreGap, null, "empty confidence gap");
 
     var profileOnly = E.score({ profile: "sme" });
-    deepEqual(topThree(profileOnly), ["google-ads", "social", "seo"], "profile-only numeric fallback");
+    deepEqual(topThree(profileOnly), ["google-ads", "social", "local-seo"], "profile-only numeric fallback");
     equal(profileOnly.isComplete, false, "profile-only completeness");
     deepEqual(
       profileOnly.missingQuestionIds,
