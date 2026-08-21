@@ -12,11 +12,14 @@
       "name": "Setup",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-660, -120]
+      "position": [
+        -660,
+        -120
+      ]
     },
     {
       "parameters": {
-        "content": "## 2. Data table columns\n\nCreate `MAM Quiz Leads` with exactly these:\n\n| Column | Type |\n| --- | --- |\n| submitted_at | date |\n| status | string |\n| name | string |\n| email | string |\n| phone | string |\n| website | string |\n| profile | string |\n| business_type | string |\n| budget | string |\n| challenge | string |\n| primary_service | string |\n| primary_service_url | string |\n| supporting_services | string |\n| budget_tier | string |\n| all_ranked | string |\n| recaptcha_configured | boolean |\n| recaptcha_success | boolean |\n| recaptcha_score | number |\n| client_spam_score | number |\n| spam_signals | string |\n| seconds_to_complete | number |\n| page_url | string |\n| referrer | string |\n| user_agent | string |\n| utm_source | string |\n| utm_medium | string |\n| utm_campaign | string |\n| gclid | string |\n| fbclid | string |\n| client_ip | string |\n\nDo **not** add an `id` column — n8n generates row IDs itself.\n\nIf the insert complains about `submitted_at`, switch that column to `string`.",
+        "content": "## 2. Data table columns\n\nCreate `MAM Quiz Leads` with exactly these:\n\n| Column | Type |\n| --- | --- |\n| submitted_at | date |\n| status | string |\n| name | string |\n| email | string |\n| phone | string |\n| website | string |\n| profile | string |\n| business_type | string |\n| budget | string |\n| challenge | string |\n| challenge_2 | string |\n| situation | string |\n| primary_service | string |\n| primary_service_url | string |\n| supporting_services | string |\n| budget_tier | string |\n| all_ranked | string |\n| recaptcha_configured | boolean |\n| recaptcha_success | boolean |\n| recaptcha_score | number |\n| client_spam_score | number |\n| spam_signals | string |\n| seconds_to_complete | number |\n| page_url | string |\n| referrer | string |\n| user_agent | string |\n| utm_source | string |\n| utm_medium | string |\n| utm_campaign | string |\n| gclid | string |\n| fbclid | string |\n| client_ip | string |\n\n`challenge_2` and `situation` are new in logic v5. The quiz has always sent the second challenge; nothing read it until now, so it was being discarded on every lead. Everything else is unchanged — the existing workflow keeps working even without this update.\n\nDo **not** add an `id` column — n8n generates row IDs itself.\n\nIf the insert complains about `submitted_at`, switch that column to `string`.",
         "height": 900,
         "width": 380,
         "color": 4
@@ -25,7 +28,10 @@
       "name": "Columns",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-220, -120]
+      "position": [
+        -220,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -38,7 +44,10 @@
       "name": "Policy",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [640, -120]
+      "position": [
+        640,
+        -120
+      ]
     },
     {
       "parameters": {
@@ -51,9 +60,11 @@
       "name": "Extend",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [1720, -120]
+      "position": [
+        1720,
+        -120
+      ]
     },
-
     {
       "parameters": {
         "httpMethod": "POST",
@@ -68,7 +79,10 @@
       "name": "Quiz Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-180, 860],
+      "position": [
+        -180,
+        860
+      ],
       "webhookId": "a7f3c1d2-9b48-4e06-8f51-2c9d6e4b7a30"
     },
     {
@@ -105,7 +119,10 @@
       "name": "Verify reCAPTCHA",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [60, 860],
+      "position": [
+        60,
+        860
+      ],
       "onError": "continueRegularOutput",
       "notesInFlow": true,
       "notes": "Fails soft — a broken CAPTCHA must never lose a lead"
@@ -116,44 +133,198 @@
         "includeOtherFields": false,
         "assignments": {
           "assignments": [
-            { "id": "f-submitted-at", "name": "submitted_at", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.submitted_at ?? $now.toISO() }}" },
-
-            { "id": "f-status", "name": "status", "type": "string", "value": "={{ ($('Quiz Webhook').item.json.body?.security?.client_spam_score ?? 0) >= 60 ? 'review' : ($('Quiz Webhook').item.json.body?.security?.recaptcha?.configured !== true ? 'new' : (($json.success === true && ($json.score ?? 0) >= 0.5) ? 'new' : 'review')) }}" },
-
-            { "id": "f-name", "name": "name", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.lead?.name ?? '' }}" },
-            { "id": "f-email", "name": "email", "type": "string", "value": "={{ ($('Quiz Webhook').item.json.body?.lead?.email ?? '').toLowerCase().trim() }}" },
-            { "id": "f-phone", "name": "phone", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.lead?.phone ?? '' }}" },
-            { "id": "f-website", "name": "website", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.lead?.website ?? '' }}" },
-
-            { "id": "f-profile", "name": "profile", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.answers?.profile?.label ?? '' }}" },
-            { "id": "f-type", "name": "business_type", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.answers?.type?.label ?? '' }}" },
-            { "id": "f-budget", "name": "budget", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.answers?.budget?.label ?? '' }}" },
-            { "id": "f-challenge", "name": "challenge", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.answers?.challenge?.label ?? '' }}" },
-
-            { "id": "f-primary", "name": "primary_service", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.primary?.name ?? '' }}" },
-            { "id": "f-primary-url", "name": "primary_service_url", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.primary?.url ?? '' }}" },
-            { "id": "f-supporting", "name": "supporting_services", "type": "string", "value": "={{ ($('Quiz Webhook').item.json.body?.recommendation?.supporting ?? []).map(s => s.name).join(', ') }}" },
-            { "id": "f-tier", "name": "budget_tier", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.budget_tier ?? '' }}" },
-            { "id": "f-ranked", "name": "all_ranked", "type": "string", "value": "={{ JSON.stringify($('Quiz Webhook').item.json.body?.recommendation?.all_ranked ?? []) }}" },
-
-            { "id": "f-rc-configured", "name": "recaptcha_configured", "type": "boolean", "value": "={{ $('Quiz Webhook').item.json.body?.security?.recaptcha?.configured === true }}" },
-            { "id": "f-rc-success", "name": "recaptcha_success", "type": "boolean", "value": "={{ $json.success === true }}" },
-            { "id": "f-rc-score", "name": "recaptcha_score", "type": "number", "value": "={{ $json.score ?? 0 }}" },
-            { "id": "f-spam-score", "name": "client_spam_score", "type": "number", "value": "={{ $('Quiz Webhook').item.json.body?.security?.client_spam_score ?? 0 }}" },
-            { "id": "f-spam-signals", "name": "spam_signals", "type": "string", "value": "={{ JSON.stringify($('Quiz Webhook').item.json.body?.security?.signals ?? {}) }}" },
-
-            { "id": "f-seconds", "name": "seconds_to_complete", "type": "number", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.seconds_to_complete ?? 0 }}" },
-            { "id": "f-page", "name": "page_url", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.page_url ?? '' }}" },
-            { "id": "f-referrer", "name": "referrer", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.referrer ?? '' }}" },
-            { "id": "f-ua", "name": "user_agent", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.user_agent ?? '' }}" },
-
-            { "id": "f-utm-source", "name": "utm_source", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.utm_source ?? '' }}" },
-            { "id": "f-utm-medium", "name": "utm_medium", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.utm_medium ?? '' }}" },
-            { "id": "f-utm-campaign", "name": "utm_campaign", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.utm_campaign ?? '' }}" },
-            { "id": "f-gclid", "name": "gclid", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.gclid ?? '' }}" },
-            { "id": "f-fbclid", "name": "fbclid", "type": "string", "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.fbclid ?? '' }}" },
-
-            { "id": "f-ip", "name": "client_ip", "type": "string", "value": "={{ ($('Quiz Webhook').item.json.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim() }}" }
+            {
+              "id": "f-submitted-at",
+              "name": "submitted_at",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.submitted_at ?? $now.toISO() }}"
+            },
+            {
+              "id": "f-status",
+              "name": "status",
+              "type": "string",
+              "value": "={{ ($('Quiz Webhook').item.json.body?.security?.client_spam_score ?? 0) >= 60 ? 'review' : ($('Quiz Webhook').item.json.body?.security?.recaptcha?.configured !== true ? 'new' : (($json.success === true && ($json.score ?? 0) >= 0.5) ? 'new' : 'review')) }}"
+            },
+            {
+              "id": "f-name",
+              "name": "name",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.lead?.name ?? '' }}"
+            },
+            {
+              "id": "f-email",
+              "name": "email",
+              "type": "string",
+              "value": "={{ ($('Quiz Webhook').item.json.body?.lead?.email ?? '').toLowerCase().trim() }}"
+            },
+            {
+              "id": "f-phone",
+              "name": "phone",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.lead?.phone ?? '' }}"
+            },
+            {
+              "id": "f-website",
+              "name": "website",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.lead?.website ?? '' }}"
+            },
+            {
+              "id": "f-profile",
+              "name": "profile",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.answers?.profile?.label ?? '' }}"
+            },
+            {
+              "id": "f-type",
+              "name": "business_type",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.answers?.type?.label ?? '' }}"
+            },
+            {
+              "id": "f-budget",
+              "name": "budget",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.answers?.budget?.label ?? '' }}"
+            },
+            {
+              "id": "f-challenge",
+              "name": "challenge",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.answers?.challenge?.label ?? '' }}"
+            },
+            {
+              "id": "f-challenge-2",
+              "name": "challenge_2",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.answers?.challenge_2?.label ?? '' }}"
+            },
+            {
+              "id": "f-situation",
+              "name": "situation",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.situation ?? '' }}"
+            },
+            {
+              "id": "f-primary",
+              "name": "primary_service",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.primary?.name ?? '' }}"
+            },
+            {
+              "id": "f-primary-url",
+              "name": "primary_service_url",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.primary?.url ?? '' }}"
+            },
+            {
+              "id": "f-supporting",
+              "name": "supporting_services",
+              "type": "string",
+              "value": "={{ ($('Quiz Webhook').item.json.body?.recommendation?.supporting ?? []).map(s => s.name).join(', ') }}"
+            },
+            {
+              "id": "f-tier",
+              "name": "budget_tier",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.recommendation?.budget_tier ?? '' }}"
+            },
+            {
+              "id": "f-ranked",
+              "name": "all_ranked",
+              "type": "string",
+              "value": "={{ JSON.stringify($('Quiz Webhook').item.json.body?.recommendation?.all_ranked ?? []) }}"
+            },
+            {
+              "id": "f-rc-configured",
+              "name": "recaptcha_configured",
+              "type": "boolean",
+              "value": "={{ $('Quiz Webhook').item.json.body?.security?.recaptcha?.configured === true }}"
+            },
+            {
+              "id": "f-rc-success",
+              "name": "recaptcha_success",
+              "type": "boolean",
+              "value": "={{ $json.success === true }}"
+            },
+            {
+              "id": "f-rc-score",
+              "name": "recaptcha_score",
+              "type": "number",
+              "value": "={{ $json.score ?? 0 }}"
+            },
+            {
+              "id": "f-spam-score",
+              "name": "client_spam_score",
+              "type": "number",
+              "value": "={{ $('Quiz Webhook').item.json.body?.security?.client_spam_score ?? 0 }}"
+            },
+            {
+              "id": "f-spam-signals",
+              "name": "spam_signals",
+              "type": "string",
+              "value": "={{ JSON.stringify($('Quiz Webhook').item.json.body?.security?.signals ?? {}) }}"
+            },
+            {
+              "id": "f-seconds",
+              "name": "seconds_to_complete",
+              "type": "number",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.seconds_to_complete ?? 0 }}"
+            },
+            {
+              "id": "f-page",
+              "name": "page_url",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.page_url ?? '' }}"
+            },
+            {
+              "id": "f-referrer",
+              "name": "referrer",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.referrer ?? '' }}"
+            },
+            {
+              "id": "f-ua",
+              "name": "user_agent",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.user_agent ?? '' }}"
+            },
+            {
+              "id": "f-utm-source",
+              "name": "utm_source",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.utm_source ?? '' }}"
+            },
+            {
+              "id": "f-utm-medium",
+              "name": "utm_medium",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.utm_medium ?? '' }}"
+            },
+            {
+              "id": "f-utm-campaign",
+              "name": "utm_campaign",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.utm_campaign ?? '' }}"
+            },
+            {
+              "id": "f-gclid",
+              "name": "gclid",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.gclid ?? '' }}"
+            },
+            {
+              "id": "f-fbclid",
+              "name": "fbclid",
+              "type": "string",
+              "value": "={{ $('Quiz Webhook').item.json.body?.meta?.tracking?.fbclid ?? '' }}"
+            },
+            {
+              "id": "f-ip",
+              "name": "client_ip",
+              "type": "string",
+              "value": "={{ ($('Quiz Webhook').item.json.headers?.['x-forwarded-for'] ?? '').split(',')[0].trim() }}"
+            }
           ]
         },
         "options": {
@@ -165,7 +336,10 @@
       "name": "Build lead row",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [300, 860]
+      "position": [
+        300,
+        860
+      ]
     },
     {
       "parameters": {
@@ -212,36 +386,276 @@
             "client_ip": "={{ $json.client_ip }}"
           },
           "schema": [
-            { "id": "submitted_at", "displayName": "submitted_at", "required": false, "defaultMatch": false, "display": true, "type": "date", "canBeUsedToMatch": true },
-            { "id": "status", "displayName": "status", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "name", "displayName": "name", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "email", "displayName": "email", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "phone", "displayName": "phone", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "website", "displayName": "website", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "profile", "displayName": "profile", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "business_type", "displayName": "business_type", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "budget", "displayName": "budget", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "challenge", "displayName": "challenge", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "primary_service", "displayName": "primary_service", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "primary_service_url", "displayName": "primary_service_url", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "supporting_services", "displayName": "supporting_services", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "budget_tier", "displayName": "budget_tier", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "all_ranked", "displayName": "all_ranked", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "recaptcha_configured", "displayName": "recaptcha_configured", "required": false, "defaultMatch": false, "display": true, "type": "boolean", "canBeUsedToMatch": true },
-            { "id": "recaptcha_success", "displayName": "recaptcha_success", "required": false, "defaultMatch": false, "display": true, "type": "boolean", "canBeUsedToMatch": true },
-            { "id": "recaptcha_score", "displayName": "recaptcha_score", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true },
-            { "id": "client_spam_score", "displayName": "client_spam_score", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true },
-            { "id": "spam_signals", "displayName": "spam_signals", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "seconds_to_complete", "displayName": "seconds_to_complete", "required": false, "defaultMatch": false, "display": true, "type": "number", "canBeUsedToMatch": true },
-            { "id": "page_url", "displayName": "page_url", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "referrer", "displayName": "referrer", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "user_agent", "displayName": "user_agent", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "utm_source", "displayName": "utm_source", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "utm_medium", "displayName": "utm_medium", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "utm_campaign", "displayName": "utm_campaign", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "gclid", "displayName": "gclid", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "fbclid", "displayName": "fbclid", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
-            { "id": "client_ip", "displayName": "client_ip", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+            {
+              "id": "submitted_at",
+              "displayName": "submitted_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "date",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "profile",
+              "displayName": "profile",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_type",
+              "displayName": "business_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget",
+              "displayName": "budget",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "challenge",
+              "displayName": "challenge",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "primary_service",
+              "displayName": "primary_service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "primary_service_url",
+              "displayName": "primary_service_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "supporting_services",
+              "displayName": "supporting_services",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "budget_tier",
+              "displayName": "budget_tier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "all_ranked",
+              "displayName": "all_ranked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recaptcha_configured",
+              "displayName": "recaptcha_configured",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recaptcha_success",
+              "displayName": "recaptcha_success",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "recaptcha_score",
+              "displayName": "recaptcha_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_spam_score",
+              "displayName": "client_spam_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "spam_signals",
+              "displayName": "spam_signals",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "seconds_to_complete",
+              "displayName": "seconds_to_complete",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "page_url",
+              "displayName": "page_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "referrer",
+              "displayName": "referrer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_agent",
+              "displayName": "user_agent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "utm_source",
+              "displayName": "utm_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "utm_medium",
+              "displayName": "utm_medium",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "utm_campaign",
+              "displayName": "utm_campaign",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gclid",
+              "displayName": "gclid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fbclid",
+              "displayName": "fbclid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "client_ip",
+              "displayName": "client_ip",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
           ]
         },
         "options": {}
@@ -250,7 +664,10 @@
       "name": "Insert lead row",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "position": [560, 860]
+      "position": [
+        560,
+        860
+      ]
     },
     {
       "parameters": {
@@ -264,7 +681,10 @@
       "name": "Respond to quiz",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [800, 860]
+      "position": [
+        800,
+        860
+      ]
     },
     {
       "parameters": {
@@ -294,7 +714,10 @@
       "name": "Needs review?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1040, 860]
+      "position": [
+        1040,
+        860
+      ]
     },
     {
       "parameters": {},
@@ -302,7 +725,10 @@
       "name": "Review queue",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1300, 740],
+      "position": [
+        1300,
+        740
+      ],
       "notesInFlow": true,
       "notes": "Flagged — alert a human, do not auto-bin"
     },
@@ -312,31 +738,86 @@
       "name": "Clean lead",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1300, 980],
+      "position": [
+        1300,
+        980
+      ],
       "notesInFlow": true,
       "notes": "Send the confirmation email / push to CRM here"
     }
   ],
   "connections": {
     "Quiz Webhook": {
-      "main": [[{ "node": "Verify reCAPTCHA", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Verify reCAPTCHA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Verify reCAPTCHA": {
-      "main": [[{ "node": "Build lead row", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Build lead row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Build lead row": {
-      "main": [[{ "node": "Insert lead row", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Insert lead row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Insert lead row": {
-      "main": [[{ "node": "Respond to quiz", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Respond to quiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Respond to quiz": {
-      "main": [[{ "node": "Needs review?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Needs review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Needs review?": {
       "main": [
-        [{ "node": "Review queue", "type": "main", "index": 0 }],
-        [{ "node": "Clean lead", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Review queue",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clean lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

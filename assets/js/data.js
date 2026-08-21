@@ -7,6 +7,63 @@
 
   var SITE = "https://www.moveaheadmedia.co.th";
 
+  /* ── SERVICE URLS ────────────────────────────────────────────────────
+     Paste the live page URL for each service between the quotes. A service
+     left as "" simply renders without a "Learn more" link, so the card still
+     looks complete while links are outstanding.
+
+     Do NOT use "#" — the card opens links in a new tab, so "#" would open an
+     empty tab that goes nowhere.
+
+     This is the only place service URLs live.
+     ------------------------------------------------------------------ */
+  var SERVICE_URLS = {
+    /* ── SEO ── */
+    "ai-seo": "",
+    "seo-campaigns": "",
+    "seo-audit": "",
+    "on-page-seo": "",
+    "content-marketing": "",
+    "technical-seo": "",
+    "ecommerce-seo": "",
+    "video-seo": "",
+    "keyword-mapping": "",
+    "google-business-profile": "",
+    "seo-reseller": "",
+    "link-building": "",
+    "local-seo": "",
+
+    /* ── Google Ads ── */
+    "google-ads-campaigns": "",
+    "google-display-ads": "",
+    "performance-max": "",
+    "google-shopping": "",
+    "youtube-ads": "",
+
+    /* ── Social Media ── */
+    "social-media-campaigns": "",
+    "facebook-ads": "",
+    "cpas-ads": "",
+    "linkedin-ads": "",
+    "reddit-ads": "",
+    "line-ads": "",
+    "x-ads": "",
+    "tiktok-ads": "",
+    "premium-creative": "",
+
+    /* ── Website Development ── */
+    "web-design": "",
+    "web-maintenance": "",
+    "ui-ux": "",
+    "heat-maps": "",
+    "cro": "",
+
+    /* ── Other Services ── */
+    "email-marketing": "",
+    "programmatic-ads": "",
+    "outcome-marketing": "",
+  };
+
   /* ── Icons ──────────────────────────────────────────────────────────── */
   var ICONS = {
     search:
@@ -34,190 +91,665 @@
       '<circle cx="12" cy="12" r="8.5"/><path d="m15 9-1.8 4.2L9 15l1.8-4.2L15 9Z"/>',
     trophy:
       '<path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M8 5.5H5.5V7a3 3 0 0 0 3 3M16 5.5h2.5V7a3 3 0 0 1-3 3"/><path d="M10 13v3h4v-3M8.5 20h7"/>',
+    /* Added for the 35-service catalogue. Same 24x24 stroke grid as above —
+       paths only, no <svg> wrapper; app.js supplies that. */
+    cart: '<circle cx="9.5" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/><path d="M3 4h2.2l2.3 11h10.2l2.1-7.5H6"/>',
+    link: '<path d="M10.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.5 1.5"/><path d="M13.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.5-1.5"/>',
+    play: '<circle cx="12" cy="12" r="8.5"/><path d="M10.3 8.8v6.4l5-3.2-5-3.2Z"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M4.9 7.5l2.2 1.3M16.9 15.2l2.2 1.3M4.9 16.5l2.2-1.3M16.9 8.8l2.2-1.3"/>',
+    mail: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+    palette:
+      '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-.9 2-1.8 0-1.2-1-1.6-1-2.7 0-.8.7-1.5 1.5-1.5H16a4.5 4.5 0 0 0 4.5-4.5C20.5 6.4 16.7 3.5 12 3.5Z"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/>',
   };
 
-  /* ── Service catalogue ──────────────────────────────────────────────
-     Every public recommendation id must exist here. Internal scoring
-     signals may be collapsed into one service through SCORE_GROUPS.
+  /* ── CATALOGUE (logic v5) ───────────────────────────────────────────
+     The 35 services exactly as signed off on the service sheet.
+
+     Nothing reads this yet — the live quiz still runs on SERVICES above.
+     It is wired up in step 3 of the build, so this file can be reviewed
+     and the URLs filled in without changing a single recommendation.
+
+     Each entry carries three fields the old catalogue did not have:
+
+       category  The heading it sits under on the website.
+       family    Used by the "two primaries must be genuinely different"
+                 rule. Two services from the same family can never both
+                 lead a plan — no Google Ads Campaigns + Performance Max.
+       role      "lead"     may be primary or supporting
+                 "support"  supporting only, never primary. This is the
+                            guardrail for CRO, UI/UX, Technical SEO,
+                            Content Marketing and Link Building.
+                 "platform" named inside the Social Media Campaigns card
+                            rather than winning a card of its own
+                 "overlay"  changes how work is delivered, never a card
      ------------------------------------------------------------------ */
-  var SERVICES = {
-    seo: {
-      name: "SEO + AI Visibility",
-      kicker: "Organic & AI search visibility",
-      icon: ICONS.search,
-      url: SITE + "/seo/",
+  var CATALOGUE = {
+    /* ══ SEO ═══════════════════════════════════════════════════════ */
+    "ai-seo": {
+      name: "AI SEO",
+      category: "SEO",
+      family: "seo-ai",
+      role: "lead",
+      kicker: "AI Search Visibility",
+      icon: ICONS.sparkle,
+      url: SERVICE_URLS["ai-seo"],
       blurb:
-        "Build visibility across Google and AI search. Technical SEO, authoritative content, entities and schema help you rank in traditional results and earn citations in ChatGPT, Gemini and AI Overviews.",
+        "Improve your visibility across Google Search and AI search experiences such as Google AI Overviews, ChatGPT and Gemini.",
+      /* Deliverables are deliberately AI-only. The signed sheet listed
+         On-page SEO and Technical SEO here as well, which made this card
+         read as half of SEO Campaigns — the two are recommended together
+         in five personas, and a client should never see the same work
+         quoted twice. */
       deliverables: [
-        "Technical SEO & visibility audit",
-        "Keyword, topic & entity mapping",
-        "On-page, schema & answer-led content",
-        "Authority & AI citation tracking",
+        "Entity & brand optimisation",
+        "AI citation tracking",
+        "Answer-format content",
+        "Schema for AI assistants",
+      ],
+    },
+    "seo-campaigns": {
+      name: "SEO Campaigns",
+      category: "SEO",
+      family: "seo-organic",
+      role: "lead",
+      kicker: "Organic Search Growth",
+      icon: ICONS.search,
+      url: SERVICE_URLS["seo-campaigns"],
+      blurb:
+        "Improve your visibility on Google with an SEO strategy built around your business goals.",
+      deliverables: [
+        "SEO strategy",
+        "Keyword targeting",
+        "On-page SEO",
+        "Technical SEO",
+      ],
+    },
+    "ecommerce-seo": {
+      name: "E-commerce SEO",
+      category: "SEO",
+      family: "seo-organic",
+      role: "lead",
+      kicker: "Grow Organic Sales",
+      icon: ICONS.cart,
+      url: SERVICE_URLS["ecommerce-seo"],
+      blurb:
+        "Improve product and category visibility in search to help more shoppers discover your online store.",
+      deliverables: [
+        "Product optimisation",
+        "Category optimisation",
+        "Technical SEO",
+        "E-commerce keyword strategy",
       ],
     },
     "local-seo": {
       name: "Local SEO",
-      kicker: "Maps & near-me search",
+      category: "SEO",
+      family: "seo-local",
+      role: "lead",
+      kicker: "Local Search Visibility",
       icon: ICONS.pin,
-      url: SITE + "/seo/local-seo/",
+      url: SERVICE_URLS["local-seo"],
       blurb:
-        "Get found by people searching in your area. Google Business Profile, map pack rankings and location pages that turn searches into walk-ins and calls.",
+        "Help nearby customers find your business when they search for products or services in your area.",
       deliverables: [
-        "Google Business Profile",
-        "Map pack rankings",
+        "Local keyword targeting",
         "Local landing pages",
-        "Review strategy",
+        "Google Business Profile",
+        "Local SEO optimisation",
       ],
     },
-    "google-ads": {
-      name: "Google Ads & Paid Media",
-      kicker: "Buy demand now",
-      icon: ICONS.target,
-      url: SITE + "/paid-media/google-ads/",
-      blurb:
-        "Immediate, measurable traffic from people already searching for what you sell. Search, Shopping, Performance Max and YouTube, managed to a target cost per lead.",
-      deliverables: [
-        "Search & Shopping",
-        "Performance Max",
-        "Conversion tracking",
-        "Budget & bid management",
-      ],
-    },
-    social: {
-      name: "Social Media Marketing",
-      kicker: "Demand creation",
-      icon: ICONS.share,
-      url: SITE + "/social-media-marketing/",
-      blurb:
-        "Reach the audience that is not searching yet. Facebook, Instagram, TikTok and LINE campaigns with creative built for the platform, not recycled from print.",
-      deliverables: [
-        "Meta & TikTok ads",
-        "LINE campaigns",
-        "Premium creative",
-        "Retargeting audiences",
-      ],
-    },
-    "web-dev": {
-      name: "Website Development",
-      kicker: "The asset everything runs on",
-      icon: ICONS.monitor,
-      url: SITE + "/website/",
-      blurb:
-        "A fast, secure site built to be marketed. Every other channel you invest in performs better once the destination stops leaking visitors.",
-      deliverables: [
-        "Design & build",
-        "Core Web Vitals",
-        "SEO-ready structure",
-        "Ongoing maintenance",
-      ],
-    },
-    uxui: {
-      name: "UX/UI Design",
-      kicker: "Experience design",
-      icon: ICONS.layout,
-      url: SITE + "/website/ux-ui/",
-      blurb:
-        "Journeys designed around how your customers actually behave — clearer navigation, stronger calls to action and fewer reasons to bounce.",
-      deliverables: [
-        "UX audit",
-        "Wireframes & prototypes",
-        "Design system",
-        "Mobile-first UI",
-      ],
-    },
-    cro: {
-      name: "Conversion Rate Optimisation",
-      kicker: "More from the same traffic",
-      icon: ICONS.trending,
-      url: SITE + "/cro/",
-      blurb:
-        "Heat maps, session recordings and structured A/B testing to lift the percentage of visitors who buy or enquire — no extra media spend required.",
-      deliverables: [
-        "Heat maps & recordings",
-        "Funnel analysis",
-        "A/B testing",
-        "Landing page rebuilds",
-      ],
-    },
-    content: {
+    "content-marketing": {
       name: "Content Marketing",
-      kicker: "Authority at scale",
+      category: "SEO",
+      family: "seo-content",
+      role: "support",
+      kicker: "Build Search Authority",
       icon: ICONS.document,
-      url: SITE + "/seo/content-marketing/",
+      url: SERVICE_URLS["content-marketing"],
       blurb:
-        "Content mapped to real search demand and buying stages — the raw material both Google and AI assistants need before they will recommend you.",
+        "Create useful, search-focused content that attracts your audience and strengthens your visibility and authority.",
       deliverables: [
-        "Topical content plan",
-        "Expert-led articles",
-        "Commercial landing pages",
-        "Content refresh",
+        "Content strategy",
+        "SEO content",
+        "Blog content",
+        "Content optimisation",
       ],
     },
-    programmatic: {
-      name: "Programmatic Advertising",
-      kicker: "Scaled reach",
-      icon: ICONS.broadcast,
-      url: SITE + "/paid-media/programmatic/",
+    "technical-seo": {
+      name: "Technical SEO",
+      category: "SEO",
+      family: "seo-technical",
+      role: "support",
+      kicker: "Strengthen Your SEO Foundation",
+      icon: ICONS.gear,
+      url: SERVICE_URLS["technical-seo"],
       blurb:
-        "Audience-first display, video and native buying across premium inventory — the efficient way to add reach once search demand is capped out.",
+        "Improve the technical health of your website so search engines can crawl, understand and index it effectively.",
+      deliverables: [
+        "Technical audit",
+        "Crawlability",
+        "Indexation",
+        "Site performance",
+      ],
+    },
+    "seo-audit": {
+      name: "SEO Audit",
+      category: "SEO",
+      family: "seo-technical",
+      role: "support",
+      kicker: "Find SEO Opportunities",
+      icon: ICONS.search,
+      url: SERVICE_URLS["seo-audit"],
+      blurb:
+        "Identify technical, content and search visibility issues that may be limiting your website's organic performance.",
+      deliverables: [
+        "Technical SEO audit",
+        "On-page review",
+        "Keyword review",
+        "Competitor insights",
+      ],
+    },
+    "on-page-seo": {
+      name: "On-page SEO",
+      category: "SEO",
+      family: "seo-technical",
+      role: "support",
+      kicker: "Improve Page Visibility",
+      icon: ICONS.document,
+      url: SERVICE_URLS["on-page-seo"],
+      blurb:
+        "Optimise individual website pages so search engines and users can better understand your content and services.",
+      deliverables: [
+        "Meta optimisation",
+        "Content optimisation",
+        "Internal linking",
+        "Page structure",
+      ],
+    },
+    "keyword-mapping": {
+      name: "Keyword Mapping",
+      category: "SEO",
+      family: "seo-technical",
+      role: "support",
+      kicker: "Target the Right Searches",
+      icon: ICONS.compass,
+      url: SERVICE_URLS["keyword-mapping"],
+      blurb:
+        "Match the right search terms to the right website pages to create a clearer SEO and content strategy.",
+      deliverables: [
+        "Keyword research",
+        "Search intent mapping",
+        "Page mapping",
+        "Content gap analysis",
+      ],
+    },
+    "google-business-profile": {
+      name: "Google Business Profile",
+      category: "SEO",
+      family: "seo-local",
+      role: "support",
+      kicker: "Improve Local Presence",
+      icon: ICONS.pin,
+      url: SERVICE_URLS["google-business-profile"],
+      blurb:
+        "Improve how your business appears on Google Search and Maps so nearby customers can find you more easily.",
+      deliverables: [
+        "Profile optimisation",
+        "Business information updates",
+        "Local visibility",
+        "Performance review",
+      ],
+    },
+    "link-building": {
+      name: "Link Building",
+      category: "SEO",
+      family: "seo-authority",
+      role: "support",
+      kicker: "Build SEO Authority",
+      icon: ICONS.link,
+      url: SERVICE_URLS["link-building"],
+      blurb:
+        "Strengthen your website's authority with relevant links that support long-term organic search performance.",
+      deliverables: [
+        "Link strategy",
+        "Outreach",
+        "Backlink acquisition",
+        "Link reporting",
+      ],
+    },
+    "video-seo": {
+      name: "Video SEO",
+      category: "SEO",
+      family: "seo-content",
+      role: "support",
+      kicker: "Grow Video Visibility",
+      icon: ICONS.play,
+      url: SERVICE_URLS["video-seo"],
+      blurb:
+        "Optimise video content to improve discoverability across search engines and video platforms.",
+      deliverables: [
+        "Video keyword research",
+        "Metadata optimisation",
+        "Video content optimisation",
+        "Performance review",
+      ],
+    },
+    "seo-reseller": {
+      name: "SEO Reseller",
+      category: "SEO",
+      family: "delivery",
+      role: "overlay",
+      kicker: "Scale Your SEO Offering",
+      icon: ICONS.handshake,
+      url: SERVICE_URLS["seo-reseller"],
+      blurb:
+        "Expand your agency's SEO services with delivery support from our team while you keep the client relationship.",
+      deliverables: [
+        "SEO campaign delivery",
+        "Reporting support",
+        "Link building",
+        "Scalable fulfilment",
+      ],
+    },
+
+    /* ══ Google Ads ════════════════════════════════════════════════ */
+    "google-ads-campaigns": {
+      name: "Google Ads Campaigns",
+      category: "Google Ads",
+      family: "paid-search",
+      role: "lead",
+      kicker: "Capture Search Demand",
+      icon: ICONS.target,
+      url: SERVICE_URLS["google-ads-campaigns"],
+      blurb:
+        "Reach people who are actively searching for your products or services with targeted Google Ads campaigns.",
+      deliverables: [
+        "Search campaigns",
+        "Keyword targeting",
+        "Conversion tracking",
+        "Campaign optimisation",
+      ],
+    },
+    "google-shopping": {
+      name: "Google Shopping",
+      category: "Google Ads",
+      family: "paid-search",
+      role: "lead",
+      kicker: "Drive Product Sales",
+      icon: ICONS.cart,
+      url: SERVICE_URLS["google-shopping"],
+      blurb:
+        "Promote your products across Google and connect shoppers with the products they are already looking for.",
+      deliverables: [
+        "Shopping campaigns",
+        "Product feed support",
+        "Campaign optimisation",
+        "Conversion tracking",
+      ],
+    },
+    "performance-max": {
+      name: "Performance Max",
+      category: "Google Ads",
+      family: "paid-search",
+      role: "lead",
+      kicker: "Multi-channel Growth",
+      icon: ICONS.target,
+      url: SERVICE_URLS["performance-max"],
+      blurb:
+        "Reach potential customers across Google's channels with campaigns optimised around your business goals.",
+      deliverables: [
+        "Performance Max setup",
+        "Audience signals",
+        "Asset optimisation",
+        "Performance reporting",
+      ],
+    },
+    "google-display-ads": {
+      name: "Google Display Ads",
+      category: "Google Ads",
+      family: "paid-display",
+      role: "support",
+      kicker: "Build Brand Awareness",
+      icon: ICONS.broadcast,
+      url: SERVICE_URLS["google-display-ads"],
+      blurb:
+        "Reach relevant audiences across Google's Display Network with visual campaigns designed to build awareness and demand.",
+      deliverables: [
+        "Display campaigns",
+        "Audience targeting",
+        "Remarketing",
+        "Campaign optimisation",
+      ],
+    },
+    "youtube-ads": {
+      name: "YouTube Ads",
+      category: "Google Ads",
+      family: "paid-display",
+      role: "support",
+      kicker: "Reach Customers with Video",
+      icon: ICONS.play,
+      url: SERVICE_URLS["youtube-ads"],
+      blurb:
+        "Reach and engage potential customers on YouTube with video campaigns built around your marketing goals.",
+      deliverables: [
+        "YouTube campaigns",
+        "Audience targeting",
+        "Video ad strategy",
+        "Campaign optimisation",
+      ],
+    },
+
+    /* ══ Social Media ══════════════════════════════════════════════ */
+    "facebook-ads": {
+      name: "Facebook Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "lead",
+      kicker: "Generate More Leads",
+      icon: ICONS.share,
+      url: SERVICE_URLS["facebook-ads"],
+      blurb:
+        "Reach new customers on Facebook and Instagram with targeted campaigns designed to generate leads and build demand.",
+      deliverables: [
+        "Meta Ads",
+        "Lead generation campaigns",
+        "Retargeting audiences",
+        "Campaign optimisation",
+      ],
+    },
+    "cpas-ads": {
+      name: "CPAS Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "lead",
+      kicker: "Drive E-commerce Sales",
+      icon: ICONS.cart,
+      url: SERVICE_URLS["cpas-ads"],
+      blurb:
+        "Reach relevant shoppers with collaborative advertising campaigns designed to support product discovery and online sales.",
+      deliverables: [
+        "CPAS campaign setup",
+        "Product targeting",
+        "Retargeting",
+        "Campaign optimisation",
+      ],
+    },
+    "social-media-campaigns": {
+      name: "Social Media Campaigns",
+      category: "Social Media",
+      family: "paid-social",
+      role: "lead",
+      kicker: "Build Social Demand",
+      icon: ICONS.share,
+      url: SERVICE_URLS["social-media-campaigns"],
+      blurb:
+        "Build awareness and engagement across social platforms with campaigns designed around your audience and business goals.",
+      deliverables: [
+        "Social campaign strategy",
+        "Platform planning",
+        "Audience targeting",
+        "Campaign optimisation",
+      ],
+      /* Four questions cannot honestly tell us whether a client belongs on
+         LinkedIn or Reddit, so the platforms are named here and chosen in
+         the consultation instead of being guessed at. */
+      platforms: [
+        "facebook-ads",
+        "tiktok-ads",
+        "line-ads",
+        "linkedin-ads",
+        "reddit-ads",
+        "x-ads",
+      ],
+    },
+    "linkedin-ads": {
+      name: "LinkedIn Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "platform",
+      kicker: "Reach Business Decision-makers",
+      icon: ICONS.share,
+      url: SERVICE_URLS["linkedin-ads"],
+      blurb:
+        "Reach professionals and business decision-makers with targeted campaigns based on industry, role and company profile.",
+      deliverables: [
+        "LinkedIn Ads",
+        "B2B targeting",
+        "Lead generation",
+        "Campaign optimisation",
+      ],
+    },
+    "line-ads": {
+      name: "LINE Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "platform",
+      kicker: "Reach Customers on LINE",
+      icon: ICONS.share,
+      url: SERVICE_URLS["line-ads"],
+      blurb:
+        "Reach audiences in Thailand through targeted LINE campaigns designed around your business goals.",
+      deliverables: [
+        "LINE Ads",
+        "Audience targeting",
+        "Traffic or conversion campaigns",
+        "Campaign optimisation",
+      ],
+    },
+    "tiktok-ads": {
+      name: "TikTok Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "platform",
+      kicker: "Reach New Audiences",
+      icon: ICONS.share,
+      url: SERVICE_URLS["tiktok-ads"],
+      blurb:
+        "Reach and engage audiences on TikTok with platform-first campaigns designed to build awareness, traffic or conversions.",
+      deliverables: [
+        "TikTok Ads",
+        "Audience targeting",
+        "Campaign setup",
+        "Campaign optimisation",
+      ],
+    },
+    "reddit-ads": {
+      name: "Reddit Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "platform",
+      kicker: "Reach Engaged Communities",
+      icon: ICONS.share,
+      url: SERVICE_URLS["reddit-ads"],
+      blurb:
+        "Connect with relevant Reddit communities and audiences through campaigns targeted around their interests.",
+      deliverables: [
+        "Reddit Ads",
+        "Community targeting",
+        "Traffic campaigns",
+        "Campaign optimisation",
+      ],
+    },
+    "x-ads": {
+      name: "X Ads",
+      category: "Social Media",
+      family: "paid-social",
+      role: "platform",
+      kicker: "Join Real-time Conversations",
+      icon: ICONS.share,
+      url: SERVICE_URLS["x-ads"],
+      blurb:
+        "Reach relevant audiences on X with campaigns designed to build awareness, engagement and website traffic.",
+      deliverables: [
+        "X Ads",
+        "Audience targeting",
+        "Awareness campaigns",
+        "Campaign optimisation",
+      ],
+    },
+    "premium-creative": {
+      name: "Premium Creative",
+      category: "Social Media",
+      family: "creative",
+      role: "support",
+      kicker: "Creative Built to Perform",
+      icon: ICONS.palette,
+      url: SERVICE_URLS["premium-creative"],
+      blurb:
+        "Create platform-ready campaign assets designed to communicate your message clearly and support paid media performance.",
+      deliverables: [
+        "Ad creative",
+        "Social assets",
+        "Campaign concepts",
+        "Creative variations",
+      ],
+    },
+
+    /* ══ Website Development ═══════════════════════════════════════ */
+    "web-design": {
+      name: "Web Design",
+      category: "Website Development",
+      family: "web",
+      role: "lead",
+      kicker: "Build Your Digital Foundation",
+      icon: ICONS.monitor,
+      url: SERVICE_URLS["web-design"],
+      blurb:
+        "Create a responsive, easy-to-use website that supports your brand, customers and marketing goals.",
+      deliverables: [
+        "Website design",
+        "Responsive layouts",
+        "Landing pages",
+        "CMS-ready design",
+      ],
+    },
+    "ui-ux": {
+      name: "UI/UX",
+      category: "Website Development",
+      family: "web",
+      role: "support",
+      kicker: "Improve User Experience",
+      icon: ICONS.layout,
+      url: SERVICE_URLS["ui-ux"],
+      blurb:
+        "Make your website easier to use with clearer journeys, better layouts and customer-focused design.",
+      deliverables: [
+        "UX review",
+        "UI design",
+        "User journey improvements",
+        "Wireframes and prototypes",
+      ],
+    },
+    "web-maintenance": {
+      name: "Web Maintenance",
+      category: "Website Development",
+      family: "web",
+      role: "support",
+      kicker: "Keep Your Website Running",
+      icon: ICONS.gear,
+      url: SERVICE_URLS["web-maintenance"],
+      blurb:
+        "Keep your website updated, secure and working properly with ongoing technical and content support.",
+      deliverables: [
+        "Website updates",
+        "Technical maintenance",
+        "Content updates",
+        "Ongoing support",
+      ],
+    },
+    "cro": {
+      name: "Conversion Rate Optimisation (CRO)",
+      category: "Website Development",
+      family: "conversion",
+      role: "support",
+      kicker: "Turn More Visitors into Customers",
+      icon: ICONS.trending,
+      url: SERVICE_URLS["cro"],
+      blurb:
+        "Improve your website and landing pages to help more visitors take valuable actions such as enquiries, sign-ups or purchases.",
+      deliverables: [
+        "Conversion analysis",
+        "Landing page optimisation",
+        "A/B testing",
+        "Heat map insights",
+      ],
+    },
+    "heat-maps": {
+      name: "Heat Maps",
+      category: "Website Development",
+      family: "conversion",
+      role: "support",
+      kicker: "Understand User Behaviour",
+      icon: ICONS.trending,
+      url: SERVICE_URLS["heat-maps"],
+      blurb:
+        "See how visitors interact with your website and use behavioural insights to identify opportunities for improvement.",
+      deliverables: [
+        "Heat map tracking",
+        "Click analysis",
+        "Scroll analysis",
+        "Behaviour insights",
+      ],
+    },
+
+    /* ══ Other Services ════════════════════════════════════════════ */
+    "programmatic-ads": {
+      name: "Programmatic Ads",
+      category: "Other Services",
+      family: "reach",
+      role: "support",
+      kicker: "Reach the Right Audience",
+      icon: ICONS.broadcast,
+      url: SERVICE_URLS["programmatic-ads"],
+      blurb:
+        "Use data-led digital advertising to reach relevant audiences across websites, apps and other online channels.",
       deliverables: [
         "Audience targeting",
-        "Display & video",
-        "Remarketing",
-        "Brand safety controls",
+        "Display advertising",
+        "Campaign optimisation",
+        "Performance reporting",
       ],
     },
-    reseller: {
-      name: "White Label SEO",
-      kicker: "Delivery partner",
-      icon: ICONS.handshake,
-      url: SITE + "/seo/seo-reseller/",
+    "email-marketing": {
+      name: "Email Marketing",
+      category: "Other Services",
+      family: "retention",
+      role: "support",
+      kicker: "Engage and Retain Customers",
+      icon: ICONS.mail,
+      url: SERVICE_URLS["email-marketing"],
       blurb:
-        "Our senior team delivering under your brand. Fulfil client SEO and AI visibility work without hiring, with reporting you can hand straight over.",
+        "Stay connected with customers through targeted email campaigns designed to support engagement, retention and conversions.",
       deliverables: [
-        "White-label delivery",
-        "Client-ready reporting",
-        "Scalable capacity",
-        "Dedicated account lead",
+        "Email campaigns",
+        "Audience segmentation",
+        "Email automation",
+        "Performance reporting",
       ],
     },
-    outcome: {
+    "outcome-marketing": {
       name: "Outcome Marketing",
-      kicker: "Performance-aligned",
+      category: "Other Services",
+      family: "delivery",
+      role: "overlay",
+      kicker: "Focus on Measurable Outcomes",
       icon: ICONS.trophy,
-      url: SITE + "/outcome-marketing-thailand/",
+      url: SERVICE_URLS["outcome-marketing"],
       blurb:
-        "Multi-channel programmes structured around commercial outcomes and shared accountability rather than activity reports and vanity metrics.",
+        "Optimise marketing towards agreed business outcomes with clear measurement, ongoing optimisation and transparent reporting.",
       deliverables: [
-        "Outcome-based KPIs",
-        "Multi-channel strategy",
-        "Executive reporting",
-        "Stakeholder alignment",
-      ],
-    },
-    consult: {
-      name: "Free Strategy Consultation",
-      kicker: "Start here",
-      icon: ICONS.compass,
-      url: SITE + "/contact-us/",
-      blurb:
-        "A no-obligation session with a senior strategist. We audit where you stand today, show you the biggest gaps, and tell you honestly what to fix first.",
-      deliverables: [
-        "Visibility snapshot",
-        "Competitor benchmark",
-        "Prioritised roadmap",
-        "Realistic budget guidance",
+        "Outcome-based campaigns",
+        "Download, first-order or sales tracking",
+        "Performance optimisation",
+        "Transparent reporting",
       ],
     },
   };
 
-  /* SEO and AI visibility share one public score in v2. The selected
-     challenge is retained as a focus tag by the engine for tailored copy. */
-  var SCORE_GROUPS = {};
-
   /* ── Questions ──────────────────────────────────────────────────────
-     `weights` = final fit points added when the option is chosen. Challenge
-     points are already calibrated; there is no hidden multiplier in v2.
+     Answer copy only. Nothing here scores anything: the two challenges are
+     read together as a brief in SITUATIONS below, and business type and
+     persona decide which service answers it. See planner.js.
      ------------------------------------------------------------------ */
   var QUESTIONS = [
     {
@@ -230,25 +762,21 @@
           id: "sme",
           label: "Small Business / SME",
           desc: "I own or manage a small business.",
-          weights: { "google-ads": 2, social: 2, "local-seo": 1 },
         },
         {
           id: "inhouse",
           label: "In-House Marketing Team",
           desc: "I work for a company and manage marketing internally.",
-          weights: { seo: 2, content: 2, social: 1 },
         },
         {
           id: "enterprise",
           label: "Enterprise / Corporate",
           desc: "I work for a large organisation with multiple stakeholders.",
-          weights: { seo: 2, content: 3, programmatic: 2 },
         },
         {
           id: "agency",
           label: "Agency / Consultant",
           desc: "I provide marketing services to clients.",
-          weights: { seo: 2, content: 1 },
         },
       ],
     },
@@ -263,60 +791,30 @@
           label: "Local Business / SME",
           desc: "You serve customers in a specific city or region.",
           noun: "local business",
-          weights: { "local-seo": 8, "google-ads": 5, social: 3, seo: 1 },
         },
         {
           id: "national",
           label: "National Brand",
           desc: "You sell across Thailand or several markets.",
           noun: "national brand",
-          weights: {
-            seo: 6,
-            social: 5,
-            content: 4,
-            programmatic: 3,
-            "google-ads": 3,
-          },
         },
         {
           id: "ecommerce",
           label: "E-commerce Business",
           desc: "Revenue comes primarily through online sales.",
           noun: "e-commerce business",
-          weights: {
-            "google-ads": 6,
-            cro: 6,
-            social: 5,
-            seo: 4,
-            content: 1,
-          },
         },
         {
           id: "enterprise",
           label: "Enterprise Company",
           desc: "Large, multi-team, often multi-brand or multi-country.",
           noun: "enterprise company",
-          weights: {
-            seo: 6,
-            content: 5,
-            programmatic: 4,
-            "google-ads": 2,
-            social: 2,
-          },
         },
         {
           id: "mixed",
           label: "Mixed Business Model",
           desc: "A blend of the above — online and offline revenue.",
           noun: "business with a mixed model",
-          weights: {
-            "google-ads": 4,
-            seo: 4,
-            social: 3,
-            cro: 3,
-            "local-seo": 2,
-            content: 1,
-          },
         },
       ],
     },
@@ -336,63 +834,26 @@
           id: "under50",
           label: "Below THB 50,000/month",
           desc: "Focus everything on one or two channels.",
-          weights: {
-            "google-ads": 4,
-            social: 4,
-            "local-seo": 3,
-            uxui: 8,
-            cro: 2,
-          },
         },
         {
           id: "50to100",
           label: "THB 50,000 – 100,000/month",
           desc: "Enough to run a serious channel properly.",
-          weights: {
-            "google-ads": 3,
-            social: 3,
-            seo: 3,
-            "local-seo": 3,
-            uxui: 4,
-            cro: 2,
-            content: 1,
-          },
         },
         {
           id: "100to300",
           label: "THB 100,001 – 300,000/month",
           desc: "Room for a multi-channel programme.",
-          weights: {
-            seo: 5,
-            content: 4,
-            "local-seo": 4,
-            "web-dev": 4,
-            "google-ads": 3,
-            social: 3,
-            cro: 3,
-            programmatic: 2,
-          },
         },
         {
           id: "over300",
           label: "THB 300,001+/month",
           desc: "Full-funnel strategy across search, AI and media.",
-          weights: {
-            seo: 6,
-            content: 6,
-            programmatic: 6,
-            "local-seo": 5,
-            "web-dev": 8,
-            cro: 4,
-            "google-ads": 3,
-            social: 3,
-          },
         },
         {
           id: "unsure",
           label: "I'm not sure yet",
           desc: "We will help you size it against your goals.",
-          weights: {},
         },
       ],
     },
@@ -401,7 +862,7 @@
       shortLabel: "Challenge",
       title: "What is your biggest marketing challenge right now?",
       subtitle:
-        "Pick your main challenge. Add a second one if you have two — the main one still leads the plan.",
+        "Pick the one that matters most, then add a second if you have two. We read them together as one brief.",
       /* The only multi-select question. The first pick scores in full and the
          second at SECONDARY_CHALLENGE_WEIGHT, so the challenge the client calls
          biggest is still what drives the recommendation. */
@@ -413,124 +874,136 @@
           label: "I need more leads.",
           desc: "Enquiries, calls and bookings — not just visitors.",
           phrase: "you need more leads",
-          weights: {
-            "google-ads": 24,
-            social: 18,
-            cro: 12,
-            seo: 8,
-            content: 4,
-            programmatic: 4,
-          },
         },
         {
           id: "ranking",
           label: "My website doesn't rank on Google.",
           desc: "Competitors are above you for the terms that matter.",
           phrase: "your site isn't ranking on Google",
-          weights: {
-            seo: 30,
-            content: 20,
-            "local-seo": 14,
-            "google-ads": 4,
-            social: 2,
-          },
         },
         {
           id: "ai",
           label: "My business isn't visible in AI Search.",
           desc: "ChatGPT, Gemini and AI Overviews never mention you.",
           phrase: "you're not showing up in AI search",
-          weights: {
-            seo: 30,
-            content: 22,
-            social: 4,
-            "google-ads": 2,
-            "local-seo": 2,
-          },
         },
         {
           id: "traffic",
           label: "I need more traffic.",
           desc: "Not enough people are reaching your site at all.",
           phrase: "you need more traffic",
-          weights: {
-            seo: 24,
-            "google-ads": 20,
-            social: 16,
-            content: 12,
-            programmatic: 8,
-            cro: 6,
-          },
         },
         {
           id: "website",
           label: "My website needs an upgrade.",
           desc: "It looks dated, loads slowly, or converts badly.",
           phrase: "your website needs an upgrade",
-          weights: { "web-dev": 30, uxui: 24, cro: 12, seo: 10 },
         },
         {
           id: "unsure",
           label: "I'm not sure where to start.",
           desc: "You know you need help, not which help.",
           phrase: "you're not yet sure where to start",
-          /* Knowing a second challenge means you are not unsure. */
-          exclusive: true,
-          weights: {
-            consult: 40,
-            seo: 6,
-            "google-ads": 6,
-            social: 6,
-            "local-seo": 6,
-          },
+          /* The one answer that REQUIRES a partner. "I don't know" is not
+             something we can plan from, so the visitor names the closest
+             problem and that pair carries the brief. */
+          requiresSecond: true,
         },
       ],
     },
   ];
 
-  /* Cross-answer relationships that flat option weights cannot express
-     cleanly. The engine applies these once after the base score is built. */
-  var INTERACTION_RULES = [
-    {
-      id: "local-lead-generation",
-      when: { type: "local", challenge: "leads" },
-      weights: { "google-ads": 2 },
-      label: "Local lead generation",
-    },
-    {
-      id: "scaled-demand-generation",
-      when: { budget: "over300", challenge: "leads" },
-      any: [{ type: "national" }, { type: "enterprise" }],
-      weights: { seo: 8, content: 6 },
-      label: "Demand generation at scale",
-    },
-    {
-      id: "local-search-ranking",
-      when: { type: "local", challenge: "ranking" },
-      weights: { "local-seo": 14 },
-      label: "Local search rankings",
-    },
-    {
-      id: "ecommerce-traffic-efficiency",
-      when: { type: "ecommerce", challenge: "traffic" },
-      weights: { cro: 14 },
-      label: "E-commerce traffic efficiency",
-    },
-    {
-      id: "scaled-reach",
-      when: { budget: "over300", challenge: "traffic" },
-      any: [{ type: "national" }, { type: "enterprise" }],
-      weights: { programmatic: 10 },
-      label: "Scaled reach at enterprise budget",
-    },
-    {
-      id: "enterprise-ai-content",
-      when: { challenge: "ai" },
-      any: [{ profile: "enterprise" }, { type: "enterprise" }],
-      weights: { content: 4 },
-      label: "Enterprise AI visibility",
-    },
-  ];
+  /* ── SITUATIONS (logic v5) ──────────────────────────────────────────
+     The two challenges are read together as one brief. There are exactly
+     30 possible briefs, and each one lists the KINDS of service it calls
+     for, in order. This table is the business logic — changing a row
+     changes only that situation and nothing else.
+
+     Keys are "main" for a single challenge, or "main|second" for a pair.
+
+     A need ending in "!" is primary-only: if the budget has already filled
+     its primary slots, that need is dropped rather than demoted. A second
+     ad platform is only worth adding when it can be funded as a core
+     channel — it is never a phase-two extra.
+
+     Needs vocabulary:
+       paid / paid2  a paid channel; RULE 5.1 decides search vs social
+       organic       SEO Campaigns, or E-commerce SEO for online stores
+       ai            AI SEO
+       local         Local SEO, then Google Business Profile
+       website       Web Design, then Web Maintenance
+       uiux          UI/UX
+       conversion    CRO, then Heat Maps
+       content       Content Marketing
+       technical     Technical SEO, or On-page SEO / SEO Audit below 100K
+       authority     Link Building
+       reach         Programmatic Ads, then YouTube Ads
+       retention     Email Marketing
+       creative      Premium Creative
+     ------------------------------------------------------------------ */
+  var SITUATIONS = {
+    /* ── One challenge on its own ── */
+    "leads":    ["paid", "paid2!", "conversion", "organic", "creative"],
+    "ranking":  ["local", "organic", "ai", "content", "authority"],
+    "ai":       ["ai", "content", "organic", "technical"],
+    "traffic":  ["organic", "paid", "paid2", "content", "reach"],
+    "website":  ["website", "organic", "conversion", "uiux"],
+
+    /* ── Main challenge: I need more leads ── */
+    "leads|ranking": ["paid", "organic", "paid2!", "conversion"],
+    "leads|ai":      ["paid", "ai", "content", "organic"],
+    "leads|traffic": ["paid", "paid2!", "organic", "reach", "retention"],
+    "leads|website": ["paid", "paid2!", "website", "conversion", "creative"],
+
+    /* ── Main challenge: my website doesn't rank ── */
+    "ranking|leads":   ["organic", "paid", "content", "conversion"],
+    "ranking|ai":      ["organic", "ai", "content", "technical"],
+    "ranking|traffic": ["organic", "local", "ai", "content", "authority"],
+    "ranking|website": ["organic", "website", "technical", "conversion"],
+
+    /* ── Main challenge: I'm not visible in AI search ── */
+    "ai|leads":    ["ai", "paid", "content", "conversion"],
+    "ai|ranking":  ["ai", "organic", "content", "technical"],
+    "ai|traffic":  ["ai", "organic", "content", "paid"],
+    "ai|website":  ["ai", "website", "content", "technical"],
+
+    /* ── Main challenge: I need more traffic ── */
+    "traffic|leads":   ["organic", "paid", "paid2!", "conversion"],
+    "traffic|ranking": ["organic", "ai", "content", "local", "authority"],
+    "traffic|ai":      ["organic", "ai", "content", "reach"],
+    "traffic|website": ["organic", "website", "conversion", "paid"],
+
+    /* ── Main challenge: my website needs an upgrade ── */
+    "website|leads":   ["website", "paid", "conversion", "uiux"],
+    "website|ranking": ["website", "organic", "technical", "conversion"],
+    "website|ai":      ["website", "ai", "content", "conversion"],
+    "website|traffic": ["website", "organic", "conversion", "paid"],
+
+    /* ── Main challenge: I'm not sure where to start ──
+       Never shown alone. The visitor must name the closest problem, and
+       that second answer carries the brief. Two paid channels here are
+       deliberate and NOT primary-only: when a client genuinely does not
+       know, covering both demand capture and demand creation is the
+       honest starting mix. */
+    "unsure|leads":   ["paid", "paid2", "organic", "ai"],
+    "unsure|ranking": ["organic", "local", "paid", "content"],
+    "unsure|ai":      ["ai", "organic", "content", "paid"],
+    "unsure|traffic": ["organic", "paid", "paid2!", "content"],
+    "unsure|website": ["website", "conversion", "paid", "organic"],
+  };
+
+  /* ── BUDGET PLAN (logic v5) ─────────────────────────────────────────
+     Budget's only job: how many services are shown. It never changes
+     WHICH service is right. The two primaries are equal to each other —
+     a client who can fund both runs both from the start.
+     ------------------------------------------------------------------ */
+  var BUDGET_PLAN = {
+    under50:   { primary: 1, supporting: 1, label: "Start here", nextLabel: "Next phase" },
+    "50to100": { primary: 2, supporting: 1, label: "Start with both", nextLabel: "Add next" },
+    "100to300":{ primary: 2, supporting: 2, label: "Start with both", nextLabel: "Add next" },
+    over300:   { primary: 2, supporting: 2, label: "Integrated programme", nextLabel: "Runs alongside" },
+    unsure:    { primary: 1, supporting: 1, label: "Size the budget first", nextLabel: "Then add" },
+  };
 
   /* ── Budget framing shown on the results screen ─────────────────────── */
   var BUDGET_NOTES = {
@@ -569,30 +1042,11 @@
 
   window.MAM_DATA = {
     ICONS: ICONS,
-    SERVICES: SERVICES,
+    SERVICE_URLS: SERVICE_URLS,
+    CATALOGUE: CATALOGUE,
+    SITUATIONS: SITUATIONS,
+    BUDGET_PLAN: BUDGET_PLAN,
     QUESTIONS: QUESTIONS,
     BUDGET_NOTES: BUDGET_NOTES,
-    SCORE_GROUPS: SCORE_GROUPS,
-    INTERACTION_RULES: INTERACTION_RULES,
-    /* What a second challenge is worth relative to the first. Every challenge
-       weight is even, so halving them keeps every score a whole number. */
-    SECONDARY_CHALLENGE_WEIGHT: 0.5,
-    /* Tie-breaker: earlier = preferred when scores are level. */
-    PRIORITY: [
-      "seo",
-      "google-ads",
-      "social",
-      "local-seo",
-      "content",
-      "cro",
-      "web-dev",
-      "uxui",
-      "programmatic",
-      "reseller",
-      "outcome",
-      "consult",
-    ],
-    /* Only ever shown as the headline recommendation, never as a support card. */
-    PRIMARY_ONLY: ["consult"],
   };
 })();

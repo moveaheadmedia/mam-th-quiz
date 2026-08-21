@@ -4,815 +4,797 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Scoring Sandbox — MAM Service Quiz (dev)</title>
+    <title>Plan Sandbox — MAM Service Quiz</title>
     <style>
       :root {
-        --bg: #0f1115;
-        --panel: #1a1d24;
-        --line: #2a2f3a;
-        --ink: #e7eaf0;
-        --mut: #9aa3b2;
-        --accent: #6ea8fe;
-        --good: #59d499;
-        --bad: #ff7b7b;
-        --pri: #ffd166;
-        --sup: #8be0c9;
+        --bg: #f4f6f8;
+        --card: #ffffff;
+        --card2: #f8fafb;
+        --line: #dde3e8;
+        --line2: #eef2f5;
+        --ink: #16202a;
+        --ink2: #45565f;
+        --mut: #6c7a84;
+        --brand: #e03e2d;
+        --brand-soft: #fdecea;
+        --pri: #0b6b5f;
+        --pri-soft: #e2f1ee;
+        --sup: #1f5f9e;
+        --sup-soft: #e6eff8;
+        --good: #17794a;
+        --bad: #c0392b;
+        --radius: 12px;
       }
-      * {
-        box-sizing: border-box;
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #10151a;
+          --card: #182029;
+          --card2: #1e2831;
+          --line: #2c3843;
+          --line2: #232e38;
+          --ink: #e8eef3;
+          --ink2: #b3c1cb;
+          --mut: #8496a3;
+          --brand: #ff7a6b;
+          --brand-soft: #3a1f1c;
+          --pri: #5fd3c0;
+          --pri-soft: #14322e;
+          --sup: #7bb6ec;
+          --sup-soft: #16293b;
+          --good: #5bcc90;
+          --bad: #ff8a7a;
+        }
       }
+      :root[data-theme="dark"] {
+        --bg: #10151a;
+        --card: #182029;
+        --card2: #1e2831;
+        --line: #2c3843;
+        --line2: #232e38;
+        --ink: #e8eef3;
+        --ink2: #b3c1cb;
+        --mut: #8496a3;
+        --brand: #ff7a6b;
+        --brand-soft: #3a1f1c;
+        --pri: #5fd3c0;
+        --pri-soft: #14322e;
+        --sup: #7bb6ec;
+        --sup-soft: #16293b;
+        --good: #5bcc90;
+        --bad: #ff8a7a;
+      }
+      * { box-sizing: border-box; }
       body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--ink);
-        font:
-          15px/1.5 ui-sans-serif,
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          sans-serif;
+        margin: 0; background: var(--bg); color: var(--ink);
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
-      header {
-        padding: 20px 24px;
-        border-bottom: 1px solid var(--line);
+      .wrap { max-width: 1160px; margin: 0 auto; padding: 30px 22px 90px; }
+
+      header.top { margin-bottom: 26px; }
+      .toprow { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .themebtn { white-space: nowrap; padding: 9px 16px; font-size: 14px; }
+      h1 { font-size: 27px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -.02em; }
+      .lede { font-size: 17px; color: var(--ink2); margin: 0; max-width: 68ch; }
+      .badge {
+        display: inline-block; vertical-align: middle; margin-left: 10px;
+        font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+        background: var(--brand-soft); color: var(--brand);
+        padding: 4px 10px; border-radius: 999px;
       }
-      header h1 {
-        margin: 0 0 4px;
-        font-size: 18px;
+
+      .tabs { display: flex; gap: 8px; margin: 26px 0 20px; flex-wrap: wrap; }
+      .tab {
+        background: var(--card); border: 1px solid var(--line); color: var(--ink2);
+        padding: 11px 18px; border-radius: 999px; cursor: pointer;
+        font: inherit; font-size: 15px; font-weight: 600;
       }
-      header p {
-        margin: 0;
-        color: var(--mut);
-        font-size: 13px;
+      .tab:hover { border-color: var(--mut); }
+      .tab[aria-selected="true"] {
+        background: var(--ink); border-color: var(--ink); color: var(--bg);
       }
-      .wrap {
-        display: grid;
-        grid-template-columns: 340px 1fr;
-        gap: 0;
-        min-height: calc(100vh - 66px);
-      }
-      .controls {
-        padding: 20px 24px;
-        border-right: 1px solid var(--line);
-      }
-      .out {
-        padding: 20px 24px;
-        overflow: auto;
-      }
-      .q {
-        margin-bottom: 18px;
-      }
-      .q label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 6px;
-        font-size: 13px;
-      }
-      .q .hint {
-        color: var(--mut);
-        font-weight: 400;
-        font-size: 12px;
-      }
-      select {
-        width: 100%;
-        padding: 9px 10px;
-        background: var(--panel);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        font: inherit;
-      }
-      .btnrow {
-        display: flex;
-        gap: 8px;
-        margin-top: 6px;
-      }
-      button {
-        background: var(--panel);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 8px 12px;
-        font: inherit;
-        cursor: pointer;
-      }
-      button:hover {
-        border-color: var(--accent);
+      .tab:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+      .panel {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: var(--radius); padding: 24px 26px; margin-bottom: 20px;
       }
       h2 {
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: var(--mut);
-        margin: 0 0 10px;
+        font-size: 13px; text-transform: uppercase; letter-spacing: .1em;
+        color: var(--mut); margin: 0 0 4px; font-weight: 700;
       }
-      section {
-        margin-bottom: 26px;
+      .h2note { font-size: 15px; color: var(--ink2); margin: 0 0 20px; max-width: 70ch; }
+
+      /* ── Answer pickers ───────────────────────────────────────────── */
+      .picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .field label {
+        display: block; font-size: 13px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; color: var(--mut); margin-bottom: 7px;
       }
-      .cards {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+      select {
+        width: 100%; font: inherit; font-size: 16px;
+        padding: 12px 14px; border: 1px solid var(--line); border-radius: 9px;
+        background: var(--card2); color: var(--ink); cursor: pointer;
       }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 12px 14px;
-        min-width: 150px;
+      select:hover { border-color: var(--mut); }
+      select:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
+      select:disabled { opacity: .5; cursor: not-allowed; }
+      .field .sub { font-size: 13.5px; color: var(--mut); margin: 6px 0 0; }
+
+      .btnrow { display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+      button.act {
+        font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+        padding: 11px 20px; border-radius: 9px;
+        border: 1px solid var(--ink); background: var(--ink); color: var(--bg);
       }
-      .card .tag {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+      button.act.ghost { background: var(--card); color: var(--ink); }
+      button.act:hover { opacity: .88; }
+      button.act:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+      .brief {
+        margin-top: 22px; padding: 15px 18px;
+        background: var(--card2); border: 1px solid var(--line2);
+        border-radius: 9px; font-size: 15.5px; line-height: 1.6;
       }
-      .card.primary {
-        border-color: var(--pri);
+      .brief b { color: var(--ink); }
+      .brief.warn { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); font-weight: 600; }
+
+      /* ── The plan ─────────────────────────────────────────────────── */
+      .planhead {
+        display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+        margin: 0 0 14px;
       }
-      .card.primary .tag {
-        color: var(--pri);
+      .planhead h3 { font-size: 18px; margin: 0; }
+      .tagpri, .tagsup {
+        font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+        padding: 4px 10px; border-radius: 999px;
       }
-      .card.support {
-        border-color: var(--sup);
+      .tagpri { background: var(--pri-soft); color: var(--pri); }
+      .tagsup { background: var(--sup-soft); color: var(--sup); }
+
+      .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .svc {
+        border: 1px solid var(--line); border-radius: 10px;
+        padding: 16px 18px; background: var(--card);
       }
-      .card.support .tag {
-        color: var(--sup);
+      .svc.pri { border-left: 5px solid var(--pri); }
+      .svc.sup { border-left: 5px solid var(--sup); }
+      .svc .kick {
+        font-size: 12px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--mut); margin: 0 0 3px;
       }
-      .card .name {
-        font-weight: 700;
-        margin: 3px 0;
+      .svc .nm { font-size: 19px; font-weight: 700; margin: 0 0 8px; line-height: 1.25; }
+      .svc .why {
+        font-size: 14.5px; color: var(--ink2); margin: 0 0 12px;
+        padding-left: 12px; border-left: 2px solid var(--line);
       }
-      .card .score {
-        color: var(--mut);
-        font-size: 13px;
+      .svc .del { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+      .svc .del li {
+        font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+        border: 1px solid var(--line); color: var(--mut);
       }
-      table {
-        border-collapse: collapse;
-        width: 100%;
-        font-size: 13px;
+      .svc .meta { font-size: 12.5px; color: var(--mut); margin-top: 10px; }
+
+      .extra {
+        margin-top: 18px; padding: 15px 18px; border-radius: 9px;
+        background: var(--card2); border: 1px solid var(--line2); font-size: 15px;
       }
-      th,
-      td {
-        border-bottom: 1px solid var(--line);
-        padding: 7px 9px;
-        text-align: right;
+      .extra b { display: block; margin-bottom: 4px; font-size: 13px;
+        text-transform: uppercase; letter-spacing: .06em; color: var(--mut); }
+
+      details { margin-top: 18px; border: 1px solid var(--line); border-radius: 9px; }
+      summary {
+        padding: 13px 18px; cursor: pointer; font-weight: 700; font-size: 15px;
+        color: var(--ink2);
       }
-      th:first-child,
-      td:first-child {
-        text-align: left;
-      }
+      summary:focus-visible { outline: 3px solid var(--brand); outline-offset: -2px; }
+      details[open] summary { border-bottom: 1px solid var(--line2); }
+      .detbody { padding: 16px 18px; }
+
+      /* ── Tables ───────────────────────────────────────────────────── */
+      .scroll { overflow-x: auto; }
+      table { border-collapse: collapse; width: 100%; font-size: 15px; }
+      th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line2); vertical-align: top; }
       thead th {
-        color: var(--mut);
-        font-weight: 600;
-        position: sticky;
-        top: 0;
-        background: var(--bg);
+        color: var(--mut); font-size: 12px; text-transform: uppercase;
+        letter-spacing: .07em; border-bottom: 1px solid var(--line);
+        background: var(--card2); white-space: nowrap;
       }
-      td.pos {
-        color: var(--good);
-      }
-      td.neg {
-        color: var(--bad);
-      }
-      td.zero {
-        color: #4a505c;
-      }
-      tr.total td {
-        font-weight: 700;
-        border-top: 2px solid var(--line);
-      }
-      tr.ruledout td:first-child {
-        color: var(--bad);
-      }
-      tr.ranked-1 td.tot {
-        color: var(--pri);
-      }
-      .pill {
-        display: inline-block;
-        padding: 1px 7px;
-        border-radius: 999px;
-        font-size: 11px;
-        margin-left: 6px;
-      }
-      .pill.pri {
-        background: rgba(255, 209, 102, 0.15);
-        color: var(--pri);
-      }
-      .pill.sup {
-        background: rgba(139, 224, 201, 0.15);
-        color: var(--sup);
-      }
-      .note {
-        color: var(--mut);
-        font-size: 12px;
-        margin-top: 8px;
-      }
-      .facts {
-        display: grid;
-        grid-template-columns: 130px 1fr;
-        gap: 8px 16px;
-        margin: 12px 0 0;
-        padding: 14px 16px;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        font-size: 13px;
-      }
-      .facts dt {
-        color: var(--mut);
-      }
-      .facts dd {
-        margin: 0;
-      }
-      .facts .muted {
-        color: var(--mut);
-      }
-      .facts .lvl-high {
-        color: var(--good);
-      }
-      .facts .lvl-medium {
-        color: var(--pri);
-      }
-      .facts .lvl-low {
-        color: var(--bad);
-      }
-      details.raw {
-        margin-top: 10px;
-      }
-      details.raw summary {
-        color: var(--mut);
-        font-size: 12px;
-        cursor: pointer;
-      }
-      details.raw pre {
-        margin: 8px 0 0;
-        padding: 12px 14px;
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        color: var(--mut);
-        font-size: 12px;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-      }
+      tbody tr:hover { background: var(--card2); }
+      td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+      td b { font-weight: 700; }
+      .ok { color: var(--good); font-weight: 700; }
+      .no { color: var(--bad); font-weight: 700; }
+      .sml { font-size: 13px; color: var(--mut); }
+
       code {
-        background: var(--panel);
-        padding: 1px 5px;
-        border-radius: 5px;
+        font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px;
+        background: var(--card2); border: 1px solid var(--line2);
+        padding: 1px 6px; border-radius: 5px;
+      }
+      pre {
+        background: var(--card2); color: var(--ink);
+        border: 1px solid var(--line); border-radius: 9px;
+        padding: 18px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 0;
+      }
+      .big { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+      [hidden] { display: none !important; }
+
+      /* Answers and the plan they produce, side by side. The answers column
+         stays pinned so changing one and seeing the effect never needs a
+         scroll. */
+      .split { display: grid; grid-template-columns: 390px minmax(0, 1fr); gap: 20px; align-items: start; }
+      .split .panel { margin-bottom: 0; }
+      .pinned { position: sticky; top: 20px; }
+      .split .picker { grid-template-columns: 1fr; gap: 11px; }
+      .split .field {
+        display: grid; grid-template-columns: 104px minmax(0, 1fr);
+        align-items: center; gap: 12px;
+      }
+      .split .field label { margin-bottom: 0; font-size: 12px; line-height: 1.3; }
+      .split .field select { padding: 10px 12px; font-size: 15px; }
+      .split .field .sub { grid-column: 2; margin: 0; font-size: 12.5px; }
+      .split .panel { padding: 20px 22px; }
+      .split .h2note { margin-bottom: 16px; font-size: 14px; }
+      .split .brief { margin-top: 16px; padding: 12px 14px; font-size: 14px; }
+      .split .btnrow { margin-top: 16px; }
+      .split .btnrow .act { padding: 9px 15px; font-size: 14px; }
+
+      /* The three-second read: what this combination produces, in one line. */
+      .glance {
+        margin: 0 0 22px; padding: 16px 18px;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--card2);
+      }
+      .glance .g1, .glance .g2 { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+      .glance .g2 { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+      .glance .lbl {
+        font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .07em; min-width: 88px;
+      }
+      .glance .g1 .lbl { color: var(--pri); }
+      .glance .g2 .lbl { color: var(--sup); }
+      .glance .val { font-size: 20px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em; }
+      .glance .g2 .val { font-size: 16px; font-weight: 600; color: var(--ink2); }
+
+      @media (max-width: 1040px) {
+        .split { grid-template-columns: 1fr; }
+        .pinned { position: static; }
+        .split .picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 820px) {
+        .picker, .cards, .split .picker { grid-template-columns: 1fr; }
+        .wrap { padding: 22px 16px 70px; }
+        .toprow { flex-direction: column; align-items: flex-start; }
       }
     </style>
   </head>
   <body>
-    <header>
-      <h1>
-        Scoring Sandbox
-        <span style="color: var(--mut); font-weight: 400"
-          >— dev only, not shipped to visitors</span
-        >
-      </h1>
-      <p>
-        Pick answers below. Everything recomputes live from
-        <code>assets/js/data.js</code> + <code>assets/js/engine.js</code> — the
-        exact code the live quiz runs.
-      </p>
-    </header>
-
     <div class="wrap">
-      <div class="controls">
-        <div id="questions"></div>
-        <div class="btnrow">
-          <button id="randomize">Randomise</button>
-          <button id="clear">Clear all</button>
+      <header class="top">
+        <div class="toprow">
+          <h1>Plan Sandbox <span class="badge">logic v5</span></h1>
+          <button type="button" class="act ghost themebtn" id="themeToggle"
+                  aria-label="Switch between light and dark"></button>
         </div>
-        <p class="note">
-          Rank order is the recommendation: 1st is primary, 2nd and 3rd are
-          supporting. Budget sets phasing and eligibility, never service choice.
+        <p class="lede">
+          Try any combination of answers and see exactly what the quiz would
+          recommend — without clicking through it five times. This reads the
+          same code the live quiz runs, so what you see here is what a real
+          visitor gets.
         </p>
+      </header>
+
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-view="try" aria-selected="true">Try a combination</button>
+        <button class="tab" role="tab" data-view="personas" aria-selected="false">The 20 personas</button>
+        <button class="tab" role="tab" data-view="services" aria-selected="false">All 35 services</button>
+        <button class="tab" role="tab" data-view="situations" aria-selected="false">The 30 briefs</button>
+        <button class="tab" role="tab" data-view="payload" aria-selected="false">Lead data sent to n8n</button>
       </div>
 
-      <div class="out">
-        <section>
-          <h2>Recommendation</h2>
-          <div id="recommendation" class="cards"></div>
-          <div id="budget" class="note"></div>
-          <dl id="metadata" class="facts"></dl>
-          <details class="raw">
-            <summary>Raw result JSON</summary>
-            <pre id="rawjson"></pre>
-          </details>
-        </section>
+      <!-- ── Try a combination ─────────────────────────────────────── -->
+      <section id="view-try">
+        <div class="split">
+          <aside>
+            <div class="panel pinned">
+              <h2>The answers</h2>
+              <p class="h2note">Change any answer — the plan updates instantly.</p>
+              <div class="picker" id="picker"></div>
+              <div class="btnrow">
+                <button type="button" class="act" id="randomise">🎲 Randomise</button>
+                <button type="button" class="act ghost" id="loadPersona">Next persona</button>
+                <button type="button" class="act ghost" id="clearAll">Reset</button>
+              </div>
+              <p class="brief" id="brief"></p>
+            </div>
+          </aside>
 
-        <section>
-          <h2>Score matrix — every service, every question</h2>
-          <table id="matrix">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-          <p class="note">
-            Green = answer or rule points · gold total = selected primary ·
-            badges show the final complementary bundle. Eligibility and bundle
-            rules can intentionally differ from raw score order.
+          <div>
+            <div class="panel">
+              <h2>The plan this produces</h2>
+              <div class="glance" id="glance"></div>
+              <p class="h2note" id="planNote"></p>
+
+              <div class="planhead">
+                <h3>Start with</h3><span class="tagpri" id="priCount"></span>
+              </div>
+              <div class="cards" id="priList"></div>
+
+              <div class="planhead" style="margin-top:26px">
+                <h3>Add next</h3><span class="tagsup" id="supCount"></span>
+              </div>
+              <div class="cards" id="supList"></div>
+
+              <div id="extras"></div>
+
+              <details>
+                <summary>Show me how it decided (for the technical team)</summary>
+                <div class="detbody scroll"><table id="traceTable"></table></div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Personas ──────────────────────────────────────────────── -->
+      <section id="view-personas" hidden>
+        <div class="panel">
+          <h2>The signed-off personas</h2>
+          <p class="h2note">
+            The 20 test personas from the planning sheet, run through the live
+            logic right now. Every one should say <span class="ok">match</span>.
+            If one ever says <span class="no">DIFFERS</span>, a business
+            decision has been changed.
           </p>
-        </section>
-      </div>
+          <p id="personaSummary"></p>
+          <div class="scroll"><table id="personaTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ── Services ──────────────────────────────────────────────── -->
+      <section id="view-services" hidden>
+        <div class="panel">
+          <h2>The service catalogue</h2>
+          <p class="h2note">
+            All 35 services. <b>Can lead</b> means it can be the main
+            recommendation. <b>Supporting only</b> means it can never be — that
+            is the rule protecting CRO, UI/UX, Technical SEO, Content Marketing
+            and Link Building from being sold as a headline service.
+          </p>
+          <p id="serviceSummary"></p>
+          <div class="scroll"><table id="serviceTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ── Situations ────────────────────────────────────────────── -->
+      <section id="view-situations" hidden>
+        <div class="panel">
+          <h2>The 30 briefs</h2>
+          <p class="h2note">
+            The two challenges are read together as one brief. Each row lists
+            the kinds of service that brief calls for, in order — business type
+            and budget then decide which actual service fills each slot.
+          </p>
+          <div class="scroll"><table id="situationTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ── Payload ───────────────────────────────────────────────── -->
+      <section id="view-payload" hidden>
+        <div class="panel">
+          <h2>Exactly what n8n receives</h2>
+          <p class="h2note">
+            For the combination selected on the first tab. The five fields the
+            current workflow already reads are unchanged, so nothing needs
+            rewiring before this goes live.
+          </p>
+          <pre id="payloadOut"></pre>
+        </div>
+      </section>
     </div>
 
-    <!-- Only the two files the scoring actually needs. No config, no network. -->
+    <script src="assets/js/config.js"></script>
     <script src="assets/js/data.js"></script>
     <script src="assets/js/engine.js"></script>
+    <script src="assets/js/planner.js"></script>
     <script>
       (function () {
         "use strict";
-        var D = window.MAM_DATA,
-          E = window.MAM_ENGINE;
-        var QUESTIONS = D.QUESTIONS,
-          SERVICES = D.SERVICES;
-        var answers = {};
+        var D = window.MAM_DATA;
+        var P = window.MAM_PLANNER;
+        var C = D.CATALOGUE;
 
-        var qWrap = document.getElementById("questions");
-
-        var SECOND_WEIGHT = D.SECONDARY_CHALLENGE_WEIGHT || 0.5;
-
-        function questionById(qid) {
-          return QUESTIONS.filter(function (q) {
-            return q.id === qid;
-          })[0];
-        }
-
-        function selectFor(qid, slot) {
-          return qWrap.querySelector(
-            '[data-q="' + qid + '"][data-slot="' + slot + '"]',
-          );
-        }
-
-        /* The second slot can never offer the answer already chosen as main,
-           nor an answer that has to stand alone. */
-        function optionListHTML(q, slot, excludeId) {
-          var placeholder =
-            slot === "second" ? "— no second answer —" : "— not answered —";
-          return (
-            '<option value="">' +
-            placeholder +
-            "</option>" +
-            q.options
-              .filter(function (o) {
-                if (slot !== "second") return true;
-                return !o.exclusive && o.id !== excludeId;
-              })
-              .map(function (o) {
-                return '<option value="' + o.id + '">' + o.label + "</option>";
-              })
-              .join("")
-          );
-        }
-
-        function syncSecond(q) {
-          var second = selectFor(q.id, "second");
-          if (!second) return;
-          var mainId = selectFor(q.id, "main").value;
-          var mainOption = optionFor(q, mainId);
-          var wanted = second.value;
-          var locked = !mainId || (mainOption && mainOption.exclusive);
-          second.innerHTML = optionListHTML(q, "second", mainId);
-          second.value = locked ? "" : wanted;
-          if (second.value !== wanted) second.value = "";
-          second.disabled = !!locked;
-        }
-
-        /* One place that turns the controls into an answers object, so the
-           sandbox and the live quiz agree on the shape the engine receives. */
-        function collect() {
-          answers = {};
-          QUESTIONS.forEach(function (q) {
-            var mainId = selectFor(q.id, "main").value;
-            if (!mainId) return;
-            if (!q.multi) {
-              answers[q.id] = mainId;
-              return;
-            }
-            var second = selectFor(q.id, "second");
-            var secondId = second && !second.disabled ? second.value : "";
-            answers[q.id] = secondId ? [mainId, secondId] : [mainId];
+        function esc(v) {
+          return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
           });
         }
+        function el(id) { return document.getElementById(id); }
+        function nameOf(id) { return C[id] ? C[id].name : id; }
+        function question(id) {
+          return D.QUESTIONS.filter(function (q) { return q.id === id; })[0];
+        }
+        function optionLabel(qid, oid) {
+          var q = question(qid);
+          if (!q) return oid;
+          var o = q.options.filter(function (x) { return x.id === oid; })[0];
+          return o ? o.label.replace(/\.$/, "") : oid;
+        }
 
-        QUESTIONS.forEach(function (q) {
-          var div = document.createElement("div");
-          div.className = "q";
-          var html =
-            "<label>" +
-            q.title +
-            '<br><span class="hint">' +
-            q.shortLabel +
-            (q.multi ? " &middot; main answer scores &times;1" : "") +
-            "</span></label>" +
-            '<select data-q="' +
-            q.id +
-            '" data-slot="main">' +
-            optionListHTML(q, "main") +
-            "</select>";
-          if (q.multi) {
-            html +=
-              '<label style="margin-top:10px"><span class="hint">' +
-              "Second answer (optional) &middot; scores &times;" +
-              SECOND_WEIGHT +
-              "</span></label>" +
-              '<select data-q="' +
-              q.id +
-              '" data-slot="second" disabled>' +
-              optionListHTML(q, "second", "") +
-              "</select>";
-          }
-          div.innerHTML = html;
-          qWrap.appendChild(div);
+        /* ── Light / dark ──────────────────────────────────────────────
+           Starts on whatever the machine is set to. Once someone chooses, the
+           choice is remembered and beats the system setting in both
+           directions. */
+        var THEME_KEY = "mam-sandbox-theme";
+
+        function systemPrefersDark() {
+          return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        }
+
+        function storedTheme() {
+          try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; }
+        }
+
+        function currentTheme() {
+          return storedTheme() || (systemPrefersDark() ? "dark" : "light");
+        }
+
+        function applyTheme(theme) {
+          document.documentElement.setAttribute("data-theme", theme);
+          var button = el("themeToggle");
+          button.textContent = theme === "dark" ? "☀️  Light mode" : "🌙  Dark mode";
+          button.setAttribute("aria-pressed", String(theme === "dark"));
+        }
+
+        el("themeToggle").addEventListener("click", function () {
+          var next = currentTheme() === "dark" ? "light" : "dark";
+          try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private mode */ }
+          applyTheme(next);
         });
 
-        qWrap.addEventListener("change", function (e) {
-          var qid = e.target.getAttribute("data-q");
-          if (!qid) return;
-          var q = questionById(qid);
-          if (q && q.multi && e.target.getAttribute("data-slot") === "main") {
-            syncSecond(q);
-          }
-          collect();
-          render();
-        });
-
-        document
-          .getElementById("randomize")
-          .addEventListener("click", function () {
-            QUESTIONS.forEach(function (q) {
-              var main =
-                q.options[Math.floor(Math.random() * q.options.length)];
-              selectFor(q.id, "main").value = main.id;
-              if (!q.multi) return;
-              syncSecond(q);
-              var pool = q.options.filter(function (o) {
-                return !o.exclusive && o.id !== main.id;
-              });
-              /* Roughly half of random cases exercise a second answer. */
-              var takeSecond =
-                !main.exclusive && pool.length && Math.random() < 0.5;
-              selectFor(q.id, "second").value = takeSecond
-                ? pool[Math.floor(Math.random() * pool.length)].id
-                : "";
-            });
-            collect();
-            render();
-          });
-
-        document.getElementById("clear").addEventListener("click", function () {
-          qWrap.querySelectorAll("select").forEach(function (s) {
-            s.value = "";
-          });
-          QUESTIONS.forEach(function (q) {
-            if (q.multi) syncSecond(q);
-          });
-          collect();
-          render();
-        });
-
-        function optionFor(q, id) {
-          return (
-            q.options.filter(function (o) {
-              return o.id === id;
-            })[0] || null
-          );
+        /* Follow the machine until someone makes a choice of their own. */
+        if (window.matchMedia) {
+          var watch = window.matchMedia("(prefers-color-scheme: dark)");
+          var onSystemChange = function () { if (!storedTheme()) applyTheme(currentTheme()); };
+          if (watch.addEventListener) watch.addEventListener("change", onSystemChange);
+          else if (watch.addListener) watch.addListener(onSystemChange);
         }
 
-        // Build the per-question contribution matrix ourselves (engine.score hides
-        // negatives), so the dev can see exactly how each service nets out.
-        function buildMatrix() {
-          var perService = {}; // id -> { qId: points, ... , total }
-          QUESTIONS.forEach(function (q) {
-            E.answerIds(answers[q.id]).forEach(function (id, index) {
-              var opt = optionFor(q, id);
-              if (!opt) return;
-              var mult = index === 0 ? 1 : SECOND_WEIGHT;
-              Object.keys(opt.weights).forEach(function (sid) {
-                perService[sid] = perService[sid] || {};
-                perService[sid][q.id] =
-                  (perService[sid][q.id] || 0) + opt.weights[sid] * mult;
-              });
-            });
-          });
-          Object.keys(perService).forEach(function (sid) {
-            var t = 0;
-            QUESTIONS.forEach(function (q) {
-              t += perService[sid][q.id] || 0;
-            });
-            perService[sid].total = t;
-          });
+        applyTheme(currentTheme());
 
-          /* Mirror the production engine's grouped-service rule so the matrix shows
-       the one public recommendation rather than its two internal signals. */
-          var totals = {};
-          Object.keys(perService).forEach(function (sid) {
-            totals[sid] = perService[sid].total;
-          });
-          Object.keys(D.SCORE_GROUPS || {}).forEach(function (serviceId) {
-            var winner = E.bestScoreSignal(totals, serviceId);
-            var winnerRow = perService[winner.id];
-
-            D.SCORE_GROUPS[serviceId].forEach(function (signalId) {
-              if (signalId !== serviceId) delete perService[signalId];
+        /* ── Tabs ──────────────────────────────────────────────────── */
+        var VIEWS = ["try", "personas", "services", "situations", "payload"];
+        var tabs = document.querySelectorAll(".tab");
+        Array.prototype.forEach.call(tabs, function (tab) {
+          tab.addEventListener("click", function () {
+            Array.prototype.forEach.call(tabs, function (t) {
+              t.setAttribute("aria-selected", String(t === tab));
             });
+            VIEWS.forEach(function (v) { el("view-" + v).hidden = v !== tab.dataset.view; });
+          });
+        });
 
-            if (winner.id !== serviceId) {
-              if (winnerRow) perService[serviceId] = winnerRow;
-              else delete perService[serviceId];
+        /* ── Answer state ──────────────────────────────────────────── */
+        var answers = {
+          profile: "inhouse", type: "ecommerce", budget: "100to300",
+          challenge: ["leads", "website"],
+        };
+
+        /* The picker markup is built once. Only the option VALUES change after
+           that, so no listener is ever attached twice — re-binding on every
+           redraw is what made the previous version lock up. */
+        function buildPickerOnce() {
+          var html = "";
+          D.QUESTIONS.forEach(function (q) {
+            var opts = q.options.map(function (o) {
+              return '<option value="' + esc(o.id) + '">' + esc(o.label.replace(/\.$/, "")) + "</option>";
+            }).join("");
+            if (q.id === "challenge") {
+              html +=
+                '<div class="field"><label for="sel-challenge">Main challenge</label>' +
+                '<select id="sel-challenge" data-q="challenge">' + opts + "</select></div>" +
+                '<div class="field"><label for="sel-challenge2">Second challenge</label>' +
+                '<select id="sel-challenge2" data-q="challenge2">' +
+                '<option value="">— none —</option>' + opts + "</select>" +
+                '<p class="sub" id="secondNote">Optional. The two are read together as one brief.</p></div>';
+            } else {
+              html +=
+                '<div class="field"><label for="sel-' + esc(q.id) + '">' + esc(q.shortLabel) + "</label>" +
+                '<select id="sel-' + esc(q.id) + '" data-q="' + esc(q.id) + '">' + opts + "</select></div>";
             }
           });
-          return perService;
-        }
+          el("picker").innerHTML = html;
 
-        function render() {
-          var result = E.score(answers);
-          var matrix = result.breakdown
-            ? result.breakdown.byService
-            : buildMatrix();
-          renderRecommendation(result);
-          renderMatrix(matrix, result);
-        }
-
-        function renderRecommendation(result) {
-          var el = document.getElementById("recommendation");
-          if (!result.ranked.length) {
-            el.innerHTML =
-              '<div class="card"><div class="score">No answers yet — pick some options.</div></div>';
-            document.getElementById("budget").textContent = "";
-            document.getElementById("metadata").innerHTML = "";
-            document.getElementById("rawjson").textContent = "";
-            return;
-          }
-          var cards = "";
-          cards += card(
-            "primary",
-            "Primary",
-            result.primary,
-            result.scores[result.primary],
-          );
-          result.supporting.forEach(function (id) {
-            cards += card("support", "Supporting", id, result.scores[id]);
+          /* One delegated listener, attached exactly once. */
+          el("picker").addEventListener("change", function (e) {
+            var q = e.target.getAttribute("data-q");
+            if (!q) return;
+            if (q === "challenge") {
+              answers.challenge[0] = e.target.value;
+            } else if (q === "challenge2") {
+              answers.challenge = e.target.value
+                ? [answers.challenge[0], e.target.value]
+                : [answers.challenge[0]];
+            } else {
+              answers[q] = e.target.value;
+            }
+            syncPicker();
+            renderPlan();
           });
-          el.innerHTML = cards;
-
-          var b = result.budgetNote;
-          document.getElementById("budget").textContent = b
-            ? "Budget tier: " + b.tier + " — " + b.text
-            : "";
-          renderFacts(result);
-          document.getElementById("rawjson").textContent = JSON.stringify(
-            {
-              complete: result.isComplete,
-              focus: result.focus || null,
-              delivery: result.delivery || null,
-              confidence: result.confidence || null,
-              phases: result.phases || [],
-              ranked: result.ranked,
-              appliedRules: result.breakdown.appliedRules,
-            },
-            null,
-            2,
-          );
         }
 
-        /* The engine speaks in kebab-case ids; the sandbox reads better in prose. */
-        function humanise(value) {
-          if (!value) return "";
-          return String(value)
-            .replace(/-/g, " ")
-            .replace(/^./, function (c) {
-              return c.toUpperCase();
-            });
-        }
-
-        function serviceNames(ids) {
-          return (ids || [])
-            .map(function (id) {
-              return (SERVICES[id] && SERVICES[id].name) || id;
-            })
-            .join(", ");
-        }
-
-        function fact(term, value) {
-          if (!value) return "";
-          return "<dt>" + term + "</dt><dd>" + value + "</dd>";
-        }
-
-        function renderFacts(result) {
-          var focus = result.focus || {};
-          var delivery = result.delivery || {};
-          var confidence = result.confidence || {};
-          var breakdown = result.breakdown || {};
-          var streams = focus.activeWorkstreams;
-          var gap = confidence.scoreGap;
-          var overlays = delivery.overlays || [];
-          var rules = breakdown.appliedRules || [];
-          var phases = (result.phases || []).filter(function (p) {
-            return p.serviceIds && p.serviceIds.length;
+        /** Push the current answers into the dropdowns. Never rebuilds markup. */
+        function syncPicker() {
+          ["profile", "type", "budget"].forEach(function (q) {
+            el("sel-" + q).value = answers[q];
           });
-          var rows = "";
+          el("sel-challenge").value = answers.challenge[0] || "";
+          var second = el("sel-challenge2");
+          second.value = answers.challenge[1] || "";
 
-          rows += fact(
-            "Status",
-            result.isComplete
-              ? "All four questions answered"
-              : '<span class="muted">Waiting on ' +
-                  (result.missingQuestionIds || []).length +
-                  " more answer(s)</span>",
-          );
-          rows += fact(
-            "Focus",
-            humanise(focus.mode) +
-              (streams
-                ? ' <span class="muted">· ' +
-                  streams +
-                  " active workstream" +
-                  (streams === 1 ? "" : "s") +
-                  "</span>"
-                : ""),
-          );
-          rows += fact(
-            "Delivery",
-            delivery.label +
-              (overlays.length
-                ? ' <span class="muted">· ' +
-                  overlays.map(humanise).join(", ") +
-                  "</span>"
-                : ""),
-          );
-          rows += fact(
-            "Confidence",
-            '<span class="lvl-' +
-              confidence.level +
-              '">' +
-              humanise(confidence.level) +
-              "</span>" +
-              (gap === null || gap === undefined
-                ? ""
-                : ' <span class="muted">· ' +
-                  gap +
-                  " pt gap to runner-up</span>") +
-              '<div class="muted">' +
-              (confidence.reason || "") +
-              "</div>",
-          );
-          if (phases.length) {
-            rows += fact(
-              "Sequence",
-              phases
-                .map(function (p) {
-                  return (
-                    "<div>" +
-                    p.label +
-                    ': <span class="muted">' +
-                    serviceNames(p.serviceIds) +
-                    "</span></div>"
-                  );
-                })
-                .join(""),
-            );
-          }
-          rows += fact(
-            "Ranking",
-            (result.ranked || [])
-              .map(function (id, i) {
-                var role =
-                  i === 0 ? "primary" : i < 3 ? "supporting" : "not shown";
-                return (
-                  "<div>" +
-                  (i + 1) +
-                  ". " +
-                  ((SERVICES[id] && SERVICES[id].name) || id) +
-                  ' <span class="muted">' +
-                  result.scores[id] +
-                  " pts · " +
-                  role +
-                  "</span></div>"
-                );
-              })
-              .join(""),
-          );
-          rows += fact(
-            "Rules fired",
-            rules.length
-              ? rules
-                  .map(function (r) {
-                    /* A bonus fired by the second answer applies at that
-                       answer's weight, so show the scale when it is not full. */
-                    var scaled =
-                      r.scale !== undefined && r.scale !== 1
-                        ? ' <span class="muted">&times;' + r.scale + "</span>"
-                        : "";
-                    var points = Object.keys(r.weights || {})
-                      .map(function (sid) {
-                        return sid + " +" + r.weights[sid];
-                      })
-                      .join(", ");
-                    return (
-                      "<div>" +
-                      r.label +
-                      scaled +
-                      (points
-                        ? ' <span class="muted">(' + points + ")</span>"
-                        : "") +
-                      "</div>"
-                    );
-                  })
-                  .join("")
-              : '<span class="muted">None</span>',
-          );
-
-          document.getElementById("metadata").innerHTML = rows;
-        }
-
-        function card(cls, tag, id, score) {
-          return (
-            '<div class="card ' +
-            cls +
-            '">' +
-            '<div class="tag">' +
-            tag +
-            "</div>" +
-            '<div class="name">' +
-            SERVICES[id].name +
-            "</div>" +
-            '<div class="score">' +
-            score +
-            " pts · " +
-            id +
-            "</div></div>"
-          );
-        }
-
-        function renderMatrix(matrix, result) {
-          var ids = Object.keys(matrix).sort(function (a, b) {
-            return matrix[b].total - matrix[a].total;
+          /* The same challenge cannot be both answers, and "not sure" is never
+             a second thought — it is always the main one. */
+          Array.prototype.forEach.call(second.options, function (o) {
+            o.disabled = !!o.value && (o.value === answers.challenge[0] || o.value === "unsure");
           });
-          var thead = document.querySelector("#matrix thead");
-          var tbody = document.querySelector("#matrix tbody");
+          var mustPair = answers.challenge[0] === "unsure";
+          el("secondNote").textContent = mustPair
+            ? "Required — “I’m not sure where to start” cannot be planned from on its own."
+            : "Optional. The two are read together as one brief.";
+          el("secondNote").style.color = mustPair && !answers.challenge[1] ? "var(--brand)" : "";
+        }
 
-          if (!ids.length) {
-            thead.innerHTML = "";
-            tbody.innerHTML =
-              "<tr><td>Pick an answer to see the maths.</td></tr>";
+        /* ── Rendering the plan ────────────────────────────────────── */
+        function svcHTML(id, kind, result) {
+          var s = C[id];
+          var why = P.reasonFor(result, id);
+          return '<article class="svc ' + kind + '">' +
+            '<p class="kick">' + esc(s.kicker) + "</p>" +
+            '<p class="nm">' + esc(s.name) + "</p>" +
+            (why ? '<p class="why">On the plan because ' + esc(why) + ".</p>" : "") +
+            '<ul class="del">' + s.deliverables.map(function (d) {
+              return "<li>" + esc(d) + "</li>";
+            }).join("") + "</ul>" +
+            '<p class="meta">' + esc(s.category) + " &middot; " +
+            (s.url ? "link set" : '<span class="no">no link yet</span>') + "</p></article>";
+        }
+
+        function renderPlan() {
+          var result = P.plan(answers);
+          var brief = el("brief");
+
+          if (!result.isComplete) {
+            brief.className = "brief warn";
+            brief.textContent = result.missing.indexOf("challenge_second") !== -1
+              ? "Pick a second challenge — “I’m not sure where to start” cannot be planned from on its own. The live quiz blocks this too."
+              : "Still missing: " + result.missing.join(", ");
+            ["priList", "supList", "extras", "traceTable", "glance"].forEach(function (i) { el(i).innerHTML = ""; });
+            el("planNote").textContent = "";
+            el("priCount").textContent = "—";
+            el("supCount").textContent = "—";
+            el("payloadOut").textContent = "";
             return;
           }
 
-          var head = "<tr><th>Service</th>";
-          QUESTIONS.forEach(function (q) {
-            head +=
-              "<th>" +
-              q.shortLabel +
-              (q.weightMultiplier > 1 ? " &times;" + q.weightMultiplier : "") +
-              "</th>";
-          });
-          head += "<th>Rules</th>";
-          head += "<th>Total</th></tr>";
-          thead.innerHTML = head;
+          var q = result.quota;
+          brief.className = "brief";
+          brief.innerHTML =
+            "<b>" + esc(optionLabel("profile", answers.profile)) + "</b> running a <b>" +
+            esc(optionLabel("type", answers.type)) + "</b> on <b>" +
+            esc(optionLabel("budget", answers.budget)) + "</b>, whose brief is <b>" +
+            esc(answers.challenge.map(function (c) { return optionLabel("challenge", c); }).join(" + ")) +
+            "</b>.";
 
-          var rankIndex = {};
-          result.ranked.forEach(function (id, i) {
-            rankIndex[id] = i + 1;
-          });
+          el("planNote").textContent =
+            "This budget shows " + q.primary + " main " +
+            (q.primary === 1 ? "service" : "services") + " and " + q.supporting +
+            " supporting " + (q.supporting === 1 ? "one" : "ones") +
+            ". The main services carry equal weight — a client who can fund both runs both from the start.";
 
-          tbody.innerHTML = ids
-            .map(function (id) {
-              var row = matrix[id];
-              var ruledOut = row.total <= 0;
-              var rank = rankIndex[id];
-              var badge = "";
-              if (id === result.primary)
-                badge = '<span class="pill pri">primary</span>';
-              else if (result.supporting.indexOf(id) !== -1)
-                badge = '<span class="pill sup">supporting</span>';
+          el("glance").innerHTML =
+            '<div class="g1"><span class="lbl">Start with</span><span class="val">' +
+            esc(result.primaries.map(nameOf).join("  +  ")) + "</span></div>" +
+            '<div class="g2"><span class="lbl">Add next</span><span class="val">' +
+            esc(result.supporting.map(nameOf).join("  +  ")) + "</span></div>";
 
-              var cls = "ranked-" + (rank || 0) + (ruledOut ? " ruledout" : "");
-              var cells = "<td>" + SERVICES[id].name + badge + "</td>";
-              QUESTIONS.forEach(function (q) {
-                var v = row[q.id];
-                if (v === undefined) cells += '<td class="zero">·</td>';
-                else
-                  cells +=
-                    '<td class="' +
-                    (v > 0 ? "pos" : v < 0 ? "neg" : "zero") +
-                    '">' +
-                    (v > 0 ? "+" + v : v) +
-                    "</td>";
-              });
-              var rules = row.interactions || 0;
-              cells += rules
-                ? '<td class="pos">+' + rules + "</td>"
-                : '<td class="zero">·</td>';
-              cells += '<td class="tot">' + row.total + "</td>";
-              return '<tr class="' + cls + '">' + cells + "</tr>";
-            })
-            .join("");
+          el("priCount").textContent = result.primaries.length + " of " + q.primary;
+          el("supCount").textContent = result.supporting.length + " of " + q.supporting;
+          el("priList").innerHTML = result.primaries.map(function (id) { return svcHTML(id, "pri", result); }).join("");
+          el("supList").innerHTML = result.supporting.map(function (id) { return svcHTML(id, "sup", result); }).join("");
+
+          var extras = "";
+          if (result.overlays.length) {
+            extras += '<div class="extra"><b>How we would deliver it</b>' +
+              result.overlays.map(function (o) {
+                return "<div><b style=\"display:inline;text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink)\">" +
+                  esc(o.label) + "</b> — " + esc(o.note) + "</div>";
+              }).join("") + "</div>";
+          }
+          if (result.alsoRelevant.length) {
+            extras += '<div class="extra"><b>Also often relevant — named in the meeting, not chosen by the quiz</b>' +
+              esc(result.alsoRelevant.map(nameOf).join("  ·  ")) + "</div>";
+          }
+          el("extras").innerHTML = extras;
+
+          el("traceTable").innerHTML =
+            "<thead><tr><th>Kind of service needed</th><th>What happened</th><th>Service chosen</th></tr></thead><tbody>" +
+            result.trace.map(function (t) {
+              return "<tr><td><code>" + esc(t.need) + "</code></td><td>" + esc(t.outcome) +
+                "</td><td>" + esc(t.service ? nameOf(t.service) : "—") + "</td></tr>";
+            }).join("") + "</tbody>";
+
+          el("payloadOut").textContent = JSON.stringify(P.buildPayload(
+            answers,
+            { name: "Somchai Jaidee", email: "somchai@example.com", phone: "0812345678", website: "example.com" },
+            result, Date.now() - 90000, { recaptcha: { configured: false, token: null } }
+          ), null, 2);
         }
 
-        render();
+        /* ── The 20 personas ───────────────────────────────────────── */
+        var PERSONAS = [
+          [1, "sme", "local", "under50", ["leads", "ai"], "Facebook Ads", "AI SEO"],
+          [2, "sme", "local", "under50", ["leads", "ranking"], "Google Ads Campaigns", "SEO Campaigns"],
+          [3, "sme", "local", "under50", ["ranking", "traffic"], "SEO Campaigns", "Local SEO"],
+          [4, "sme", "ecommerce", "under50", ["leads", "traffic"], "Facebook Ads", "E-commerce SEO"],
+          [5, "sme", "ecommerce", "50to100", ["leads", "website"], "Facebook Ads + Google Ads Campaigns", "Web Design"],
+          [6, "inhouse", "ecommerce", "50to100", ["leads", "traffic"], "Google Shopping + Facebook Ads", "E-commerce SEO"],
+          [7, "inhouse", "national", "50to100", ["ai", "ranking"], "AI SEO + SEO Campaigns", "Content Marketing"],
+          [8, "inhouse", "national", "100to300", ["leads", "ai"], "Google Ads Campaigns + AI SEO", "Content Marketing + SEO Campaigns"],
+          [9, "inhouse", "ecommerce", "100to300", ["leads", "website"], "Google Shopping + Facebook Ads", "Web Design + Conversion Rate Optimisation (CRO)"],
+          [10, "enterprise", "enterprise", "100to300", ["ai", "ranking"], "AI SEO + SEO Campaigns", "Content Marketing + Technical SEO"],
+          [11, "enterprise", "enterprise", "over300", ["leads", "traffic"], "Google Ads Campaigns + Facebook Ads", "SEO Campaigns + Programmatic Ads"],
+          [12, "enterprise", "national", "over300", ["traffic", "ai"], "SEO Campaigns + AI SEO", "Content Marketing + Programmatic Ads"],
+          [13, "enterprise", "ecommerce", "over300", ["leads", "website"], "Google Shopping + Facebook Ads", "Web Design + Conversion Rate Optimisation (CRO)"],
+          [14, "agency", "mixed", "50to100", ["ranking", "traffic"], "SEO Campaigns + AI SEO", "Link Building"],
+          [15, "agency", "enterprise", "100to300", ["traffic", "ai"], "SEO Campaigns + AI SEO", "Link Building + Content Marketing"],
+          [16, "sme", "mixed", "under50", ["website", "leads"], "Web Design", "Google Ads Campaigns"],
+          [17, "inhouse", "mixed", "50to100", ["website", "traffic"], "Web Design + SEO Campaigns", "Conversion Rate Optimisation (CRO)"],
+          [18, "enterprise", "enterprise", "over300", ["website", "leads"], "Web Design + Google Ads Campaigns", "Conversion Rate Optimisation (CRO) + UI/UX"],
+          [19, "sme", "local", "under50", ["unsure", "leads"], "Google Ads Campaigns", "Facebook Ads"],
+          [20, "enterprise", "mixed", "over300", ["unsure", "leads"], "Google Ads Campaigns + Facebook Ads", "SEO Campaigns + AI SEO"],
+        ];
+
+        function renderPersonas() {
+          var pass = 0;
+          var rows = PERSONAS.map(function (p) {
+            var r = P.plan({ profile: p[1], type: p[2], budget: p[3], challenge: p[4] });
+            var gotP = r.primaries.map(nameOf).join(" + ");
+            var gotS = r.supporting.map(nameOf);
+            var wantS = p[6].split(" + ");
+            var ok = gotP === p[5] &&
+              gotS.slice().sort().join("|") === wantS.slice().sort().join("|");
+            if (ok) pass++;
+            return '<tr><td class="n">' + p[0] + "</td>" +
+              "<td><b>" + esc(optionLabel("profile", p[1])) + "</b><div class=\"sml\">" +
+              esc(optionLabel("type", p[2])) + "</div></td>" +
+              "<td>" + esc(optionLabel("budget", p[3])) + "</td>" +
+              "<td>" + esc(p[4].map(function (c) { return optionLabel("challenge", c); }).join(" + ")) + "</td>" +
+              "<td><b>" + esc(gotP) + "</b></td>" +
+              "<td>" + esc(gotS.join(" + ")) + "</td>" +
+              '<td class="' + (ok ? "ok" : "no") + '">' + (ok ? "match" : "DIFFERS") + "</td>" +
+              '<td><button type="button" class="act ghost" style="padding:6px 12px;font-size:13px" data-persona="' +
+              (p[0] - 1) + '">Try it</button></td></tr>';
+          }).join("");
+          el("personaTable").innerHTML =
+            "<thead><tr><th>#</th><th>Client</th><th>Budget</th><th>Brief</th>" +
+            "<th>Main services</th><th>Supporting</th><th></th><th></th></tr></thead><tbody>" + rows + "</tbody>";
+          el("personaSummary").innerHTML = '<span class="big ' + (pass === 20 ? "ok" : "no") + '">' +
+            pass + " of 20</span> &nbsp;personas reproduce the signed-off plan exactly.";
+        }
+
+        /* ── Catalogue ─────────────────────────────────────────────── */
+        var ROLE_TEXT = {
+          lead: "Can lead a plan",
+          support: "Supporting only",
+          platform: "Named inside the social card",
+          overlay: "Delivery overlay — never a card",
+        };
+
+        function renderServices() {
+          var ids = Object.keys(C);
+          var counts = {};
+          var missing = 0;
+          ids.forEach(function (id) {
+            counts[C[id].role] = (counts[C[id].role] || 0) + 1;
+            if (!C[id].url) missing++;
+          });
+          el("serviceSummary").innerHTML =
+            '<span class="big">' + ids.length + "</span> &nbsp;services &nbsp;·&nbsp; " +
+            counts.lead + " can lead &nbsp;·&nbsp; " + counts.support + " supporting only &nbsp;·&nbsp; " +
+            counts.platform + " inside the social card &nbsp;·&nbsp; " + counts.overlay + " delivery overlays" +
+            (missing ? ' &nbsp;·&nbsp; <span class="no">' + missing + " still need a link</span>" : "");
+
+          el("serviceTable").innerHTML =
+            "<thead><tr><th>Service</th><th>Category</th><th>What it can be</th><th>Link</th></tr></thead><tbody>" +
+            ids.map(function (id) {
+              var s = C[id];
+              return "<tr><td><b>" + esc(s.name) + '</b><div class="sml">' + esc(s.kicker) + "</div></td>" +
+                "<td>" + esc(s.category) + "</td>" +
+                "<td>" + esc(ROLE_TEXT[s.role]) + "</td>" +
+                '<td class="' + (s.url ? "ok" : "no") + '">' + (s.url ? "set" : "missing") + "</td></tr>";
+            }).join("") + "</tbody>";
+        }
+
+        /* ── Briefs ────────────────────────────────────────────────── */
+        var NEED_TEXT = {
+          paid: "A paid channel", paid2: "A second paid channel",
+          organic: "SEO", ai: "AI SEO", local: "Local SEO",
+          website: "Website", uiux: "UI/UX", conversion: "Conversion",
+          content: "Content", technical: "Technical SEO",
+          authority: "Link building", reach: "Paid reach",
+          retention: "Email", creative: "Creative",
+        };
+
+        function renderSituations() {
+          el("situationTable").innerHTML =
+            "<thead><tr><th>Main challenge</th><th>Second challenge</th><th>What the pair calls for, in order</th></tr></thead><tbody>" +
+            Object.keys(D.SITUATIONS).map(function (key) {
+              var parts = key.split("|");
+              var needs = D.SITUATIONS[key].map(function (raw) {
+                var only = raw.charAt(raw.length - 1) === "!";
+                var need = only ? raw.slice(0, -1) : raw;
+                return (NEED_TEXT[need] || need) + (only ? " (main only)" : "");
+              }).join("  ›  ");
+              return "<tr><td><b>" + esc(optionLabel("challenge", parts[0])) + "</b></td>" +
+                '<td>' + (parts[1] ? esc(optionLabel("challenge", parts[1])) : '<span class="sml">— none —</span>') + "</td>" +
+                "<td>" + esc(needs) + "</td></tr>";
+            }).join("") + "</tbody>";
+        }
+
+        /* ── Controls ──────────────────────────────────────────────── */
+        function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+
+        el("randomise").addEventListener("click", function () {
+          ["profile", "type", "budget"].forEach(function (q) {
+            answers[q] = pick(question(q).options).id;
+          });
+          var pool = question("challenge").options.map(function (o) { return o.id; });
+          var main = pick(pool);
+          var others = pool.filter(function (o) { return o !== main && o !== "unsure"; });
+          /* "Not sure" always needs a partner; the rest take one about half the time. */
+          answers.challenge = (main === "unsure" || Math.random() < 0.55)
+            ? [main, pick(others)]
+            : [main];
+          syncPicker();
+          renderPlan();
+        });
+
+        el("clearAll").addEventListener("click", function () {
+          answers = { profile: "sme", type: "local", budget: "under50", challenge: ["leads"] };
+          syncPicker();
+          renderPlan();
+        });
+
+        var personaCursor = 0;
+        function loadPersona(index) {
+          var p = PERSONAS[index];
+          answers = { profile: p[1], type: p[2], budget: p[3], challenge: p[4].slice() };
+          syncPicker();
+          renderPlan();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          Array.prototype.forEach.call(tabs, function (t) {
+            t.setAttribute("aria-selected", String(t.dataset.view === "try"));
+          });
+          VIEWS.forEach(function (v) { el("view-" + v).hidden = v !== "try"; });
+        }
+
+        el("loadPersona").addEventListener("click", function () {
+          loadPersona(personaCursor % PERSONAS.length);
+          personaCursor++;
+        });
+
+        /* One delegated listener for every "Try it" button in the persona table. */
+        el("personaTable").addEventListener("click", function (e) {
+          var index = e.target.getAttribute("data-persona");
+          if (index !== null) loadPersona(Number(index));
+        });
+
+        buildPickerOnce();
+        syncPicker();
+        renderPlan();
+        renderPersonas();
+        renderServices();
+        renderSituations();
       })();
     </script>
   </body>
