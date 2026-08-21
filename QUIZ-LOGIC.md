@@ -1,372 +1,334 @@
-# Service Recommendation Quiz — Logic v4
+# Service Recommendation Quiz — Logic v5
 
-This document is the plain-English specification for all **2,600 combinations**
-of 4 personas × 5 business types × 5 budgets × 26 challenge selections.
+This is the plain-English specification for every recommendation the quiz can
+make: **3,000 combinations** of 4 personas × 5 business types × 5 budgets ×
+30 challenge briefs.
 
-The challenge step takes a main answer and an optional second one, so its 6
-answers produce 26 selections: each answer alone, plus each ordered pair of the
-5 combinable answers (20). Order is part of the selection —
-`[website, ranking]` is a different brief from `[ranking, website]`.
+> **Source of truth**
+> `assets/js/data.js` — the 35 services, the 30 situations, the budget quota.
+> `assets/js/planner.js` — the routing rules and how a plan is assembled.
+> `tests/planner.test.js` — the 20 signed-off personas, as pass/fail checks.
 
-> Source of truth: `assets/js/data.js` contains the services, base weights,
-> interaction weights and budget framing. `assets/js/engine.js` contains the
-> eligibility and phasing rules.
+**Try it without reading any code:** open `dev-test.html` in a browser. Pick
+any four answers and the plan appears instantly, with the reasoning behind it.
+
+---
 
 ## 1. The model
 
-The three cards are the three highest-scoring eligible services, in score
-order. Rank 1 is the primary; ranks 2 and 3 are the supporting
-recommendations. There is no separate bundle layer that can reorder them.
+Four steps, in order. Each one has exactly one job.
 
-1. Add the weights of the selected answers. A second challenge counts at
-   `SECONDARY_CHALLENGE_WEIGHT` (0.5); every other answer counts in full.
-2. Add any matching cross-answer interaction weights, scaled by the rank of the
-   challenge that triggered them.
-3. Drop services that are not eligible for this context.
-4. Sort by score. First is primary, next two support it.
-5. Phase those three according to budget.
-
-This is a deliberate change from v2, which chose a primary from a per-challenge
-pool and then assembled supports by role. That let a card be badged
-“supporting” while a higher-scoring service sat below it — in 214 of the 600
-combinations the displayed order did not match the scores. All of the business
-logic now lives in the weights and the eligibility gates, where it can be read
-and argued with directly.
-
-The four questions are deliberately unequal. The challenge is the dominant
-signal, because it is the client telling us what is actually wrong. Business
-type shapes which channel answers that challenge. Budget shifts the emphasis
-toward fast payback or toward compounding assets. Persona is a light nudge. In
-v2 every persona and every business type awarded points to SEO, Google Ads and
-Social, so those three floated to the top of almost every result regardless of
-what was chosen; each question now awards points only where the answer implies
-genuine fit.
-
-There are no negative weights and no hidden challenge multiplier. Challenge
-weights in the tables below are already the final values.
-
-`SEO + AI Visibility` has one public score, `seo`. An AI-visibility answer adds
-an `ai-first` focus to that service; it does not create a second competing SEO
-card. `social` represents paid social demand generation, including Meta /
-Facebook Ads.
-
-Scores are fit points, not percentages or predicted performance.
-
-## 2. Recommendation roles
-
-| Role | Services |
-| --- | --- |
-| Frequently primary | SEO + AI Visibility, Google Ads |
-| Primary in their own context | Local SEO for local ranking; Website Development or UX/UI for a website upgrade; Consultation when unsure where to start |
-| Usually supporting | Social, Content, CRO, Programmatic |
-| Delivery or engagement overlay | White Label SEO for agencies; Outcome-aligned delivery for high-budget enterprise contexts |
-
-White Label SEO and Outcome Marketing stay in the service catalogue for URLs
-and copy, but do not compete with the visitor's actual marketing need. They
-change how the recommended work is delivered.
-
-## 3. Base weight tables
-
-A blank service receives 0 points from that answer.
-
-### Q1 — Who you are
-
-A small nudge only, and only toward services that persona can genuinely absorb.
-This question does not award points to every channel — that was what let the
-same three services float to the top regardless of the answers.
-
-| Answer | Services it boosts |
-| --- | --- |
-| Small Business / SME | Google Ads +2, Social +2, Local SEO +1 |
-| In-House Marketing Team | SEO +2, Content +2, Social +1 |
-| Enterprise / Corporate | Content +3, SEO +2, Programmatic +2 |
-| Agency / Consultant | SEO +2, Content +1 |
-
-### Q2 — Business type
-
-The channel shape a business model actually implies.
-
-| Answer | Services it boosts |
-| --- | --- |
-| Local Business / SME | Local SEO +8, Google Ads +5, Social +3, SEO +1 |
-| National Brand | SEO +6, Social +5, Content +4, Programmatic +3, Google Ads +3 |
-| E-commerce Business | Google Ads +6, CRO +6, Social +5, SEO +4, Content +1 |
-| Enterprise Company | SEO +6, Content +5, Programmatic +4, Google Ads +2, Social +2 |
-| Mixed Business Model | Google Ads +4, SEO +4, Social +3, CRO +3, Local SEO +2, Content +1 |
-
-### Q3 — Monthly budget
-
-Budget shifts emphasis; it does not pick the answer. A small budget leans on
-channels that pay back fast and cost little to run. A larger one makes
-compounding assets — organic, content, scaled media — worth funding. It never
-awards points evenly across the board, which is what previously let a service
-ride up the ranking on budget alone.
-
-| Answer | Services it boosts |
-| --- | --- |
-| Below THB 50,000 | UX/UI +8, Google Ads +4, Social +4, Local SEO +3, CRO +2 |
-| THB 50,000–100,000 | UX/UI +4, Google Ads +3, Social +3, SEO +3, Local SEO +3, CRO +2, Content +1 |
-| THB 100,001–300,000 | SEO +5, Content +4, Local SEO +4, Website Development +4, Google Ads +3, Social +3, CRO +3, Programmatic +2 |
-| THB 300,001+ | Website Development +8, SEO +6, Content +6, Programmatic +6, Local SEO +5, CRO +4, Google Ads +3, Social +3 |
-| I'm not sure yet | No fit points; keep the recommendation indicative and add a budget-sizing step |
-
-No service may receive the same number of points at every tier — that is
-enforced by the regression suite. A flat award is a service riding the budget
-answer rather than earning its place.
-
-### Q4 — Biggest challenge
-
-The dominant signal, on its own scale. A service that does not answer the
-stated challenge scores nothing here.
-
-This is the only multi-select question. The visitor names a main challenge and
-may add one more, to a maximum of two. **The main answer scores at the values
-below; a second scores at half of them.** Every weight in the table is even, so
-halving always yields a whole number and the one-point tie rule keeps its
-meaning.
-
-"I'm not sure where to start" is marked `exclusive`: knowing a second challenge
-means you are not unsure, so it cannot be paired with anything. Selecting more
-than two answers, the same answer twice, or an exclusive answer alongside
-another is rejected outright — the result reports itself incomplete rather than
-scoring half a question.
-
-| Answer | Services it boosts |
-| --- | --- |
-| I need more leads | Google Ads +24, Social +18, CRO +12, SEO +8, Content +4, Programmatic +4 |
-| My website doesn't rank on Google | SEO +30, Content +20, Local SEO +14, Google Ads +4, Social +2 |
-| My business isn't visible in AI Search | SEO +30, Content +22, Social +4, Google Ads +2, Local SEO +2 |
-| I need more traffic | SEO +24, Google Ads +20, Social +16, Content +12, Programmatic +8, CRO +6 |
-| My website needs an upgrade | Website Development +30, UX/UI +24, CRO +12, SEO +10 |
-| I'm not sure where to start | Consultation +40, SEO +6, Google Ads +6, Social +6, Local SEO +6 |
-
-Challenge weights are three to five times the size of any other question's, so
-what the client says is wrong is what drives the recommendation.
-
-## 4. Cross-answer interaction weights
-
-Some combinations mean more than their individual answers. Each matching rule
-is applied once after the base points are added, scaled by the rank of the
-challenge that triggered it: a rule fired by the second challenge applies at
-half strength. Without that, a second answer would swing more points through a
-bonus than through its own weights.
-
-| Combination | Additional points | Purpose |
+| Step | Input | Decides |
 | --- | --- | --- |
-| Local business + Leads | Google Ads +2 | Local search intent converts hardest on paid search |
-| Over THB 300k + Leads + National/Enterprise | SEO +8, Content +6 | At this budget the brief changes: build a demand engine, do not just buy clicks |
-| Local business + Ranking | Local SEO +14 | A local ranking problem is a local problem at every budget |
-| E-commerce + Traffic | CRO +14 | Traffic without conversion work is just more expensive traffic |
-| Over THB 300k + Traffic + National/Enterprise | Programmatic +10 | Scaled reach is what a very large media budget actually unlocks |
-| AI challenge + enterprise persona or enterprise business type | Content +4 | Adds the content depth needed for an enterprise AI-visibility programme |
+| **1. Situation** | Both challenges, read together as one brief | Which *kinds* of service are needed, in order |
+| **2. Routing** | Business type + persona | Which *actual service* answers each kind |
+| **3. Quantity** | Budget | How many services show, and which are primary |
+| **4. Guardrail** | Service role | Which services may never lead a plan |
 
-The last rule is an OR condition and still adds Content +4 only once when both
-the persona and business type are Enterprise.
+### Why it is built this way
 
-## 5. Eligibility gates
+v4 added up points and let the highest score win. That let **budget decide
+identity**: the same business asking about a website upgrade was told *UI/UX*
+on a small budget and *Web Design* on a large one. Measured across the answer
+space, changing only the budget flipped the top recommendation in **32 of 100**
+business contexts, and SEO led **63%** of all plans regardless of what was
+asked.
 
-Gates prevent a high incidental score from producing a contextually wrong card.
-Where a gate names a challenge, it is satisfied by **either** stated challenge —
-a client whose main challenge is a website upgrade and whose second is ranking
-keeps both the website services and the ranking services in play.
+v5 separates the two jobs completely.
 
-| Service | Eligible when |
+> **RULE 2.1 — Budget never changes what is recommended.**
+> Budget decides **how many** services appear and **which tier** within a
+> family is right — Google Ads Campaigns or Google Shopping, Facebook Ads or
+> CPAS. It never swaps one family for another.
+
+This is enforced by test, not by convention: `budget changes how much is
+recommended, never what kind` walks every business context across all four real
+budgets and fails if the family of any primary changes.
+
+---
+
+## 2. The guardrail
+
+> **RULE 3.1 — Support services can never be primary.**
+> **CRO, UI/UX, Technical SEO, Content Marketing** and **Link Building** —
+> along with the other services marked `role: "support"` — can only ever be
+> supporting recommendations.
+
+Checked *before* anything is ranked, so no combination of answers can promote
+them. Under v4, UI/UX led **88** combinations and CRO led 2. Under v5 that is
+zero, permanently, and a test asserts it across all 3,000.
+
+### The four roles
+
+Every service in `CATALOGUE` carries one:
+
+| Role | Count | Behaviour |
+| --- | --- | --- |
+| `lead` | 11 | May be primary or supporting |
+| `support` | 17 | Supporting only |
+| `platform` | 5 | Named inside the Social Media Campaigns card, never its own card |
+| `overlay` | 2 | Changes *how* work is delivered; never a card |
+
+**Can lead a plan:** AI SEO · SEO Campaigns · E-commerce SEO · Local SEO ·
+Google Ads Campaigns · Google Shopping · Performance Max · Facebook Ads ·
+CPAS Ads · Social Media Campaigns · Web Design
+
+**Named inside the social card:** LinkedIn Ads · LINE Ads · TikTok Ads ·
+Reddit Ads · X Ads
+
+> **RULE 3.2 — Platform choice happens in person.**
+> Four questions cannot honestly tell us whether a client belongs on LinkedIn
+> or Reddit. Rather than guess, these are listed inside the Social Media
+> Campaigns card and chosen in the consultation.
+
+**Delivery overlays:** SEO Reseller (agency clients see "white-label
+delivery") and Outcome Marketing (offered at 300K+ to Enterprise and In-House
+clients, once tracking is in place).
+
+---
+
+## 3. The 30 situations
+
+The two challenges are one brief, not a main answer plus a footnote.
+
+> **RULE 4.1 — The pair is the brief.**
+> "Leads + not visible in AI" is a different situation from "leads + doesn't
+> rank", with a different answer. Order matters: naming the website as the
+> *main* problem leads to a different plan than mentioning it second.
+
+There are exactly 30: five challenges alone, twenty ordered pairs, and five
+"not sure" pairs. They live in `SITUATIONS` in `data.js`, and each row lists
+the *kinds* of service the brief calls for, in order.
+
+### The need vocabulary
+
+| Need | Resolves to |
 | --- | --- |
-| Local SEO | Business type is Local or Mixed **and** the challenge is Ranking, AI Visibility or Not Sure. Local SEO is a search-visibility service, not a general lead channel: a local business that needs leads is better served by paid search and paid social, with organic and AI visibility built underneath. A local business that does not know where to start is a different case — its map presence is a likely first move |
-| Website Development and UX/UI | Challenge is Website Upgrade |
-| Content | Challenge is Ranking, AI Visibility or Traffic; also Leads once the budget is at least THB 100,001, where content can be funded alongside the channels that convert |
-| CRO | E-commerce or Mixed type, or a Website Upgrade, or a Leads/Traffic challenge with at least THB 100,001 — optimising conversion needs traffic worth optimising |
-| Programmatic | Budget is at least THB 100,001; type is National, Enterprise or Mixed; challenge is Leads or Traffic |
-| Consultation | Challenge is Not Sure; an unknown budget can also reference Consultation as a sizing step without changing the scored primary |
-| White Label SEO | Delivery overlay for Agency persona; never ranked |
-| Outcome Marketing | Engagement overlay when persona or type is Enterprise and budget is THB 300,001+; never ranked |
+| `paid` / `paid2` | A paid channel — RULE 5.1 decides search or social |
+| `organic` | SEO Campaigns, or E-commerce SEO for an online store |
+| `ai` | AI SEO |
+| `local` | Local SEO, then Google Business Profile |
+| `website` | Web Design, then Web Maintenance |
+| `uiux` | UI/UX |
+| `conversion` | CRO, or Heat Maps below 100K |
+| `content` | Content Marketing, or Video SEO for a 300K+ store |
+| `technical` | Technical SEO, Keyword Mapping, On-page SEO or SEO Audit |
+| `authority` | Link Building |
+| `reach` | Programmatic Ads, Google Display Ads or YouTube Ads |
+| `retention` | Email Marketing |
+| `creative` | Premium Creative |
 
-For partial answers in the developer sandbox, final gates wait until all four
-questions are valid. This keeps partial-score exploration useful. Production
-results require all four valid answers.
+A need written with a trailing `!` is **primary-only**: if the budget has
+already filled its primary slots, it is dropped rather than demoted. A second
+ad platform is worth funding as a core channel or not at all — it is never a
+phase-two extra.
 
-## 6. Primary and supporting selection
+> **RULE 4.2 — "Not sure" must be paired.**
+> Choosing *"I'm not sure where to start"* requires a second answer. The UI
+> hides Continue until one is given, and the planner refuses to produce a plan
+> without it. The old **Free Strategy Consultation** card is gone; the booking
+> button remains. Answering "I don't know where to start" with real services is
+> stronger than answering it with "book a call".
 
-Score order is the recommendation. After eligibility, the highest-scoring
-service is the primary and the next two are the supporting recommendations.
-There is no per-challenge pool and no role-based bundle: if a challenge should
-produce a particular shape, the weights have to say so.
+---
 
-The shapes the current weights produce:
+## 4. Routing
 
-| Challenge/context | Resulting three cards |
+### The paid channel
+
+Reverse-engineered from the persona sheet — it explains **all 13** personas
+involving a paid channel, with no exceptions.
+
+> **RULE 5.1 — Who leads the paid slot.**
+> **Facebook Ads leads** when "I need more leads" is the *main* challenge and
+> the client is a Small Business / SME.
+> **Except** when the brief also contains "doesn't rank on Google" — that
+> proves people are already searching, so paid search leads.
+> **Paid search leads** for In-House, Enterprise and Agency clients, and
+> whenever "leads" is only the *second* challenge.
+
+A Thai local SME on a small budget gets cheaper geo-targeted reach on Facebook,
+and enquiries arrive straight in Messenger or LINE. A national brand or
+enterprise has the search volume and the tracking to make Google pay back.
+Bigger clients capture demand; smaller ones create it.
+
+### Product routing
+
+| Kind | Condition | Service |
+| --- | --- | --- |
+| Paid search | E-commerce, not an SME | Google Shopping |
+| Paid search | 300K+, national/enterprise/e-comm/mixed | *then* Performance Max |
+| Paid search | Everyone else | Google Ads Campaigns |
+| Paid social | Funded store, traffic in the brief | CPAS Ads |
+| Paid social | Brief mentions leads | Facebook Ads |
+| Paid social | Awareness or traffic only | Social Media Campaigns |
+| Organic | E-commerce | E-commerce SEO |
+| Organic | Everyone else | SEO Campaigns |
+| Local | Local or mixed, not an agency | Local SEO, then Google Business Profile |
+| Technical | Enterprise, national, or 100K+ | Technical SEO |
+| Technical | In-House or Agency | Keyword Mapping |
+| Technical | Under 50K or unsure | SEO Audit |
+| Technical | Otherwise | On-page SEO |
+| Conversion | 100K+ | CRO |
+| Conversion | Below 100K | Heat Maps |
+| Reach | National or enterprise | Programmatic Ads |
+| Reach | Mixed at 300K+ | YouTube Ads |
+| Reach | Mixed below 300K | Google Display Ads |
+
+Performance Max extends a working Search or Shopping account across Google's
+other channels — it is the second Google Ads service a big spender adds, never
+the first one we put them on. CPAS is collaborative advertising with
+marketplace and brand partners, so it leads only for a funded store whose brief
+is about traffic and sales.
+
+### Structural rules
+
+> **RULE 5.2 — Two primaries must be genuinely different.**
+> They may never come from the same family — no *Google Ads Campaigns +
+> Performance Max*. Different families are fine, including two SEO services:
+> *AI SEO + SEO Campaigns* is allowed because they solve different problems.
+> Supporting services may deepen a primary — Technical SEO under SEO Campaigns
+> is correct and expected.
+
+> **RULE 5.4 — Agency clients.**
+> An agency buys what it resells. AI visibility is the differentiator it wants
+> alongside an SEO campaign, and Link Building is the fulfilment it cannot
+> staff. Matches personas 14 and 15.
+
+> **RULE 5.5 — Local businesses.**
+> A business with a real catchment area needs its map presence looked after
+> alongside whatever else is recommended, so the local need is offered again in
+> the first supporting slot.
+
+> **RULE 5.6 — Small businesses and their websites.**
+> An SME has no in-house developer. A new site they cannot keep updated goes
+> stale within a year, so Web Maintenance follows Web Design in the supporting
+> section.
+
+### The deepening pass
+
+If the brief runs out before the budget does, the planner goes one level deeper
+into the areas already recommended rather than reaching for something
+unrelated — Google Business Profile under Local SEO, Heat Maps under CRO. This
+fires in about **12%** of combinations.
+
+---
+
+## 5. Budget and quantity
+
+Budget's only job. **The two primaries are equal to each other** — a client who
+can fund both runs both from the start.
+
+| Budget | Primary | Supporting | Total | Framing |
+| --- | --- | --- | --- | --- |
+| Below THB 50K | 1 | 1 | 2 | Start here · Next phase |
+| THB 50K – 100K | 2 | 1 | 3 | Start with both · Add next |
+| THB 100K – 300K | 2 | 2 | 4 | Start with both · Add next |
+| THB 300K+ | 2 | 2 | 4 | Integrated programme |
+| Not sure yet | 1 | 1 | 2 | Size the budget first · Then add |
+
+Every plan fills its quota exactly — asserted across all 3,000 combinations.
+
+---
+
+## 6. The 20 personas
+
+These come from the signed-off persona sheet and are the **acceptance oracle**.
+All 20 reproduce exactly. If a future change breaks one, it has changed a
+decision the business already made, and the test suite fails.
+
+| # | Client | Budget | Brief | Primary | Supporting |
+| --- | --- | --- | --- | --- | --- |
+| 1 | SME · Local | <50K | leads + AI | Facebook Ads | AI SEO |
+| 2 | SME · Local | <50K | leads + ranking | Google Ads Campaigns | SEO Campaigns |
+| 3 | SME · Local | <50K | ranking + traffic | SEO Campaigns | Local SEO |
+| 4 | SME · E-comm | <50K | leads + traffic | Facebook Ads | E-commerce SEO |
+| 5 | SME · E-comm | 50–100K | leads + website | Facebook Ads + Google Ads | Web Design |
+| 6 | In-House · E-comm | 50–100K | leads + traffic | Google Shopping + Facebook Ads | E-commerce SEO |
+| 7 | In-House · National | 50–100K | AI + ranking | AI SEO + SEO Campaigns | Content Marketing |
+| 8 | In-House · National | 100–300K | leads + AI | Google Ads + AI SEO | Content Marketing + SEO Campaigns |
+| 9 | In-House · E-comm | 100–300K | leads + website | Google Shopping + Facebook Ads | Web Design + CRO |
+| 10 | Enterprise | 100–300K | AI + ranking | AI SEO + SEO Campaigns | Content Marketing + Technical SEO |
+| 11 | Enterprise | 300K+ | leads + traffic | Google Ads + Facebook Ads | SEO Campaigns + Programmatic Ads |
+| 12 | Enterprise · National | 300K+ | traffic + AI | SEO Campaigns + AI SEO | Content Marketing + Programmatic Ads |
+| 13 | Enterprise · E-comm | 300K+ | leads + website | Google Shopping + Facebook Ads | Web Design + CRO |
+| 14 | Agency · Mixed | 50–100K | ranking + traffic | SEO Campaigns + AI SEO | Link Building |
+| 15 | Agency · Enterprise | 100–300K | traffic + AI | SEO Campaigns + AI SEO | Link Building + Content Marketing |
+| 16 | SME · Mixed | <50K | website + leads | Web Design | Google Ads Campaigns |
+| 17 | In-House · Mixed | 50–100K | website + traffic | Web Design + SEO Campaigns | CRO |
+| 18 | Enterprise | 300K+ | website + leads | Web Design + Google Ads | CRO + UI/UX |
+| 19 | SME · Local | <50K | not sure + leads | Google Ads Campaigns | Facebook Ads |
+| 20 | Enterprise · Mixed | 300K+ | not sure + leads | Google Ads + Facebook Ads | SEO Campaigns + AI SEO |
+
+**Two changes from the original sheet**, both agreed:
+
+- Personas 4 and 6 receive **E-commerce SEO** where the sheet said SEO
+  Campaigns, because E-commerce SEO should only ever appear for e-commerce
+  businesses and applying that consistently means using it for them.
+- **AI SEO's deliverables were rewritten** to be purely AI-specific — *entity
+  optimisation, AI citation tracking, answer-format content, schema for AI
+  assistants*. The sheet listed On-page SEO and Technical SEO on both AI SEO
+  and SEO Campaigns, and the two appear together as co-primaries in five
+  personas; a client should never see the same work quoted twice.
+
+---
+
+## 7. Editing this
+
+### Service links
+
+All 35 URLs sit in `SERVICE_URLS` at the top of `assets/js/data.js`. Paste each
+one between the quotes. A service left as `""` renders without a "Learn more"
+link — nothing looks broken while links are outstanding.
+
+**Do not use `#`.** Cards open links in a new tab, so `#` would open an empty
+tab that goes nowhere.
+
+### Icons
+
+`ICONS` in the same file, as raw SVG path data only — no `<svg>` wrapper, drawn
+on a 24×24 grid. Add a line, then point a service at it with
+`icon: ICONS.yourIcon`.
+
+### Changing a recommendation
+
+Find the brief in `SITUATIONS` and reorder its needs. That changes **only** that
+situation — there are no weights to ripple. Then run the tests: if a persona
+breaks, you have changed a signed-off decision, which may be exactly what you
+intended.
+
+### Running the tests
+
+Open `tests/planner.html` in a browser — everything runs on load. Or from the
+command line with macOS JavaScriptCore:
+
+```
+jsc assets/js/data.js assets/js/planner.js tests/planner.test.js
+```
+
+---
+
+## 8. What n8n receives
+
+The existing workflow needs **no changes**. It reads five fields, and all five
+keep their shape:
+
+| n8n reads | Receives |
 | --- | --- |
-| Leads, small to mid budget | Google Ads → Social → SEO + AI Visibility, or CRO once there is budget to optimise |
-| Leads, over THB 300k, National/Enterprise | SEO + AI Visibility or Google Ads leads, with Content or Social alongside |
-| Ranking + Local | Local SEO → SEO + AI Visibility → Content |
-| Ranking + any other type | SEO + AI Visibility → Content → Google Ads or Local SEO |
-| AI Visibility | SEO + AI Visibility (`ai-first` focus) → Content → strongest paid channel |
-| Traffic, small budget | Google Ads → SEO + AI Visibility → Social or CRO |
-| Traffic, larger budget | SEO + AI Visibility → Google Ads → Social, CRO or Programmatic |
-| Website, below THB 50k | UX/UI → Website Development → CRO or SEO + AI Visibility |
-| Website, THB 50k+ | Website Development → UX/UI → CRO (e-commerce/mixed) or SEO + AI Visibility |
-| Not Sure | Consultation → the two best-fitting channels for that business; Local SEO leads that pair for a local business |
+| `recommendation.primary.name` | Both primaries joined — `"Google Shopping + Facebook Ads"` |
+| `recommendation.primary.url` | The first primary's link |
+| `recommendation.supporting` | The supporting services only |
+| `recommendation.all_ranked` | Everything on the plan, in order |
+| `recommendation.budget_tier` | Unchanged |
 
-Google Ads leads most lead-generation plans because paid search captures demand
-that already exists, which is what "I need more leads" describes. It stops
-leading once the budget is large enough for a national or enterprise brand to
-fund a demand engine instead — at THB 300,001+ the plan shifts toward SEO and
-Content.
+Both primaries are joined the way the persona sheet writes them, so a CRM row
+reads like the planning sheet. Added alongside, and ignored by the current
+workflow until someone maps them: `primaries[]`, `also_relevant`, `overlays`,
+`situation` and `plan_shape`.
 
-A website upgrade is the clearest case of budget changing the answer rather
-than the phasing: below THB 50k the plan leads with a UX/UI redesign, and from
-THB 50k upward it leads with a full rebuild.
-
-Budget changes the recommended three in 62 of the 120 persona/type/challenge
-groups, and changes the primary in 32 of them.
-
-Exact-score ties fall back to the global priority list in `data.js`
-(`PRIORITY`), so results stay deterministic. A one-point lead is a real lead,
-not a tie — but a 0–1 point gap is reported as medium confidence so a
-strategist validates the final channel mix.
-
-Services that are configured as primary-only (`PRIMARY_ONLY`, currently just
-Consultation) are never shown as a supporting card. `ranked` starts with the
-three cards and continues through the rest of the eligible field, so the
-sandbox can show exactly what placed fourth and why.
-
-## 7. Budget phasing
-
-The quiz always explains a three-card strategic direction, but does not imply
-that every budget can fund all three services at once.
-
-| Budget | Phase rule |
-| --- | --- |
-| Below THB 50k | Start the primary now; keep both supports on the roadmap |
-| THB 50k–100k | Run the primary and first support; keep the second support for the next phase |
-| THB 100,001–300k | Run two workstreams; add the third next |
-| THB 300,001+ | The full three-service mix can run as an integrated programme |
-| Unknown | Consultation sizes the budget first; all scored recommendations remain indicative areas to explore |
-
-## 8. Worked examples
-
-### A. SME + Local + Below THB 50k + Leads
-
-The reference persona. Local SEO is not eligible for a lead-generation
-challenge, and CRO needs more budget before it is worth running.
-
-| Service | Persona | Type | Budget | Challenge | Interaction | Total |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Google Ads | 2 | 5 | 4 | 24 | 2 | **37** |
-| Social | 2 | 3 | 4 | 18 | — | **27** |
-| SEO + AI Visibility | 0 | 1 | 0 | 8 | — | **9** |
-
-**Result:** Google Ads primary → Social → SEO + AI Visibility. At this budget
-only Google Ads starts now; the other two are the roadmap.
-
-### B. The same local SME at THB 300,001+
-
-Google Ads 36 → Social 26 → CRO 16. The larger budget makes conversion work
-worth funding, so CRO displaces SEO in the third slot and all three run
-together.
-
-### C. National Brand + Over THB 300k + Leads
-
-The scaled demand-generation rule adds SEO +8 and Content +6, so SEO + AI
-Visibility 30 ties Google Ads 30 and takes the primary slot on priority order.
-
-**Result:** SEO + AI Visibility → Google Ads → Social. At this budget the brief
-is to build demand, not only to buy it.
-
-### D. SME + Local + Ranking
-
-Local SEO 37 → SEO + AI Visibility 31 → Content 20 at the smallest budget, and
-Local SEO stays primary at every budget: a local ranking problem is a local
-problem however much is being spent. More budget widens the plan underneath it
-rather than replacing it.
-
-### E. Agency + National + Over THB 300k + Traffic
-
-SEO + AI Visibility 38 → Programmatic 27 → Google Ads 26. Scaled reach only
-becomes buyable at this budget; below THB 100,001 Programmatic is not even
-eligible.
-
-## 9. Exhaustive regression target
-
-The automated test enumerates every one of the 2,600 valid answer tuples: the
-600 single-challenge cases below, plus 2,000 two-challenge cases.
-
-Answering one challenge produces byte-for-byte the result it produced before
-multi-select existed, which is asserted for all 600 cases. The single-challenge
-distribution is therefore unchanged:
-
-| Primary | Cases |
-| --- | ---: |
-| SEO + AI Visibility | 278 |
-| Google Ads | 102 |
-| Free Strategy Consultation | 100 |
-| Website Development | 80 |
-| Local SEO | 20 |
-| UX/UI | 20 |
-| **Total** | **600** |
-
-Across the 400 Leads, Ranking, AI and Traffic cases, Google Ads or SEO is
-primary in 380 cases (95%). The remaining 20 are all Local + Ranking, where
-Local SEO is deliberately more precise. Website Upgrade and Not Sure remain
-deterministic rather than being distorted to increase a preferred service's
-frequency.
-
-Social is never primary. It is the second card in most lead plans, which is the
-role it actually plays: demand creation alongside demand capture.
-
-The 600 single-challenge combinations produce 28 distinct three-service plans.
-
-The full top-three appearance target is:
-
-| Service | Top-three appearances |
-| --- | ---: |
-| SEO + AI Visibility | 514 |
-| Google Ads | 324 |
-| Social Media Marketing | 291 |
-| Content | 206 |
-| Website Development | 100 |
-| UX/UI | 100 |
-| Consultation | 100 |
-| Local SEO | 80 |
-| CRO | 77 |
-| Programmatic | 8 |
-
-The appearances total 1,800: exactly three recommendations for every
-single-challenge combination. White Label SEO and Outcome Marketing appear as
-overlays, not ranked cards.
-
-### Across all 2,600 selections
-
-Adding the 2,000 two-challenge cases gives the full baseline the suite asserts:
-
-| Primary | Cases | | Service | Top-three appearances |
-| --- | ---: | --- | --- | ---: |
-| SEO + AI Visibility | 1,645 | | SEO + AI Visibility | 2,403 |
-| Google Ads | 468 | | Google Ads | 1,506 |
-| Website Development | 263 | | Content | 1,188 |
-| Free Strategy Consultation | 100 | | Social Media Marketing | 939 |
-| UX/UI | 88 | | Website Development | 608 |
-| Local SEO | 34 | | UX/UI | 520 |
-| CRO | 2 | | Local SEO | 256 |
-| **Total** | **2,600** | | CRO | 251 |
-| | | | Consultation | 100 |
-| | | | Programmatic | 29 |
-
-Appearances total 7,800 — three cards for every selection. Social is still
-never primary. Every score stays a whole number, and no selection produces
-fewer than three cards.
-
-The 2,600 selections produce 55 distinct three-service plans, up from 28 with a
-single challenge — the measurable gain from letting a client name a second
-problem.
-
-Two properties the suite enforces specifically, because they are what a naive
-"add both challenges together" implementation gets wrong:
-
-- **A website upgrade named as the main challenge always keeps a website
-  service in the plan** — all 400 such cases. Summing both challenges at full
-  weight drops Website Development out of the cards entirely in some contexts,
-  because SEO is the only service scoring on all six challenges and wins on
-  breadth rather than fit.
-- **Order changes the plan** in a large majority of the 1,000 unordered pairs.
-  If it did not, the "main challenge" promise on screen would be decorative.
+**One pre-existing gap worth fixing separately:** the workflow reads
+`answers.challenge` only. The quiz has always sent the second challenge as
+`answers.challenge_2`, and nothing reads it — so the second challenge is
+discarded on every lead. Adding a `challenge_2` column to the *MAM Quiz Leads*
+table and one line in "Build lead row" fixes it. Now that the pair *is* the
+brief, this is the most informative answer in the quiz.

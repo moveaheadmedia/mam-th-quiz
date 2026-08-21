@@ -35,7 +35,6 @@ window.MAM_CONFIG = {
   /* --------------------------------------------------------------------
      3. Behaviour
      -------------------------------------------------------------------- */
-  autoAdvanceMs: 300,    // pause after picking an answer, so the tick is visible
   persistAnswers: true,  // remember progress on refresh (sessionStorage)
   embedResize: true,     // post height to parent window when used in an iframe
 

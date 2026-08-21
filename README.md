@@ -240,37 +240,37 @@ verification failed or scored under 0.5. Otherwise `new`.
 
 ## How the recommendation works
 
-Recommendation logic v4 ranks services and shows the top three:
+Recommendation logic v5 builds a plan in four steps, each with one job:
 
-1. Base fit points from the four answers.
-2. Cross-answer interaction points for cases such as Local + Leads.
-3. Eligibility gates drop services that do not fit the context.
-4. Sort by score — 1st is the primary, 2nd and 3rd are the supporting
-   recommendations — then phase those three by the selected budget.
+1. **Situation** — the two challenges are read together as one brief. There are
+   exactly 30 possible briefs, and each one lists the *kinds* of service it
+   calls for, in order.
+2. **Routing** — business type and persona turn each kind into an actual
+   service. "Paid search" becomes Google Shopping for an online store and
+   Google Ads Campaigns for everyone else.
+3. **Quantity** — budget decides how many services show and which are primary.
+   It never changes *which* service is right.
+4. **Guardrail** — only services marked `role: "lead"` may be primary. CRO,
+   UI/UX, Technical SEO, Content Marketing and Link Building can never lead a
+   plan, whatever is answered.
 
-The four questions are deliberately unequal. The challenge carries the largest
-weights — it is the client telling us what is actually wrong. Business type
-shapes which channel answers it, budget shifts the emphasis between fast
-payback and compounding assets, and persona is a light nudge. All of the
-business logic lives in the weights and the eligibility gates, so the
-recommendation order always matches the scores.
+There are no weights and no scores. Changing a recommendation means reordering
+one row of the situations table, which affects that situation and nothing else.
 
-The challenge step takes a main answer and an optional second one. The main
-answer scores in full and the second at `SECONDARY_CHALLENGE_WEIGHT` (0.5), so
-the challenge the client called biggest still leads the plan. A service is
-eligible if it answers *either* stated challenge, and an interaction rule
-triggered by the second challenge applies at that same half weight. Answering
-one challenge produces exactly the result it always did.
+The two challenges are one brief, not a main answer plus a footnote — "leads +
+not visible in AI" is a different situation from "leads + doesn't rank", with a
+different answer, and order matters. *"I'm not sure where to start"* requires a
+second answer, because "I don't know" is not something we can plan from.
 
-Challenge weights are already final: there is no hidden multiplier and there
-are no negative weights. `SEO + AI Visibility` has one combined public score;
-the AI challenge changes its focus to `ai-first`. White Label SEO and Outcome
-Marketing are delivery overlays rather than competing recommendation cards.
+The two primaries carry equal weight; the budget decides whether there are one
+or two. LinkedIn, LINE, TikTok, Reddit and X are named inside the Social Media
+Campaigns card rather than guessed at, and the platform mix is chosen in the
+consultation. White Label SEO and Outcome Marketing are delivery overlays, not
+competing cards.
 
-The engine preserves the original payload fields and adds `logic_version`,
-delivery, focus, confidence and phase metadata. See `QUIZ-LOGIC.md` for every
-weight, interaction, gate, tie rule, worked example and the expected
-distribution across all 2,600 valid combinations.
+The payload keeps every field the existing n8n workflow reads, so nothing
+needs rewiring. See `QUIZ-LOGIC.md` for every rule, the routing table, all 20
+signed-off personas and what changed from the original sheet.
 
 ---
 
@@ -282,16 +282,17 @@ Nothing to install. Either open `index.html` directly, or serve it:
 npx --yes serve .          # or any static server
 ```
 
-Open `dev-test.html` for an interactive score-and-rule breakdown. Run the full
-2,600-combination regression suite on macOS with:
+Open `dev-test.html` to try any combination of answers and see the plan
+instantly, alongside all 20 personas, all 35 services and the 30 briefs.
+
+Open `tests/planner.html` to run the full 3,000-combination regression suite in
+a browser — it runs on load. Or from the command line on macOS:
 
 ```bash
 /System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc \
   -e 'var window=this;' \
-  assets/js/data.js assets/js/engine.js tests/quiz-logic.test.js
+  assets/js/data.js assets/js/planner.js tests/planner.test.js
 ```
-
-`tests/quiz-logic.html` runs the same dependency-free suite in a browser.
 
 ---
 
@@ -300,8 +301,9 @@ Open `dev-test.html` for an interactive score-and-rule breakdown. Run the full
 | Want to change… | Edit |
 | --- | --- |
 | Webhook, phone, links, reCAPTCHA key, behaviour flags | `assets/js/config.js` |
-| Questions, answers, services, weights, interactions, budget framing | `assets/js/data.js` |
-| Eligibility, ranking, phasing, scoring maths, payload shape | `assets/js/engine.js` |
+| Service links (all 35 in one block), icons, questions, answers, the 30 briefs, budget quota | `assets/js/data.js` |
+| Routing rules, how a plan is assembled, payload shape | `assets/js/planner.js` |
+| Spam signals, reCAPTCHA, the POST to n8n | `assets/js/engine.js` |
 | Screen flow, validation, markup | `assets/js/app.js` |
 | Styling | `assets/css/styles.css` |
 

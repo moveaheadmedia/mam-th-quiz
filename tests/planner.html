@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Logic v5 tests — MAM Service Quiz</title>
+    <style>
+      body {
+        margin: 0; padding: 26px 20px 60px;
+        background: #0f1115; color: #e7eaf0;
+        font: 13.5px/1.6 ui-monospace, Menlo, Consolas, monospace;
+      }
+      .wrap { max-width: 900px; margin: 0 auto; }
+      h1 { font-size: 18px; margin: 0 0 6px; font-family: system-ui, sans-serif; }
+      p.sub {
+        color: #9aa3b2; font-size: 13px; margin: 0 0 22px;
+        font-family: system-ui, sans-serif;
+      }
+      #test-output div { white-space: pre-wrap; padding: 1px 0; }
+      .heading { color: #6ea8fe; font-weight: 700; }
+      .pass { color: #59d499; }
+      .fail { color: #ff7b7b; font-weight: 700; }
+      .summary { margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a2f3a; font-weight: 700; }
+      .summary.pass { color: #59d499; }
+      .summary.fail { color: #ff7b7b; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Logic v5 regression suite</h1>
+      <p class="sub">
+        Every check runs the moment this page loads. The 20 signed-off personas
+        are the acceptance oracle — if one of them changes, a business decision
+        has changed with it.
+      </p>
+      <div id="test-output"></div>
+    </div>
+
+    <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/data.js"></script>
+    <script src="../assets/js/planner.js"></script>
+    <script src="planner.test.js"></script>
+  </body>
+</html>

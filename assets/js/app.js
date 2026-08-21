@@ -7,8 +7,11 @@
   var CFG = window.MAM_CONFIG;
   var D = window.MAM_DATA;
   var ENGINE = window.MAM_ENGINE;
+  /* Logic v5. ENGINE is still used for reCAPTCHA, spam signals and the POST
+     itself; everything about WHAT is recommended now comes from PLANNER. */
+  var PLANNER = window.MAM_PLANNER;
 
-  var STORAGE_KEY = 'mam-quiz-state-v2';
+  var STORAGE_KEY = 'mam-quiz-state-v3';
   var STEP_LABELS = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Get results'];
 
   var el = {
@@ -66,11 +69,13 @@
       state.answers = saved.answers;
       state.startedAt = saved.startedAt || Date.now();
       state.index = Math.min(saved.index || 0, D.QUESTIONS.length);
-      if (saved.screen === 'results' && saved.lead) {
+      var restored = PLANNER.plan(state.answers);
+      if (saved.screen === 'results' && saved.lead && restored.isComplete) {
         state.lead = saved.lead;
-        state.result = ENGINE.score(state.answers);
+        state.result = restored;
         state.screen = 'results';
-      } else if (saved.screen === 'form' && answeredCount() === D.QUESTIONS.length) {
+      } else if (saved.screen === 'form' && answeredCount() === D.QUESTIONS.length &&
+                 restored.isComplete) {
         state.screen = 'form';
       } else if (answeredCount() > 0) {
         state.screen = 'question';
@@ -155,7 +160,8 @@
       var rank = chosen.indexOf(option.id) + 1;
       var selected = rank > 0;
       var stateClass = selected ? (multi ? ' is-rank' + rank : ' is-selected') : '';
-      var rankLabel = rank === 1 ? 'Main challenge' : rank === 2 ? 'Also' : '';
+      /* Only the challenge step ranks its answers, so only it gets a badge. */
+      var rankLabel = !multi ? '' : rank === 1 ? 'Main challenge' : rank === 2 ? 'Also' : '';
       return '' +
       '<button type="button" class="option' + stateClass + '"' +
         (multi
@@ -174,27 +180,26 @@
       '</button>';
     }).join('');
 
-    /* One line that always says what to do next, so "up to two" never has to be
-       inferred from the tick marks. */
-    var hint = '';
+    /* Every step says what to do next. Neither "up to two" nor "you still have
+       to press Continue" should have to be inferred from the tick marks. */
+    var text;
     if (multi) {
-      /* An exclusive answer cannot take a partner, so it must never be offered
-         one — the hint has to describe the choice actually on the table. */
-      var soleAnswer = chosen.some(function (id) {
-        var option = ENGINE.answerOption(question.id, id);
-        return option && option.exclusive;
-      });
-      var text = state.notice ||
+      text = state.notice ||
         (chosen.length === 0
           ? 'Pick the challenge that matters most. You can add a second one if you have two.'
-          : soleAnswer
-            ? 'We will start by working out where your best opportunity is.'
+          : needsPartner(question.id)
+            ? 'Which of these is closest to your situation? Pick one more and we can plan from it.'
             : chosen.length < limit
-              ? 'Add a second challenge if you have one, or continue.'
-              : 'Your main challenge leads the plan; the second one shapes what supports it.');
-      hint = '<p class="options__hint' + (state.notice ? ' options__hint--warn' : '') +
-        '" role="status">' + esc(text) + '</p>';
+              ? 'Add a second challenge if you have one, or press Continue.'
+              : 'We read both together — the pair is what shapes your plan. Press Continue when you are ready.');
+    } else {
+      text = chosen.length === 0
+        ? 'Choose the one that fits best.'
+        : 'You can change your answer — press Continue when you are ready.';
     }
+    var warn = !!state.notice || needsPartner(question.id);
+    var hint = '<p class="options__hint' + (warn ? ' options__hint--warn' : '') +
+      '" role="status">' + esc(text) + '</p>';
 
     return '' +
     '<section class="card card--question">' +
@@ -211,8 +216,10 @@
               ? '<button type="button" class="btn btn--text" data-action="back">' +
                   icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + 'Back</button>'
               : '<span></span>') +
-            (chosen.length ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
-                icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</button>' : '') +
+            (chosen.length && !needsPartner(question.id)
+              ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
+                icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</button>'
+              : '') +
           '</div>'
         : '') +
     '</section>' +
@@ -269,15 +276,16 @@
     '</section>';
   }
 
-  function serviceCardHTML(serviceId, variant, usedReasons) {
-    var service = D.SERVICES[serviceId];
-    var used = usedReasons || [];
-    var reason = state.result.reasonFor(serviceId, used);
-    var source = state.result.reasonSourceFor(serviceId, used);
-    if (source) used.push(source);
+  function serviceCardHTML(serviceId, variant) {
+    var service = D.CATALOGUE[serviceId];
+    var reason = PLANNER.reasonFor(state.result, serviceId);
     var chips = service.deliverables.map(function (item) {
       return '<li>' + esc(item) + '</li>';
     }).join('');
+    /* Platform choice is made in the consultation, not by four questions. */
+    var platforms = (service.platforms || []).map(function (id) {
+      return D.CATALOGUE[id] ? D.CATALOGUE[id].name : null;
+    }).filter(Boolean);
 
     return '' +
     '<article class="rec rec--' + variant + '">' +
@@ -290,10 +298,12 @@
       '</div>' +
       '<p class="rec__blurb">' + esc(service.blurb) + '</p>' +
       (reason ? '<p class="rec__reason">' + icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>', 'icon--tick') +
-        'Recommended because you told us: <strong>' + esc(reason) + '</strong></p>' : '') +
+        '<span>On your plan because <strong>' + esc(reason) + '</strong></span></p>' : '') +
       '<ul class="rec__chips">' + chips + '</ul>' +
-      '<a class="rec__link" href="' + esc(service.url) + '" target="_blank" rel="noopener">' +
-        'Explore ' + esc(service.name) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' +
+      (platforms.length ? '<p class="rec__platforms">' + esc(platforms.join(' \u00b7 ')) +
+        ' &mdash; we will choose the right platforms with you.</p>' : '') +
+      (service.url ? '<a class="rec__link" href="' + esc(service.url) + '" target="_blank" rel="noopener">' +
+        'Explore ' + esc(service.name) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' : '') +
     '</article>';
   }
 
@@ -309,13 +319,30 @@
     var challenge = challengePhrases.length
       ? challengePhrases.join(' and ')
       : 'you want to grow';
-    var note = result.budgetNote;
-    var supportHeading = (note && note.supportHeading) || 'Then build on it with';
+    var note = D.BUDGET_NOTES[state.answers.budget] || null;
+    var quota = result.quota || { label: 'Start here', nextLabel: 'Then add' };
 
-    var usedReasons = [];
-    var primaryCard = serviceCardHTML(result.primary, 'primary', usedReasons);
+    /* One or two primaries, one or two supporting — the budget decides how
+       many, never which. Both primaries carry equal weight. */
+    var primaryCards = result.primaries.map(function (id) {
+      return serviceCardHTML(id, 'primary');
+    }).join('');
     var support = result.supporting.map(function (id) {
-      return serviceCardHTML(id, 'support', usedReasons);
+      return serviceCardHTML(id, 'support');
+    }).join('');
+
+    /* Services a strategist would raise in the meeting. Named, linked, and
+       explicitly not presented as something the quiz chose. */
+    var also = (result.alsoRelevant || []).map(function (id) {
+      var service = D.CATALOGUE[id];
+      if (!service) return '';
+      return service.url
+        ? '<a href="' + esc(service.url) + '" target="_blank" rel="noopener">' + esc(service.name) + '</a>'
+        : '<span>' + esc(service.name) + '</span>';
+    }).filter(Boolean).join('<i aria-hidden="true">\u00b7</i>');
+
+    var overlays = (result.overlays || []).map(function (item) {
+      return '<li><strong>' + esc(item.label) + '</strong> ' + esc(item.note) + '</li>';
     }).join('');
 
     var deliveryWarning = state.delivery && !state.delivery.ok && state.delivery.reason !== 'not-configured'
@@ -331,20 +358,30 @@
       '<p class="eyebrow">Your personalised plan</p>' +
       '<h1 class="results__title">' + esc(firstName) + ', here is where we would start.</h1>' +
       '<p class="results__lead">Based on ' + article + ' <strong>' + esc(noun) + '</strong> where ' +
-        esc(challenge) + ', this is the mix our strategists would recommend &mdash; in priority order.</p>' +
+        esc(challenge) + ', this is the mix our strategists would recommend' +
+        (result.primaries.length > 1
+          ? ' &mdash; starting with two channels that work together.</p>'
+          : ' &mdash; starting with one channel done properly.</p>') +
 
-      '<div class="results__primary">' +
-        '<p class="results__rank">Start here</p>' +
-        primaryCard +
+      '<p class="results__rank">' + esc(quota.label) + '</p>' +
+      '<div class="results__primary' +
+        (result.primaries.length > 1 ? ' results__primary--pair' : '') + '">' +
+        primaryCards +
       '</div>' +
 
-      (support ? '<p class="results__rank results__rank--support">' + esc(supportHeading) + '</p>' +
+      (support ? '<p class="results__rank results__rank--support">' + esc(quota.nextLabel) + '</p>' +
         '<div class="results__support">' + support + '</div>' : '') +
+
+      (overlays ? '<div class="overlays"><p class="overlays__title">How we would deliver it</p>' +
+        '<ul class="overlays__list">' + overlays + '</ul></div>' : '') +
 
       (note ? '<div class="budget-note">' +
         '<p class="budget-note__tier">' + esc(note.tier) + '</p>' +
         '<p class="budget-note__text">' + esc(note.text) + '</p>' +
       '</div>' : '') +
+
+      (also ? '<p class="results__also"><span>Also often relevant for a business like yours:</span> ' +
+        also + '</p>' : '') +
 
       '<div class="cta">' +
         '<h2 class="cta__title">Want a strategist to pressure-test this?</h2>' +
@@ -404,8 +441,21 @@
     scrollToTop();
   }
 
+  function needsPartner(questionId) {
+    var chosen = chosenIds(questionId);
+    if (!chosen.length) return false;
+    var main = ENGINE.answerOption(questionId, chosen[0]);
+    return !!(main && main.requiresSecond && chosen.length < 2);
+  }
+
   function advance() {
-    if (!chosenIds(D.QUESTIONS[state.index].id).length) return;
+    var questionId = D.QUESTIONS[state.index].id;
+    if (!chosenIds(questionId).length) return;
+    if (needsPartner(questionId)) {
+      state.notice = 'Tell us which of these is closest to your situation and we can plan from it.';
+      render(false);
+      return;
+    }
     state.notice = '';
     if (state.index < D.QUESTIONS.length - 1) {
       goToQuestion(state.index + 1);
@@ -423,26 +473,21 @@
     /* Question 1 is the landing view, so there is nowhere further back. */
   }
 
+  /* Picking an answer never moves the visitor on. Changing your mind after
+     the page has already jumped is a bad experience, and on the challenge
+     step there may be a second answer still to add — so Continue is always
+     an explicit choice. */
   function selectOption(optionId) {
     var question = D.QUESTIONS[state.index];
-    var alreadyChosen = state.answers[question.id] === optionId;
     state.answers[question.id] = optionId;
+    state.notice = '';
     save();
+    render(false);
 
-    var buttons = el.stage.querySelectorAll('.option');
-    Array.prototype.forEach.call(buttons, function (button) {
-      var isThis = button.getAttribute('data-option') === optionId;
-      button.classList.toggle('is-selected', isThis);
-      button.setAttribute('aria-checked', String(isThis));
-      button.tabIndex = isThis ? 0 : -1;
-    });
-
-    if (alreadyChosen) { advance(); return; }
-    setTimeout(advance, CFG.autoAdvanceMs);
+    var again = el.stage.querySelector('.option[data-option="' + optionId + '"]');
+    if (again) again.focus({ preventScroll: true });
   }
 
-  /* Multi-select never auto-advances: the visitor may still be adding a second
-     answer, so moving on is always their explicit decision. */
   function toggleOption(optionId) {
     var question = D.QUESTIONS[state.index];
     var limit = question.maxSelections || 1;
@@ -456,12 +501,16 @@
       /* Deselecting the main answer promotes the second one — the list order
          is the ranking, so there is never a gap at the top. */
       chosen.splice(at, 1);
+    } else if (option && option.requiresSecond) {
+      /* "I'm not sure where to start" is always the main answer — it cannot
+         be a second thought. Anything already picked becomes the second. */
+      chosen = [optionId].concat(chosen).slice(0, limit);
     } else if (option && option.exclusive) {
       chosen = [optionId];
     } else {
       chosen = chosen.filter(function (id) {
         var other = ENGINE.answerOption(question.id, id);
-        return !(other && other.exclusive);
+        return !(other && other.exclusive && !other.requiresSecond);
       });
       if (chosen.length >= limit) {
         state.notice = 'You can pick up to ' + limit +
@@ -564,7 +613,7 @@
       phone: values.phone.trim(),
       website: normaliseWebsite(values.website)
     };
-    state.result = ENGINE.score(state.answers);
+    state.result = PLANNER.plan(state.answers);
 
     /* Signals are attached, never enforced — n8n decides. Blocking here would
        mean a mistuned heuristic silently costs a real lead. */
@@ -576,7 +625,7 @@
 
     ENGINE.recaptchaToken().then(function (token) {
       var spam = CFG.spam || {};
-      var payload = ENGINE.buildPayload(state.answers, state.lead, state.result, state.startedAt, {
+      var payload = PLANNER.buildPayload(state.answers, state.lead, state.result, state.startedAt, {
         recaptcha: {
           provider: 'recaptcha-v3',
           configured: !!spam.recaptchaSiteKey,
