@@ -272,7 +272,7 @@
     <div class="wrap">
       <header class="top">
         <div class="toprow">
-          <h1>Plan Sandbox <span class="badge">logic v5</span></h1>
+          <h1>Plan Sandbox <span class="badge">logic v6</span></h1>
           <button type="button" class="act ghost themebtn" id="themeToggle"
                   aria-label="Switch between light and dark"></button>
         </div>
@@ -288,7 +288,7 @@
         <button class="tab" role="tab" data-view="try" aria-selected="true">Try a combination</button>
         <button class="tab" role="tab" data-view="personas" aria-selected="false">The 20 personas</button>
         <button class="tab" role="tab" data-view="services" aria-selected="false">All 35 services</button>
-        <button class="tab" role="tab" data-view="situations" aria-selected="false">The 30 briefs</button>
+        <button class="tab" role="tab" data-view="situations" aria-selected="false">The two menus</button>
         <button class="tab" role="tab" data-view="payload" aria-selected="false">Lead data sent to n8n</button>
       </div>
 
@@ -357,9 +357,12 @@
           <h2>The service catalogue</h2>
           <p class="h2note">
             All 35 services. <b>Can lead</b> means it can be the main
-            recommendation. <b>Supporting only</b> means it can never be — that
-            is the rule protecting CRO, UI/UX, Technical SEO, Content Marketing
-            and Link Building from being sold as a headline service.
+            recommendation. <b>Supporting only</b> means it can never lead — the
+            rule protecting UI/UX, Technical SEO, Content Marketing and Link
+            Building from being sold as a headline service. CRO is the one
+            exception: it may lead a conversion-focused plan (Goal "Improve
+            website conversions" or the "traffic but no sales" Challenge), and
+            supports everywhere else.
           </p>
           <p id="serviceSummary"></p>
           <div class="scroll"><table id="serviceTable"></table></div>
@@ -369,11 +372,12 @@
       <!-- ── Situations ────────────────────────────────────────────── -->
       <section id="view-situations" hidden>
         <div class="panel">
-          <h2>The 30 briefs</h2>
+          <h2>The two menus</h2>
           <p class="h2note">
-            The two challenges are read together as one brief. Each row lists
-            the kinds of service that brief calls for, in order — business type
-            and budget then decide which actual service fills each slot.
+            Each Goal and each Challenge points to a list of service kinds, in
+            order. The planner merges the two — Goal first (the direction), then
+            the Challenge's fix — and business type + budget pick the exact
+            service that fills each slot.
           </p>
           <div class="scroll"><table id="situationTable"></table></div>
         </div>
@@ -477,31 +481,21 @@
         /* ── Answer state ──────────────────────────────────────────── */
         var answers = {
           profile: "inhouse", type: "ecommerce", budget: "100to300",
-          challenge: ["leads", "website"],
+          objective: "leads", challenge: "website",
         };
 
         /* The picker markup is built once. Only the option VALUES change after
-           that, so no listener is ever attached twice — re-binding on every
-           redraw is what made the previous version lock up. */
+           that, so no listener is ever attached twice. v6: every question is a
+           single dropdown — Goal and Challenge included. */
         function buildPickerOnce() {
           var html = "";
           D.QUESTIONS.forEach(function (q) {
             var opts = q.options.map(function (o) {
               return '<option value="' + esc(o.id) + '">' + esc(o.label.replace(/\.$/, "")) + "</option>";
             }).join("");
-            if (q.id === "challenge") {
-              html +=
-                '<div class="field"><label for="sel-challenge">Main challenge</label>' +
-                '<select id="sel-challenge" data-q="challenge">' + opts + "</select></div>" +
-                '<div class="field"><label for="sel-challenge2">Second challenge</label>' +
-                '<select id="sel-challenge2" data-q="challenge2">' +
-                '<option value="">— none —</option>' + opts + "</select>" +
-                '<p class="sub" id="secondNote">Optional. The two are read together as one brief.</p></div>';
-            } else {
-              html +=
-                '<div class="field"><label for="sel-' + esc(q.id) + '">' + esc(q.shortLabel) + "</label>" +
-                '<select id="sel-' + esc(q.id) + '" data-q="' + esc(q.id) + '">' + opts + "</select></div>";
-            }
+            html +=
+              '<div class="field"><label for="sel-' + esc(q.id) + '">' + esc(q.shortLabel) + "</label>" +
+              '<select id="sel-' + esc(q.id) + '" data-q="' + esc(q.id) + '">' + opts + "</select></div>";
           });
           el("picker").innerHTML = html;
 
@@ -509,15 +503,7 @@
           el("picker").addEventListener("change", function (e) {
             var q = e.target.getAttribute("data-q");
             if (!q) return;
-            if (q === "challenge") {
-              answers.challenge[0] = e.target.value;
-            } else if (q === "challenge2") {
-              answers.challenge = e.target.value
-                ? [answers.challenge[0], e.target.value]
-                : [answers.challenge[0]];
-            } else {
-              answers[q] = e.target.value;
-            }
+            answers[q] = e.target.value;
             syncPicker();
             renderPlan();
           });
@@ -525,23 +511,9 @@
 
         /** Push the current answers into the dropdowns. Never rebuilds markup. */
         function syncPicker() {
-          ["profile", "type", "budget"].forEach(function (q) {
-            el("sel-" + q).value = answers[q];
+          D.QUESTIONS.forEach(function (q) {
+            el("sel-" + q.id).value = answers[q.id];
           });
-          el("sel-challenge").value = answers.challenge[0] || "";
-          var second = el("sel-challenge2");
-          second.value = answers.challenge[1] || "";
-
-          /* The same challenge cannot be both answers, and "not sure" is never
-             a second thought — it is always the main one. */
-          Array.prototype.forEach.call(second.options, function (o) {
-            o.disabled = !!o.value && (o.value === answers.challenge[0] || o.value === "unsure");
-          });
-          var mustPair = answers.challenge[0] === "unsure";
-          el("secondNote").textContent = mustPair
-            ? "Required — “I’m not sure where to start” cannot be planned from on its own."
-            : "Optional. The two are read together as one brief.";
-          el("secondNote").style.color = mustPair && !answers.challenge[1] ? "var(--brand)" : "";
         }
 
         /* ── Rendering the plan ────────────────────────────────────── */
@@ -565,9 +537,7 @@
 
           if (!result.isComplete) {
             brief.className = "brief warn";
-            brief.textContent = result.missing.indexOf("challenge_second") !== -1
-              ? "Pick a second challenge — “I’m not sure where to start” cannot be planned from on its own. The live quiz blocks this too."
-              : "Still missing: " + result.missing.join(", ");
+            brief.textContent = "Still missing: " + result.missing.join(", ");
             ["priList", "supList", "extras", "traceTable", "glance"].forEach(function (i) { el(i).innerHTML = ""; });
             el("planNote").textContent = "";
             el("priCount").textContent = "—";
@@ -581,15 +551,17 @@
           brief.innerHTML =
             "<b>" + esc(optionLabel("profile", answers.profile)) + "</b> running a <b>" +
             esc(optionLabel("type", answers.type)) + "</b> on <b>" +
-            esc(optionLabel("budget", answers.budget)) + "</b>, whose brief is <b>" +
-            esc(answers.challenge.map(function (c) { return optionLabel("challenge", c); }).join(" + ")) +
-            "</b>.";
+            esc(optionLabel("budget", answers.budget)) + "</b>, whose goal is <b>" +
+            esc(optionLabel("objective", answers.objective)) + "</b> and challenge is <b>" +
+            esc(optionLabel("challenge", answers.challenge)) + "</b>.";
 
           el("planNote").textContent =
             "This budget shows " + q.primary + " main " +
             (q.primary === 1 ? "service" : "services") + " and " + q.supporting +
-            " supporting " + (q.supporting === 1 ? "one" : "ones") +
-            ". The main services carry equal weight — a client who can fund both runs both from the start.";
+            " supporting " + (q.supporting === 1 ? "one" : "ones") + "." +
+            (q.primary > 1
+              ? " The two main services carry equal weight — a client who can fund both runs both from the start."
+              : " The supporting services build on that one main recommendation.");
 
           el("glance").innerHTML =
             '<div class="g1"><span class="lbl">Start with</span><span class="val">' +
@@ -631,55 +603,59 @@
         }
 
         /* ── The 20 personas ───────────────────────────────────────── */
+        /* [ #, profile, type, budget, objective, challenge, primaries, supporting ]
+           The v6 acceptance oracle — 9 reproduce the v5 sheet, 11 re-approved. */
         var PERSONAS = [
-          [1, "sme", "local", "under50", ["leads", "ai"], "Facebook Ads", "AI SEO"],
-          [2, "sme", "local", "under50", ["leads", "ranking"], "Google Ads Campaigns", "SEO Campaigns"],
-          [3, "sme", "local", "under50", ["ranking", "traffic"], "SEO Campaigns", "Local SEO"],
-          [4, "sme", "ecommerce", "under50", ["leads", "traffic"], "Facebook Ads", "E-commerce SEO"],
-          [5, "sme", "ecommerce", "50to100", ["leads", "website"], "Facebook Ads + Google Ads Campaigns", "Web Design"],
-          [6, "inhouse", "ecommerce", "50to100", ["leads", "traffic"], "Google Shopping + Facebook Ads", "E-commerce SEO"],
-          [7, "inhouse", "national", "50to100", ["ai", "ranking"], "AI SEO + SEO Campaigns", "Content Marketing"],
-          [8, "inhouse", "national", "100to300", ["leads", "ai"], "Google Ads Campaigns + AI SEO", "Content Marketing + SEO Campaigns"],
-          [9, "inhouse", "ecommerce", "100to300", ["leads", "website"], "Google Shopping + Facebook Ads", "Web Design + Conversion Rate Optimisation (CRO)"],
-          [10, "enterprise", "enterprise", "100to300", ["ai", "ranking"], "AI SEO + SEO Campaigns", "Content Marketing + Technical SEO"],
-          [11, "enterprise", "enterprise", "over300", ["leads", "traffic"], "Google Ads Campaigns + Facebook Ads", "SEO Campaigns + Programmatic Ads"],
-          [12, "enterprise", "national", "over300", ["traffic", "ai"], "SEO Campaigns + AI SEO", "Content Marketing + Programmatic Ads"],
-          [13, "enterprise", "ecommerce", "over300", ["leads", "website"], "Google Shopping + Facebook Ads", "Web Design + Conversion Rate Optimisation (CRO)"],
-          [14, "agency", "mixed", "50to100", ["ranking", "traffic"], "SEO Campaigns + AI SEO", "Link Building"],
-          [15, "agency", "enterprise", "100to300", ["traffic", "ai"], "SEO Campaigns + AI SEO", "Link Building + Content Marketing"],
-          [16, "sme", "mixed", "under50", ["website", "leads"], "Web Design", "Google Ads Campaigns"],
-          [17, "inhouse", "mixed", "50to100", ["website", "traffic"], "Web Design + SEO Campaigns", "Conversion Rate Optimisation (CRO)"],
-          [18, "enterprise", "enterprise", "over300", ["website", "leads"], "Web Design + Google Ads Campaigns", "Conversion Rate Optimisation (CRO) + UI/UX"],
-          [19, "sme", "local", "under50", ["unsure", "leads"], "Google Ads Campaigns", "Facebook Ads"],
-          [20, "enterprise", "mixed", "over300", ["unsure", "leads"], "Google Ads Campaigns + Facebook Ads", "SEO Campaigns + AI SEO"],
+          [1, "sme", "local", "under50", "leads", "ai", "Facebook Ads", "AI SEO"],
+          [2, "sme", "local", "under50", "leads", "ranking", "Google Ads Campaigns", "SEO Campaigns"],
+          [3, "sme", "local", "under50", "google-visibility", "ranking", "SEO Campaigns", "SEO Audit"],
+          [4, "sme", "ecommerce", "under50", "leads", "ranking", "Google Ads Campaigns", "E-commerce SEO"],
+          [5, "sme", "ecommerce", "50to100", "leads", "website", "Facebook Ads + Web Design", "Conversion Rate Optimisation (CRO)"],
+          [6, "inhouse", "ecommerce", "50to100", "sales", "ranking", "Google Shopping + E-commerce SEO", "Facebook Ads"],
+          [7, "inhouse", "national", "50to100", "ai-visibility", "ranking", "AI SEO + SEO Campaigns", "Content Marketing"],
+          [8, "inhouse", "national", "100to300", "leads", "ai", "Google Ads Campaigns + AI SEO", "Content Marketing + SEO Campaigns"],
+          [9, "inhouse", "ecommerce", "100to300", "leads", "website", "Google Shopping + Web Design", "Conversion Rate Optimisation (CRO) + Facebook Ads"],
+          [10, "enterprise", "enterprise", "100to300", "ai-visibility", "ranking", "AI SEO + SEO Campaigns", "Content Marketing + Technical SEO"],
+          [11, "enterprise", "enterprise", "over300", "leads", "brand", "Google Ads Campaigns + Facebook Ads", "Programmatic Ads + Conversion Rate Optimisation (CRO)"],
+          [12, "enterprise", "national", "over300", "google-visibility", "ai", "SEO Campaigns + AI SEO", "Content Marketing + Technical SEO"],
+          [13, "enterprise", "ecommerce", "over300", "leads", "website", "Google Shopping + Web Design", "Conversion Rate Optimisation (CRO) + Facebook Ads"],
+          [14, "agency", "mixed", "50to100", "google-visibility", "ranking", "SEO Campaigns + AI SEO", "Link Building"],
+          [15, "agency", "enterprise", "100to300", "google-visibility", "ai", "SEO Campaigns + AI SEO", "Link Building + Content Marketing"],
+          [16, "sme", "mixed", "under50", "leads", "website", "Facebook Ads", "Web Design"],
+          [17, "inhouse", "mixed", "50to100", "google-visibility", "website", "Web Design + SEO Campaigns", "Conversion Rate Optimisation (CRO)"],
+          [18, "enterprise", "enterprise", "over300", "leads", "website", "Google Ads Campaigns + Web Design", "Conversion Rate Optimisation (CRO) + Facebook Ads"],
+          [19, "sme", "local", "under50", "leads", "unsure", "Facebook Ads", "Heat Maps"],
+          [20, "enterprise", "mixed", "over300", "leads", "unsure", "Google Ads Campaigns + Facebook Ads", "Conversion Rate Optimisation (CRO) + Technical SEO"],
         ];
+
+        function sortedSet(str) { return str.split(" + ").slice().sort().join("|"); }
 
         function renderPersonas() {
           var pass = 0;
           var rows = PERSONAS.map(function (p) {
-            var r = P.plan({ profile: p[1], type: p[2], budget: p[3], challenge: p[4] });
+            var r = P.plan({ profile: p[1], type: p[2], budget: p[3], objective: p[4], challenge: p[5] });
             var gotP = r.primaries.map(nameOf).join(" + ");
-            var gotS = r.supporting.map(nameOf);
-            var wantS = p[6].split(" + ");
-            var ok = gotP === p[5] &&
-              gotS.slice().sort().join("|") === wantS.slice().sort().join("|");
+            var gotS = r.supporting.map(nameOf).join(" + ");
+            /* Both primaries carry equal weight, so compare each side as a set. */
+            var ok = sortedSet(gotP) === sortedSet(p[6]) && sortedSet(gotS) === sortedSet(p[7]);
             if (ok) pass++;
             return '<tr><td class="n">' + p[0] + "</td>" +
               "<td><b>" + esc(optionLabel("profile", p[1])) + "</b><div class=\"sml\">" +
               esc(optionLabel("type", p[2])) + "</div></td>" +
               "<td>" + esc(optionLabel("budget", p[3])) + "</td>" +
-              "<td>" + esc(p[4].map(function (c) { return optionLabel("challenge", c); }).join(" + ")) + "</td>" +
+              "<td><b>" + esc(optionLabel("objective", p[4])) + "</b><div class=\"sml\">" +
+              esc(optionLabel("challenge", p[5])) + "</div></td>" +
               "<td><b>" + esc(gotP) + "</b></td>" +
-              "<td>" + esc(gotS.join(" + ")) + "</td>" +
+              "<td>" + esc(gotS) + "</td>" +
               '<td class="' + (ok ? "ok" : "no") + '">' + (ok ? "match" : "DIFFERS") + "</td>" +
               '<td><button type="button" class="act ghost" style="padding:6px 12px;font-size:13px" data-persona="' +
               (p[0] - 1) + '">Try it</button></td></tr>';
           }).join("");
           el("personaTable").innerHTML =
-            "<thead><tr><th>#</th><th>Client</th><th>Budget</th><th>Brief</th>" +
+            "<thead><tr><th>#</th><th>Client</th><th>Budget</th><th>Goal + Challenge</th>" +
             "<th>Main services</th><th>Supporting</th><th></th><th></th></tr></thead><tbody>" + rows + "</tbody>";
           el("personaSummary").innerHTML = '<span class="big ' + (pass === 20 ? "ok" : "no") + '">' +
-            pass + " of 20</span> &nbsp;personas reproduce the signed-off plan exactly.";
+            pass + " of 20</span> &nbsp;personas reproduce the agreed v6 plan exactly.";
         }
 
         /* ── Catalogue ─────────────────────────────────────────────── */
@@ -725,42 +701,45 @@
           retention: "Email", creative: "Creative",
         };
 
+        function needList(list) {
+          return list.map(function (raw) {
+            var only = raw.charAt(raw.length - 1) === "!";
+            var need = only ? raw.slice(0, -1) : raw;
+            return (NEED_TEXT[need] || need) + (only ? " (main only)" : "");
+          }).join("  ›  ");
+        }
+
         function renderSituations() {
+          var rows = "";
+          rows += '<tr><td><span class="tagpri">Step 4 · Goal</span></td><td></td><td></td></tr>';
+          Object.keys(D.OBJECTIVE_NEEDS).forEach(function (key) {
+            var needs = D.OBJECTIVE_NEEDS[key];
+            rows += "<tr><td class=\"sml\">Goal</td><td><b>" + esc(optionLabel("objective", key)) + "</b></td>" +
+              "<td>" + (needs.length ? esc(needList(needs)) : '<span class="sml">— falls back to type + budget —</span>') + "</td></tr>";
+          });
+          rows += '<tr><td><span class="tagsup">Step 5 · Challenge</span></td><td></td><td></td></tr>';
+          Object.keys(D.CHALLENGE_NEEDS).forEach(function (key) {
+            rows += "<tr><td class=\"sml\">Challenge</td><td><b>" + esc(optionLabel("challenge", key)) + "</b></td>" +
+              "<td>" + esc(needList(D.CHALLENGE_NEEDS[key])) + "</td></tr>";
+          });
           el("situationTable").innerHTML =
-            "<thead><tr><th>Main challenge</th><th>Second challenge</th><th>What the pair calls for, in order</th></tr></thead><tbody>" +
-            Object.keys(D.SITUATIONS).map(function (key) {
-              var parts = key.split("|");
-              var needs = D.SITUATIONS[key].map(function (raw) {
-                var only = raw.charAt(raw.length - 1) === "!";
-                var need = only ? raw.slice(0, -1) : raw;
-                return (NEED_TEXT[need] || need) + (only ? " (main only)" : "");
-              }).join("  ›  ");
-              return "<tr><td><b>" + esc(optionLabel("challenge", parts[0])) + "</b></td>" +
-                '<td>' + (parts[1] ? esc(optionLabel("challenge", parts[1])) : '<span class="sml">— none —</span>') + "</td>" +
-                "<td>" + esc(needs) + "</td></tr>";
-            }).join("") + "</tbody>";
+            "<thead><tr><th>Step</th><th>Answer</th><th>What it points to, in order</th></tr></thead><tbody>" +
+            rows + "</tbody>";
         }
 
         /* ── Controls ──────────────────────────────────────────────── */
         function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 
         el("randomise").addEventListener("click", function () {
-          ["profile", "type", "budget"].forEach(function (q) {
+          ["profile", "type", "budget", "objective", "challenge"].forEach(function (q) {
             answers[q] = pick(question(q).options).id;
           });
-          var pool = question("challenge").options.map(function (o) { return o.id; });
-          var main = pick(pool);
-          var others = pool.filter(function (o) { return o !== main && o !== "unsure"; });
-          /* "Not sure" always needs a partner; the rest take one about half the time. */
-          answers.challenge = (main === "unsure" || Math.random() < 0.55)
-            ? [main, pick(others)]
-            : [main];
           syncPicker();
           renderPlan();
         });
 
         el("clearAll").addEventListener("click", function () {
-          answers = { profile: "sme", type: "local", budget: "under50", challenge: ["leads"] };
+          answers = { profile: "sme", type: "local", budget: "under50", objective: "leads", challenge: "ranking" };
           syncPicker();
           renderPlan();
         });
@@ -768,7 +747,7 @@
         var personaCursor = 0;
         function loadPersona(index) {
           var p = PERSONAS[index];
-          answers = { profile: p[1], type: p[2], budget: p[3], challenge: p[4].slice() };
+          answers = { profile: p[1], type: p[2], budget: p[3], objective: p[4], challenge: p[5] };
           syncPicker();
           renderPlan();
           window.scrollTo({ top: 0, behavior: "smooth" });

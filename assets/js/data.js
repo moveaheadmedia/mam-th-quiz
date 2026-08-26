@@ -661,6 +661,10 @@
       name: "Conversion Rate Optimisation (CRO)",
       category: "Website Development",
       family: "conversion",
+      /* Support by default. Logic v6 lets the planner promote CRO to a
+         PRIMARY only for conversion-focused answers (objective "Improve
+         website conversions", or the "traffic but no sales" challenge) —
+         see ctx.croCanLead in planner.js. It leads nowhere else. */
       role: "support",
       kicker: "Turn More Visitors into Customers",
       icon: ICONS.trending,
@@ -858,26 +862,82 @@
       ],
     },
     {
-      id: "challenge",
-      shortLabel: "Challenge",
-      title: "What is your biggest marketing challenge right now?",
-      subtitle:
-        "Pick the one that matters most, then add a second if you have two. We read them together as one brief.",
-      /* The only multi-select question. The first pick scores in full and the
-         second at SECONDARY_CHALLENGE_WEIGHT, so the challenge the client calls
-         biggest is still what drives the recommendation. */
-      multi: true,
-      maxSelections: 2,
+      /* Logic v6, Step 4 — the GOAL. What direction the client wants to move
+         in. This sets the main recommendation; the challenge below adds the
+         fix. Single-select: one goal, the closest one. */
+      id: "objective",
+      shortLabel: "Goal",
+      title: "What is your main marketing goal right now?",
+      subtitle: "The direction you most want to move in. Pick the closest one.",
       options: [
         {
           id: "leads",
-          label: "I need more leads.",
-          desc: "Enquiries, calls and bookings — not just visitors.",
-          phrase: "you need more leads",
+          label: "Generate more leads / enquiries",
+          desc: "Get more calls, forms, bookings or enquiries.",
+          phrase: "you want more leads",
         },
         {
+          id: "sales",
+          label: "Increase online sales",
+          desc: "Drive more purchases and revenue online.",
+          phrase: "you want more online sales",
+        },
+        {
+          id: "traffic",
+          label: "Get more website traffic",
+          desc: "Bring more potential customers to my website.",
+          phrase: "you want more website traffic",
+        },
+        {
+          id: "google-visibility",
+          label: "Improve Google visibility",
+          desc: "Get found more often when customers search on Google.",
+          phrase: "you want to be found on Google",
+        },
+        {
+          id: "local-visibility",
+          label: "Get found by nearby / local customers",
+          desc: "Show up when people close to you search for what you offer.",
+          phrase: "you want to be found by nearby customers",
+        },
+        {
+          id: "ai-visibility",
+          label: "Improve visibility in AI Search",
+          desc: "Get found in ChatGPT, Gemini and Google AI Overviews.",
+          phrase: "you want to show up in AI search",
+        },
+        {
+          id: "awareness",
+          label: "Build brand awareness",
+          desc: "Reach more people and make more customers aware of my brand.",
+          phrase: "you want to build brand awareness",
+        },
+        {
+          id: "conversions",
+          label: "Improve website conversions",
+          desc: "Turn more of my existing visitors into customers.",
+          phrase: "you want to convert more visitors",
+        },
+        {
+          id: "unsure",
+          label: "I'm not sure yet",
+          desc: "Help me choose based on my business and budget.",
+          phrase: "you're not yet sure of the goal",
+        },
+      ],
+    },
+    {
+      /* Logic v6, Step 5 — the CHALLENGE. What is holding the client back.
+         This adds the corrective/supporting service on top of the goal.
+         Single-select: one problem, the closest one. */
+      id: "challenge",
+      shortLabel: "Challenge",
+      title: "What's holding your marketing back right now?",
+      subtitle: "The main thing getting in the way. Pick the closest one.",
+      options: [
+        {
           id: "ranking",
-          label: "My website doesn't rank on Google.",
+          label: "My website doesn't rank well on Google.",
           desc: "Competitors are above you for the terms that matter.",
           phrase: "your site isn't ranking on Google",
         },
@@ -888,10 +948,16 @@
           phrase: "you're not showing up in AI search",
         },
         {
-          id: "traffic",
-          label: "I need more traffic.",
-          desc: "Not enough people are reaching your site at all.",
-          phrase: "you need more traffic",
+          id: "ads",
+          label: "My ads aren't generating enough results.",
+          desc: "You're spending on ads but not seeing the return.",
+          phrase: "your ads aren't paying back",
+        },
+        {
+          id: "no-sales",
+          label: "My website gets traffic but not enough enquiries/sales.",
+          desc: "Visitors arrive but too few take action.",
+          phrase: "your traffic isn't converting",
         },
         {
           id: "website",
@@ -900,97 +966,87 @@
           phrase: "your website needs an upgrade",
         },
         {
+          id: "brand",
+          label: "Not enough people know my brand.",
+          desc: "Awareness is low outside your existing audience.",
+          phrase: "not enough people know your brand",
+        },
+        {
           id: "unsure",
-          label: "I'm not sure where to start.",
-          desc: "You know you need help, not which help.",
-          phrase: "you're not yet sure where to start",
-          /* The one answer that REQUIRES a partner. "I don't know" is not
-             something we can plan from, so the visitor names the closest
-             problem and that pair carries the brief. */
-          requiresSecond: true,
+          label: "I'm not sure what's wrong.",
+          desc: "You know results are lacking, not why.",
+          phrase: "you're not sure what's holding things back",
         },
       ],
     },
   ];
 
-  /* ── SITUATIONS (logic v5) ──────────────────────────────────────────
-     The two challenges are read together as one brief. There are exactly
-     30 possible briefs, and each one lists the KINDS of service it calls
-     for, in order. This table is the business logic — changing a row
-     changes only that situation and nothing else.
+  /* ── OBJECTIVE & CHALLENGE MENUS (logic v6) ─────────────────────────
+     The old single "challenge" question did two jobs at once — it mixed
+     GOALS ("more leads", "more traffic") with PROBLEMS ("doesn't rank").
+     v6 splits them into two questions:
 
-     Keys are "main" for a single challenge, or "main|second" for a pair.
+       Step 4  OBJECTIVE  the direction the client wants — sets the main
+                          recommendation.
+       Step 5  CHALLENGE  the problem in the way — adds the corrective /
+                          supporting service on top.
 
-     A need ending in "!" is primary-only: if the budget has already filled
-     its primary slots, that need is dropped rather than demoted. A second
-     ad platform is only worth adding when it can be funded as a core
-     channel — it is never a phase-two extra.
+     Each answer lists the KINDS of service (needs) it points to, in order.
+     planner.js merges the two lists — objective's lead first, then the
+     challenge's fix, then the objective's remaining needs — and business
+     type + budget pick the exact service and how many show. This is the
+     code form of the team-lead service menus.
 
-     Needs vocabulary:
+     Needs vocabulary (unchanged from v5):
        paid / paid2  a paid channel; RULE 5.1 decides search vs social
        organic       SEO Campaigns, or E-commerce SEO for online stores
        ai            AI SEO
        local         Local SEO, then Google Business Profile
        website       Web Design, then Web Maintenance
        uiux          UI/UX
-       conversion    CRO, then Heat Maps
+       conversion    CRO (may lead here), then Heat Maps
        content       Content Marketing
        technical     Technical SEO, or On-page SEO / SEO Audit below 100K
        authority     Link Building
-       reach         Programmatic Ads, then YouTube Ads
+       reach         Programmatic Ads, Display or YouTube
        retention     Email Marketing
        creative      Premium Creative
+
+     The first need of each objective is its LEAD direction; the rest are
+     extras that fill later slots after the challenge's fix.
      ------------------------------------------------------------------ */
-  var SITUATIONS = {
-    /* ── One challenge on its own ── */
-    "leads":    ["paid", "paid2!", "conversion", "organic", "creative"],
-    "ranking":  ["local", "organic", "ai", "content", "authority"],
-    "ai":       ["ai", "content", "organic", "technical"],
-    "traffic":  ["organic", "paid", "paid2", "content", "reach"],
-    "website":  ["website", "organic", "conversion", "uiux"],
-
-    /* ── Main challenge: I need more leads ── */
-    "leads|ranking": ["paid", "organic", "paid2!", "conversion"],
-    "leads|ai":      ["paid", "ai", "content", "organic"],
-    "leads|traffic": ["paid", "paid2!", "organic", "reach", "retention"],
-    "leads|website": ["paid", "paid2!", "website", "conversion", "creative"],
-
-    /* ── Main challenge: my website doesn't rank ── */
-    "ranking|leads":   ["organic", "paid", "content", "conversion"],
-    "ranking|ai":      ["organic", "ai", "content", "technical"],
-    "ranking|traffic": ["organic", "local", "ai", "content", "authority"],
-    "ranking|website": ["organic", "website", "technical", "conversion"],
-
-    /* ── Main challenge: I'm not visible in AI search ── */
-    "ai|leads":    ["ai", "paid", "content", "conversion"],
-    "ai|ranking":  ["ai", "organic", "content", "technical"],
-    "ai|traffic":  ["ai", "organic", "content", "paid"],
-    "ai|website":  ["ai", "website", "content", "technical"],
-
-    /* ── Main challenge: I need more traffic ── */
-    "traffic|leads":   ["organic", "paid", "paid2!", "conversion"],
-    "traffic|ranking": ["organic", "ai", "content", "local", "authority"],
-    "traffic|ai":      ["organic", "ai", "content", "reach"],
-    "traffic|website": ["organic", "website", "conversion", "paid"],
-
-    /* ── Main challenge: my website needs an upgrade ── */
-    "website|leads":   ["website", "paid", "conversion", "uiux"],
-    "website|ranking": ["website", "organic", "technical", "conversion"],
-    "website|ai":      ["website", "ai", "content", "conversion"],
-    "website|traffic": ["website", "organic", "conversion", "paid"],
-
-    /* ── Main challenge: I'm not sure where to start ──
-       Never shown alone. The visitor must name the closest problem, and
-       that second answer carries the brief. Two paid channels here are
-       deliberate and NOT primary-only: when a client genuinely does not
-       know, covering both demand capture and demand creation is the
-       honest starting mix. */
-    "unsure|leads":   ["paid", "paid2", "organic", "ai"],
-    "unsure|ranking": ["organic", "local", "paid", "content"],
-    "unsure|ai":      ["ai", "organic", "content", "paid"],
-    "unsure|traffic": ["organic", "paid", "paid2!", "content"],
-    "unsure|website": ["website", "conversion", "paid", "organic"],
+  var OBJECTIVE_NEEDS = {
+    "leads":             ["paid", "paid2", "conversion"],
+    "sales":             ["paid", "organic", "paid2", "conversion"],
+    "traffic":           ["paid", "paid2", "reach"],
+    /* v6.1 — "Improve Google visibility" is general SEO, not local. Local
+       search is now its own goal below, chosen by the client, so we never
+       assume it from the business type. */
+    "google-visibility": ["organic", "technical"],
+    "local-visibility":  ["local", "organic", "technical"],
+    "ai-visibility":     ["ai", "organic", "content"],
+    "awareness":         ["paid", "reach"],
+    "conversions":       ["conversion", "website", "uiux"],
+    "unsure":            [],
   };
+
+  var CHALLENGE_NEEDS = {
+    "ranking":  ["organic", "technical"],
+    "ai":       ["ai", "organic", "content", "technical"],
+    "ads":      ["paid", "conversion"],
+    /* v6.1 — "traffic but no sales" is a conversion problem, not a rebuild.
+       Web Design only appears when the client says the site needs an upgrade
+       (the "website" challenge), never from low conversions alone. */
+    "no-sales": ["conversion"],
+    "website":  ["website", "uiux", "conversion"],
+    "brand":    ["paid", "reach"],
+    "unsure":   ["technical", "conversion"],
+  };
+
+  /* Both answers "not sure": no direction at all, so fall back to a safe
+     starter mix and let business type + budget pick the specifics
+     (decision 3). Organic foundation + a paid channel + conversion. */
+  var DEFAULT_NEEDS = ["organic", "paid", "conversion", "local"];
 
   /* ── BUDGET PLAN (logic v5) ─────────────────────────────────────────
      Budget's only job: how many services are shown. It never changes
@@ -1044,7 +1100,9 @@
     ICONS: ICONS,
     SERVICE_URLS: SERVICE_URLS,
     CATALOGUE: CATALOGUE,
-    SITUATIONS: SITUATIONS,
+    OBJECTIVE_NEEDS: OBJECTIVE_NEEDS,
+    CHALLENGE_NEEDS: CHALLENGE_NEEDS,
+    DEFAULT_NEEDS: DEFAULT_NEEDS,
     BUDGET_PLAN: BUDGET_PLAN,
     QUESTIONS: QUESTIONS,
     BUDGET_NOTES: BUDGET_NOTES,

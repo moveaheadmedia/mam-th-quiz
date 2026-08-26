@@ -1,12 +1,15 @@
 /* ==========================================================================
-   MAM quiz — logic v5 regression suite
+   MAM quiz — logic v6 regression suite
 
    Dependency-free by design. Load after assets/js/data.js and planner.js.
    Runs in a browser, in Node, or in macOS JavaScriptCore (jsc).
 
-   The 20 personas in section 3 are the acceptance oracle. They come straight
-   from the signed persona sheet — if a future change breaks one of them, it
-   has changed a decision the business already made, and the build fails.
+   v6 splits the old single "challenge" question into two — an OBJECTIVE (the
+   goal) and a CHALLENGE (the problem). The 20 personas below are the v6
+   acceptance oracle: 9 reproduce the v5 signed sheet unchanged; 11 were
+   re-approved with new (sensible) recommendations when the two-question
+   model gave a different answer. If a future change breaks one, it has
+   changed a decision the business has agreed, and the build fails.
    ========================================================================== */
 (function (root) {
   "use strict";
@@ -54,7 +57,8 @@
   var PROFILES = ["sme", "inhouse", "enterprise", "agency"];
   var TYPES = ["local", "national", "ecommerce", "enterprise", "mixed"];
   var BUDGETS = ["under50", "50to100", "100to300", "over300", "unsure"];
-  var SITUATION_KEYS = Object.keys(D.SITUATIONS);
+  var OBJECTIVES = Object.keys(D.OBJECTIVE_NEEDS);
+  var CHALLENGES = Object.keys(D.CHALLENGE_NEEDS);
 
   var KNOWN_NEEDS = [
     "paid", "paid2", "organic", "ai", "local", "website", "uiux",
@@ -62,12 +66,10 @@
     "retention", "creative",
   ];
 
-  function planFor(profile, type, budget, key) {
+  function planFor(profile, type, budget, objective, challenge) {
     return P.plan({
-      profile: profile,
-      type: type,
-      budget: budget,
-      challenge: key.split("|"),
+      profile: profile, type: type, budget: budget,
+      objective: objective, challenge: challenge,
     });
   }
 
@@ -76,10 +78,13 @@
   PROFILES.forEach(function (profile) {
     TYPES.forEach(function (type) {
       BUDGETS.forEach(function (budget) {
-        SITUATION_KEYS.forEach(function (key) {
-          everyCase.push({
-            profile: profile, type: type, budget: budget, key: key,
-            result: planFor(profile, type, budget, key),
+        OBJECTIVES.forEach(function (objective) {
+          CHALLENGES.forEach(function (challenge) {
+            everyCase.push({
+              profile: profile, type: type, budget: budget,
+              objective: objective, challenge: challenge,
+              result: planFor(profile, type, budget, objective, challenge),
+            });
           });
         });
       });
@@ -87,11 +92,13 @@
   });
 
   function label(c) {
-    return "[" + c.profile + "/" + c.type + "/" + c.budget + "/" + c.key + "]";
+    return "[" + c.profile + "/" + c.type + "/" + c.budget + "/" +
+      c.objective + "+" + c.challenge + "]";
   }
   function names(ids) {
     return ids.map(function (id) { return D.CATALOGUE[id].name; });
   }
+  function sortedNames(ids) { return names(ids).slice().sort(); }
 
   /* ══ 1. The catalogue ═══════════════════════════════════════════════ */
 
@@ -128,102 +135,108 @@
     platforms.forEach(function (id) {
       assert(D.CATALOGUE[id], "unknown platform " + id);
     });
-    /* Every platform-role service must be named somewhere, or it is invisible. */
     Object.keys(D.CATALOGUE).forEach(function (id) {
       if (D.CATALOGUE[id].role !== "platform") return;
       assert(platforms.indexOf(id) !== -1, id + " is a platform nothing names");
     });
   });
 
-  /* ══ 2. The situations table ════════════════════════════════════════ */
+  /* ══ 2. The objective & challenge menus ═════════════════════════════ */
 
-  test("there are exactly 30 situations and every need is one we can route", function () {
-    equal(SITUATION_KEYS.length, 30, "situation count");
-
-    var challenges = D.QUESTIONS.filter(function (q) { return q.id === "challenge"; })[0]
+  test("every menu answer matches a question option and routes to known needs", function () {
+    var objectiveOptions = D.QUESTIONS.filter(function (q) { return q.id === "objective"; })[0]
+      .options.map(function (o) { return o.id; });
+    var challengeOptions = D.QUESTIONS.filter(function (q) { return q.id === "challenge"; })[0]
       .options.map(function (o) { return o.id; });
 
-    SITUATION_KEYS.forEach(function (key) {
-      key.split("|").forEach(function (part) {
-        assert(challenges.indexOf(part) !== -1, key + " references unknown challenge " + part);
+    same(OBJECTIVES.slice().sort(), objectiveOptions.slice().sort(), "objective keys match options");
+    same(CHALLENGES.slice().sort(), challengeOptions.slice().sort(), "challenge keys match options");
+
+    OBJECTIVES.forEach(function (key) {
+      D.OBJECTIVE_NEEDS[key].forEach(function (need) {
+        assert(KNOWN_NEEDS.indexOf(need) !== -1, "objective " + key + " uses unknown need " + need);
       });
-      var needs = D.SITUATIONS[key];
-      assert(Array.isArray(needs) && needs.length >= 3, key + " needs at least three entries");
-      needs.forEach(function (raw) {
-        var need = raw.charAt(raw.length - 1) === "!" ? raw.slice(0, -1) : raw;
-        assert(KNOWN_NEEDS.indexOf(need) !== -1, key + " uses unknown need " + need);
+    });
+    CHALLENGES.forEach(function (key) {
+      D.CHALLENGE_NEEDS[key].forEach(function (need) {
+        assert(KNOWN_NEEDS.indexOf(need) !== -1, "challenge " + key + " uses unknown need " + need);
       });
+    });
+    D.DEFAULT_NEEDS.forEach(function (need) {
+      assert(KNOWN_NEEDS.indexOf(need) !== -1, "default mix uses unknown need " + need);
     });
   });
 
-  test("'not sure' is never offered alone and always leads its pair", function () {
-    SITUATION_KEYS.forEach(function (key) {
-      var parts = key.split("|");
-      if (parts.indexOf("unsure") === -1) return;
-      equal(parts.length, 2, key + " — 'not sure' must be paired");
-      equal(parts[0], "unsure", key + " — 'not sure' must be the main answer");
+  test("'not sure' on both questions still produces a complete plan", function () {
+    everyCase.filter(function (c) {
+      return c.objective === "unsure" && c.challenge === "unsure";
+    }).forEach(function (c) {
+      assert(c.result.isComplete, label(c) + " both-unsure must still plan");
+      assert(c.result.primaries.length >= 1, label(c) + " needs at least one primary");
     });
-    equal(D.SITUATIONS.unsure, undefined, "'not sure' alone must not be a situation");
-
-    var unsure = D.QUESTIONS.filter(function (q) { return q.id === "challenge"; })[0]
-      .options.filter(function (o) { return o.id === "unsure"; })[0];
-    assert(unsure.requiresSecond, "the 'not sure' answer must be flagged requiresSecond");
-
-    var alone = P.plan({ profile: "sme", type: "local", budget: "under50", challenge: ["unsure"] });
-    equal(alone.isComplete, false, "'not sure' alone cannot produce a plan");
-    assert(alone.missing.indexOf("challenge_second") !== -1, "it must say what is missing");
   });
 
   /* ══ 3. The 20 personas — the acceptance oracle ═════════════════════ */
 
+  /* [ #, profile, type, budget, objective, challenge, primaries, supporting ]
+     Recommendations are compared as sets (the two primaries are equal to each
+     other). The v6.1 acceptance oracle: 19 reproduce the v6 sheet unchanged;
+     persona 3 was re-signed when the goal-driven routing replaced the
+     auto-added Local SEO with the ranking fix the client actually asked for. */
   var PERSONAS = [
-    [1, "sme", "local", "under50", ["leads", "ai"], ["Facebook Ads"], ["AI SEO"]],
-    [2, "sme", "local", "under50", ["leads", "ranking"], ["Google Ads Campaigns"], ["SEO Campaigns"]],
-    [3, "sme", "local", "under50", ["ranking", "traffic"], ["SEO Campaigns"], ["Local SEO"]],
-    [4, "sme", "ecommerce", "under50", ["leads", "traffic"], ["Facebook Ads"], ["E-commerce SEO"]],
-    [5, "sme", "ecommerce", "50to100", ["leads", "website"], ["Facebook Ads", "Google Ads Campaigns"], ["Web Design"]],
-    [6, "inhouse", "ecommerce", "50to100", ["leads", "traffic"], ["Google Shopping", "Facebook Ads"], ["E-commerce SEO"]],
-    [7, "inhouse", "national", "50to100", ["ai", "ranking"], ["AI SEO", "SEO Campaigns"], ["Content Marketing"]],
-    [8, "inhouse", "national", "100to300", ["leads", "ai"], ["Google Ads Campaigns", "AI SEO"], ["Content Marketing", "SEO Campaigns"]],
-    [9, "inhouse", "ecommerce", "100to300", ["leads", "website"], ["Google Shopping", "Facebook Ads"], ["Web Design", "Conversion Rate Optimisation (CRO)"]],
-    [10, "enterprise", "enterprise", "100to300", ["ai", "ranking"], ["AI SEO", "SEO Campaigns"], ["Content Marketing", "Technical SEO"]],
-    [11, "enterprise", "enterprise", "over300", ["leads", "traffic"], ["Google Ads Campaigns", "Facebook Ads"], ["SEO Campaigns", "Programmatic Ads"]],
-    [12, "enterprise", "national", "over300", ["traffic", "ai"], ["SEO Campaigns", "AI SEO"], ["Content Marketing", "Programmatic Ads"]],
-    [13, "enterprise", "ecommerce", "over300", ["leads", "website"], ["Google Shopping", "Facebook Ads"], ["Web Design", "Conversion Rate Optimisation (CRO)"]],
-    [14, "agency", "mixed", "50to100", ["ranking", "traffic"], ["SEO Campaigns", "AI SEO"], ["Link Building"]],
-    [15, "agency", "enterprise", "100to300", ["traffic", "ai"], ["SEO Campaigns", "AI SEO"], ["Link Building", "Content Marketing"]],
-    [16, "sme", "mixed", "under50", ["website", "leads"], ["Web Design"], ["Google Ads Campaigns"]],
-    [17, "inhouse", "mixed", "50to100", ["website", "traffic"], ["Web Design", "SEO Campaigns"], ["Conversion Rate Optimisation (CRO)"]],
-    [18, "enterprise", "enterprise", "over300", ["website", "leads"], ["Web Design", "Google Ads Campaigns"], ["Conversion Rate Optimisation (CRO)", "UI/UX"]],
-    [19, "sme", "local", "under50", ["unsure", "leads"], ["Google Ads Campaigns"], ["Facebook Ads"]],
-    [20, "enterprise", "mixed", "over300", ["unsure", "leads"], ["Google Ads Campaigns", "Facebook Ads"], ["SEO Campaigns", "AI SEO"]],
+    [1,  "sme","local","under50","leads","ai",                    ["Facebook Ads"],                        ["AI SEO"]],
+    [2,  "sme","local","under50","leads","ranking",               ["Google Ads Campaigns"],                ["SEO Campaigns"]],
+    [3,  "sme","local","under50","google-visibility","ranking",   ["SEO Campaigns"],                       ["SEO Audit"]],
+    [4,  "sme","ecommerce","under50","leads","ranking",           ["Google Ads Campaigns"],                ["E-commerce SEO"]],
+    [5,  "sme","ecommerce","50to100","leads","website",           ["Facebook Ads","Web Design"],           ["Conversion Rate Optimisation (CRO)"]],
+    [6,  "inhouse","ecommerce","50to100","sales","ranking",       ["Google Shopping","E-commerce SEO"],    ["Facebook Ads"]],
+    [7,  "inhouse","national","50to100","ai-visibility","ranking",["AI SEO","SEO Campaigns"],              ["Content Marketing"]],
+    [8,  "inhouse","national","100to300","leads","ai",            ["Google Ads Campaigns","AI SEO"],       ["Content Marketing","SEO Campaigns"]],
+    [9,  "inhouse","ecommerce","100to300","leads","website",      ["Google Shopping","Web Design"],        ["Conversion Rate Optimisation (CRO)","Facebook Ads"]],
+    [10, "enterprise","enterprise","100to300","ai-visibility","ranking",["AI SEO","SEO Campaigns"],        ["Content Marketing","Technical SEO"]],
+    [11, "enterprise","enterprise","over300","leads","brand",     ["Google Ads Campaigns","Facebook Ads"], ["Programmatic Ads","Conversion Rate Optimisation (CRO)"]],
+    [12, "enterprise","national","over300","google-visibility","ai",["SEO Campaigns","AI SEO"],            ["Content Marketing","Technical SEO"]],
+    [13, "enterprise","ecommerce","over300","leads","website",    ["Google Shopping","Web Design"],        ["Conversion Rate Optimisation (CRO)","Facebook Ads"]],
+    [14, "agency","mixed","50to100","google-visibility","ranking",["SEO Campaigns","AI SEO"],              ["Link Building"]],
+    [15, "agency","enterprise","100to300","google-visibility","ai",["SEO Campaigns","AI SEO"],             ["Link Building","Content Marketing"]],
+    [16, "sme","mixed","under50","leads","website",               ["Facebook Ads"],                        ["Web Design"]],
+    [17, "inhouse","mixed","50to100","google-visibility","website",["Web Design","SEO Campaigns"],         ["Conversion Rate Optimisation (CRO)"]],
+    [18, "enterprise","enterprise","over300","leads","website",   ["Google Ads Campaigns","Web Design"],   ["Conversion Rate Optimisation (CRO)","Facebook Ads"]],
+    [19, "sme","local","under50","leads","unsure",                ["Facebook Ads"],                        ["Heat Maps"]],
+    [20, "enterprise","mixed","over300","leads","unsure",         ["Google Ads Campaigns","Facebook Ads"], ["Conversion Rate Optimisation (CRO)","Technical SEO"]],
   ];
 
-  test("all 20 signed-off personas produce exactly the agreed plan", function () {
+  test("all 20 personas produce exactly the agreed v6 plan", function () {
     PERSONAS.forEach(function (p) {
       var result = P.plan({
-        profile: p[1], type: p[2], budget: p[3], challenge: p[4],
+        profile: p[1], type: p[2], budget: p[3], objective: p[4], challenge: p[5],
       });
       var tag = "persona " + p[0];
       assert(result.isComplete, tag + " must produce a complete plan");
-      same(names(result.primaries), p[5], tag + " primaries");
-      /* Supporting services are shown as a set; the sheet writes two of them
-         in a different order from the brief, which is display only. */
-      same(names(result.supporting).slice().sort(), p[6].slice().sort(),
-        tag + " supporting");
+      /* Both primaries are equal to each other, so compare as a set. */
+      same(sortedNames(result.primaries), p[6].slice().sort(), tag + " primaries");
+      same(sortedNames(result.supporting), p[7].slice().sort(), tag + " supporting");
     });
   });
 
   /* ══ 4. The guardrails, across every combination ════════════════════ */
 
-  test("services that may never lead a plan never do", function () {
-    var NEVER_PRIMARY = ["cro", "ui-ux", "technical-seo", "content-marketing", "link-building"];
+  test("support services never lead, except CRO for a conversions goal", function () {
+    /* UI/UX, Technical SEO, Content Marketing and Link Building can never be
+       primary. CRO is the one v6.1 exception: it may head a plan, but only when
+       the GOAL is "Improve website conversions". The "traffic but no sales"
+       challenge adds CRO as support, not as a headline. */
+    var NEVER_PRIMARY = ["ui-ux", "technical-seo", "content-marketing", "link-building"];
     everyCase.forEach(function (c) {
       c.result.primaries.forEach(function (id) {
-        equal(D.CATALOGUE[id].role, "lead",
-          label(c) + " made " + id + " primary");
         assert(NEVER_PRIMARY.indexOf(id) === -1,
           label(c) + " made support-only service " + id + " primary");
+        if (id === "cro") {
+          equal(c.objective, "conversions",
+            label(c) + " let CRO lead outside a conversions goal");
+        } else {
+          equal(D.CATALOGUE[id].role, "lead", label(c) + " made non-lead " + id + " primary");
+        }
       });
     });
   });
@@ -247,13 +260,21 @@
     });
   });
 
-  test("every plan fills its budget quota exactly, with no repeats", function () {
+  test("every plan fills its budget's total card count, with no repeats", function () {
+    /* v6.1 — budget fixes the TOTAL number of cards; the brief decides how many
+       of them are mains. So the main/support split flexes (a single-lead brief
+       shows 1 main + more support), but the total is always filled exactly, the
+       main count never exceeds the budget's cap, and every plan has a main. */
     everyCase.forEach(function (c) {
       var r = c.result;
       assert(r.isComplete, label(c) + " should be complete");
       var quota = D.BUDGET_PLAN[c.budget];
-      equal(r.primaries.length, quota.primary, label(c) + " primary count");
-      equal(r.supporting.length, quota.supporting, label(c) + " supporting count");
+      var total = quota.primary + quota.supporting;
+      assert(r.primaries.length >= 1, label(c) + " has no main service");
+      assert(r.primaries.length <= quota.primary,
+        label(c) + " has more mains than the budget allows");
+      equal(r.primaries.length + r.supporting.length, total,
+        label(c) + " total card count");
       var seen = {};
       r.all.forEach(function (id) {
         assert(!seen[id], label(c) + " repeated " + id);
@@ -285,44 +306,43 @@
   /* ══ 5. Budget's one job ════════════════════════════════════════════ */
 
   test("budget changes how much is recommended, never what kind", function () {
-    /* RULE 2.1. Budget may pick a different service INSIDE a family — Google
-       Ads Campaigns or Google Shopping, Facebook Ads or CPAS — and it decides
-       how many cards are shown. It must never swap one family for another,
-       which is what let the old logic answer a website question with UI/UX on
-       a small budget and Web Design on a large one. */
     var ordered = ["under50", "50to100", "100to300", "over300"];
     PROFILES.forEach(function (profile) {
       TYPES.forEach(function (type) {
-        SITUATION_KEYS.forEach(function (key) {
-          var previous = null;
-          ordered.forEach(function (budget) {
-            var families = planFor(profile, type, budget, key).primaries
-              .map(function (id) { return D.CATALOGUE[id].family; });
-            if (previous) {
-              var shared = Math.min(previous.length, families.length);
-              for (var i = 0; i < shared; i++) {
-                equal(families[i], previous[i],
-                  "[" + profile + "/" + type + "/" + key + "] budget " + budget +
-                  " changed primary family at rank " + (i + 1));
+        OBJECTIVES.forEach(function (objective) {
+          CHALLENGES.forEach(function (challenge) {
+            var previous = null;
+            ordered.forEach(function (budget) {
+              var families = planFor(profile, type, budget, objective, challenge).primaries
+                .map(function (id) { return D.CATALOGUE[id].family; });
+              if (previous) {
+                var shared = Math.min(previous.length, families.length);
+                for (var i = 0; i < shared; i++) {
+                  equal(families[i], previous[i],
+                    "[" + profile + "/" + type + "/" + objective + "+" + challenge +
+                    "] budget " + budget + " changed primary family at rank " + (i + 1));
+                }
               }
-            }
-            previous = families;
+              previous = families;
+            });
           });
         });
       });
     });
   });
 
-  test("the same brief in a bigger budget only ever adds services", function () {
+  test("the same answers in a bigger budget only ever add services", function () {
     ["50to100", "100to300", "over300"].forEach(function (budget) {
       PROFILES.forEach(function (profile) {
         TYPES.forEach(function (type) {
-          SITUATION_KEYS.forEach(function (key) {
-            var small = planFor(profile, type, "under50", key);
-            var large = planFor(profile, type, budget, key);
-            assert(large.all.length >= small.all.length,
-              "[" + profile + "/" + type + "/" + key + "] " + budget +
-              " shows fewer services than under50");
+          OBJECTIVES.forEach(function (objective) {
+            CHALLENGES.forEach(function (challenge) {
+              var small = planFor(profile, type, "under50", objective, challenge);
+              var large = planFor(profile, type, budget, objective, challenge);
+              assert(large.all.length >= small.all.length,
+                "[" + profile + "/" + type + "/" + objective + "+" + challenge + "] " +
+                budget + " shows fewer services than under50");
+            });
           });
         });
       });
@@ -331,16 +351,32 @@
 
   /* ══ 6. Nothing in the catalogue is dead ════════════════════════════ */
 
-  test("every service that can be a card reaches one somewhere", function () {
-    var seen = {};
+  /* Services the quiz deliberately never recommends. Nothing in the answers
+     can honestly point to them, so offering one would be a guess dressed up
+     as advice. Video SEO (no way to know a client has video) and Email
+     Marketing (no menu points to retention) stay in the catalogue with full
+     copy and a link, and can be raised in the consultation. */
+  var NEVER_RECOMMENDED = ["video-seo", "email-marketing"];
+
+  test("every service is either recommendable or knowingly held back", function () {
+    var onACard = {};
+    var offered = {};
     everyCase.forEach(function (c) {
-      c.result.all.forEach(function (id) { seen[id] = (seen[id] || 0) + 1; });
+      c.result.all.forEach(function (id) { onACard[id] = true; });
+      (c.result.alsoRelevant || []).forEach(function (id) { offered[id] = true; });
     });
-    var unreachable = Object.keys(D.CATALOGUE).filter(function (id) {
-      var role = D.CATALOGUE[id].role;
-      return (role === "lead" || role === "support") && !seen[id];
+
+    var invisible = Object.keys(D.CATALOGUE).filter(function (id) {
+      if (D.CATALOGUE[id].role === "overlay") return false;
+      if (NEVER_RECOMMENDED.indexOf(id) !== -1) return false;
+      return !onACard[id] && !offered[id];
     });
-    same(unreachable, [], "services that can never appear");
+    same(invisible, [], "services a visitor could never see");
+
+    NEVER_RECOMMENDED.forEach(function (id) {
+      assert(D.CATALOGUE[id], "unknown service on the held-back list: " + id);
+      assert(!onACard[id], id + " is on the held-back list but reaches a card");
+    });
   });
 
   test("no single service dominates the way SEO did in the old logic", function () {
@@ -385,7 +421,7 @@
   test("the payload keeps the shape the existing n8n workflow reads", function () {
     var answers = {
       profile: "inhouse", type: "ecommerce", budget: "100to300",
-      challenge: ["leads", "website"],
+      objective: "leads", challenge: "website",
     };
     var result = P.plan(answers);
     var payload = P.buildPayload(
@@ -395,7 +431,6 @@
     );
 
     var rec = payload.recommendation;
-    /* These five paths are what "Build lead row" maps today. */
     assert(typeof rec.primary.name === "string" && rec.primary.name, "primary.name");
     assert("url" in rec.primary, "primary.url");
     assert(Array.isArray(rec.supporting), "supporting must stay an array");
@@ -403,14 +438,16 @@
     assert("budget_tier" in rec, "budget_tier");
 
     equal(rec.primary.name, names(result.primaries).join(" + "),
-      "both primaries are joined the way the persona sheet writes them");
+      "both primaries are joined the way the sheet writes them");
     equal(rec.supporting.length, result.supporting.length, "supporting holds only supporting");
 
-    /* The second challenge has always been published; nothing reads it yet. */
-    equal(payload.answers.challenge.id, "leads", "main challenge");
-    equal(payload.answers.challenge_2.id, "website", "second challenge");
-    equal(payload.version, 3, "payload version");
-    equal(rec.logic_version, 5, "logic version");
+    /* v6 publishes both answers — objective and the single challenge. */
+    equal(payload.answers.objective.id, "leads", "objective answer");
+    equal(payload.answers.challenge.id, "website", "challenge answer");
+    equal(rec.objective, "leads", "recommendation objective");
+    equal(rec.challenge, "website", "recommendation challenge");
+    equal(payload.version, 4, "payload version");
+    equal(rec.logic_version, 6, "logic version");
   });
 
   /* ══ 9. Bad input ═══════════════════════════════════════════════════ */
@@ -419,10 +456,11 @@
     [
       [{}, "nothing answered"],
       [{ profile: "sme" }, "one answer"],
-      [{ profile: "sme", type: "local", budget: "under50" }, "no challenge"],
-      [{ profile: "sme", type: "local", budget: "under50", challenge: ["unsure"] }, "'not sure' alone"],
-      [{ profile: "sme", type: "local", budget: "under50", challenge: ["nonsense"] }, "unknown challenge"],
-      [{ profile: "sme", type: "local", budget: "under50", challenge: [] }, "empty challenge"],
+      [{ profile: "sme", type: "local", budget: "under50" }, "no objective or challenge"],
+      [{ profile: "sme", type: "local", budget: "under50", objective: "leads" }, "no challenge"],
+      [{ profile: "sme", type: "local", budget: "under50", challenge: "ranking" }, "no objective"],
+      [{ profile: "sme", type: "local", budget: "under50", objective: "nonsense", challenge: "ranking" }, "unknown objective"],
+      [{ profile: "sme", type: "local", budget: "under50", objective: "leads", challenge: "nonsense" }, "unknown challenge"],
     ].forEach(function (item) {
       var result = P.plan(item[0]);
       equal(result.isComplete, false, item[1] + " must not be complete");
@@ -430,26 +468,27 @@
     });
   });
 
-  test("the order of the two challenges is part of the brief", function () {
-    var base = { profile: "sme", type: "mixed", budget: "50to100" };
-    var different = 0;
-    ["leads", "ranking", "ai", "traffic", "website"].forEach(function (a) {
-      ["leads", "ranking", "ai", "traffic", "website"].forEach(function (b) {
-        if (a === b) return;
-        var forward = P.plan({ profile: base.profile, type: base.type, budget: base.budget, challenge: [a, b] });
-        var reverse = P.plan({ profile: base.profile, type: base.type, budget: base.budget, challenge: [b, a] });
-        if (JSON.stringify(forward.all) !== JSON.stringify(reverse.all)) different++;
-      });
+  test("the objective sets direction and the challenge changes the plan", function () {
+    /* Swapping the challenge under a fixed objective should change the plan
+       often — the two answers carry independent meaning. */
+    var base = { profile: "inhouse", type: "mixed", budget: "100to300", objective: "leads" };
+    var plans = CHALLENGES.map(function (challenge) {
+      return JSON.stringify(P.plan({
+        profile: base.profile, type: base.type, budget: base.budget,
+        objective: base.objective, challenge: challenge,
+      }).all);
     });
-    assert(different >= 10,
-      "swapping the two challenges changed only " + different +
-      " of 20 plans — order should carry real meaning");
+    var distinct = {};
+    plans.forEach(function (p) { distinct[p] = true; });
+    assert(Object.keys(distinct).length >= 4,
+      "changing the challenge under one goal produced only " +
+      Object.keys(distinct).length + " distinct plans");
   });
 
   /* ── Runner ──────────────────────────────────────────────────────────── */
 
   function run() {
-    writeLine("MAM quiz — logic v5 suite", "heading");
+    writeLine("MAM quiz — logic v6 suite", "heading");
     writeLine("");
 
     tests.forEach(function (item) {

@@ -12,7 +12,7 @@
   var PLANNER = window.MAM_PLANNER;
 
   var STORAGE_KEY = 'mam-quiz-state-v3';
-  var STEP_LABELS = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Get results'];
+  var STEP_LABELS = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Get results'];
 
   var el = {
     stage: document.getElementById('stage'),
@@ -107,8 +107,8 @@
 
   function currentStepNumber() {
     if (state.screen === 'question') return state.index + 1;
-    if (state.screen === 'form') return 5;
-    return 6;                                   // results — everything complete
+    if (state.screen === 'form') return 6;      // lead form — the "Get results" step
+    return 7;                                   // results — everything complete
   }
 
   function renderProgress() {
@@ -131,7 +131,7 @@
 
     var pct = Math.min(100, Math.max(0, ((step - 1) / (STEP_LABELS.length - 1)) * 100));
     el.progressFill.style.width = pct + '%';
-    el.progressSteps.setAttribute('aria-label', 'Step ' + Math.min(step, 5) + ' of 5');
+    el.progressSteps.setAttribute('aria-label', 'Step ' + Math.min(step, 6) + ' of 6');
   }
 
   /* ── Screens ────────────────────────────────────────────────────────── */
@@ -141,7 +141,7 @@
   function trustHTML() {
     return '' +
     '<ul class="trust">' +
-      '<li>' + icon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>') + '60 seconds, 4 questions</li>' +
+      '<li>' + icon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>') + '60 seconds, 5 questions</li>' +
       '<li>' + icon('<path d="m12 3 2.6 5.6 6.1.8-4.5 4.2 1.2 6L12 16.8 6.6 19.6l1.2-6L3.3 9.4l6.1-.8L12 3Z"/>') + '4.8&#9733; from 51 Google reviews</li>' +
       '<li>' + icon('<path d="M4 7.5 12 4l8 3.5v5c0 4.4-3.3 7.6-8 8.5-4.7-.9-8-4.1-8-8.5v-5Z"/><path d="m9 12 2 2 4-4"/>') + 'No obligation, no hard sell</li>' +
     '</ul>' +
@@ -203,7 +203,7 @@
 
     return '' +
     '<section class="card card--question">' +
-      '<p class="eyebrow">Step ' + (state.index + 1) + ' of 5 &mdash; ' + esc(question.shortLabel) + '</p>' +
+      '<p class="eyebrow">Step ' + (state.index + 1) + ' of 6 &mdash; ' + esc(question.shortLabel) + '</p>' +
       '<h1 class="question__title">' + esc(question.title) + '</h1>' +
       '<p class="question__subtitle">' + esc(question.subtitle) + '</p>' +
       '<div class="options" role="' + (multi ? 'group' : 'radiogroup') + '"' +
@@ -244,7 +244,7 @@
 
     return '' +
     '<section class="card card--form">' +
-      '<p class="eyebrow">Step 5 of 5 &mdash; Your plan</p>' +
+      '<p class="eyebrow">Step 6 of 6 &mdash; Your plan</p>' +
       '<h1 class="question__title">Just one more step to see your personalised recommendation</h1>' +
       '<p class="question__subtitle">Your results appear on the next screen straight away. We send a copy, plus a short ' +
         'competitor snapshot, to your inbox.</p>' +
@@ -311,13 +311,17 @@
     var result = state.result;
     var firstName = (state.lead.name || '').trim().split(/\s+/)[0] || 'there';
     var typeOption = ENGINE.answerOption('type', state.answers.type);
-    var challengePhrases = ENGINE.answerOptions('challenge', state.answers.challenge)
-      .map(function (option) { return option.phrase; })
-      .filter(Boolean);
+    /* v6 reads the two answers together: the goal, then the problem. */
+    var objectiveOption = ENGINE.answerOption('objective', state.answers.objective);
+    var challengeOption = ENGINE.answerOption('challenge', state.answers.challenge);
+    var phrases = [
+      objectiveOption && objectiveOption.phrase,
+      challengeOption && challengeOption.phrase,
+    ].filter(Boolean);
     var noun = (typeOption && typeOption.noun) || 'business';
     var article = /^[aeiou]/i.test(noun) ? 'an' : 'a';
-    var challenge = challengePhrases.length
-      ? challengePhrases.join(' and ')
+    var challenge = phrases.length
+      ? phrases.join(' and ')
       : 'you want to grow';
     var note = D.BUDGET_NOTES[state.answers.budget] || null;
     var quota = result.quota || { label: 'Start here', nextLabel: 'Then add' };

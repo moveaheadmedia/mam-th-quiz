@@ -175,13 +175,47 @@ img, svg { display: block; max-width: 100%; }
    -------------------------------------------------------------------------- */
 .progress { padding-top: 34px; }
 
+/* A connected stepper: numbered dots sit on a single line, joined by
+   connectors that fill up to the current step, with a label under each dot.
+   Equal flex columns keep any number of steps evenly spaced. */
 .progress__steps {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
-  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.pstep { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pstep {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+/* Connector from the previous dot to this one, behind the opaque dots so each
+   end is capped by a dot. It colours in once its step is reached. */
+.pstep::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 50%;
+  left: -50%;
+  height: 2px;
+  background: var(--mam-line-strong);
+  z-index: 0;
+  transition: background .4s var(--ease);
+}
+.pstep:first-child::before { display: none; }
+.pstep.is-done::before,
+.pstep.is-active::before { background: var(--mam-ink); }
 
 .pstep__dot {
+  position: relative;
+  z-index: 1;
   display: grid; place-items: center; flex: none;
   width: 30px; height: 30px; border-radius: 50%;
   background: var(--mam-secondary);
@@ -197,29 +231,27 @@ img, svg { display: block; max-width: 100%; }
 .pstep.is-done .pstep__dot { background: var(--mam-ink); border-color: var(--mam-ink); color: #fff; }
 .pstep.is-done .icon { width: 15px; height: 15px; }
 
-.pstep__text { display: flex; flex-direction: column; min-width: 0; }
+.pstep__text {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 0; max-width: 100%;
+}
 .pstep__label {
-  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
-  line-height: 1.3; color: var(--mam-muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  line-height: 1.2; color: var(--mam-muted); white-space: nowrap;
 }
 .pstep__caption {
-  font-size: 12px; font-weight: 500; line-height: 1.3; color: var(--mam-grey-94);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 12.5px; font-weight: 500; line-height: 1.25; color: var(--mam-grey-94);
+  max-width: 14ch;
 }
-.pstep.is-active .pstep__label { color: var(--mam-text); }
+.pstep.is-active .pstep__label { color: var(--mam-primary); }
+.pstep.is-active .pstep__caption { color: var(--mam-text); font-weight: 600; }
 .pstep.is-done .pstep__label { color: var(--mam-ink); }
 
-.progress__track {
-  height: 5px; border-radius: 999px; background: var(--mam-line);
-  overflow: hidden;
-}
-.progress__fill {
-  height: 100%; width: 0;
-  background: linear-gradient(90deg, var(--mam-primary), #FF6B4A);
-  border-radius: 999px;
-  transition: width .45s var(--ease);
-}
+/* The connectors above now carry progress, so the old track bar is retired.
+   #progressFill still receives a width from app.js; keeping the rule inert
+   avoids touching JS. */
+.progress__track { display: none; }
+.progress__fill { width: 0; }
 
 /* --------------------------------------------------------------------------
    Card
@@ -640,17 +672,15 @@ img, svg { display: block; max-width: 100%; }
   .results__primary--pair,
   .results__support { grid-template-columns: 1fr; }
 
+  /* On phones the labels don't fit six-across, so the stepper collapses to a
+     clean row of connected dots. Each card carries its own "Step 4 of 6 —
+     Goal" eyebrow, so no wording is lost. */
   .progress { padding-top: 22px; }
-  .progress__steps { gap: 6px; }
+  .pstep { gap: 0; padding: 0 3px; }
+  .pstep__dot { width: 26px; height: 26px; font-size: 12px; }
+  .pstep::before { top: 13px; }
+  .pstep.is-done .icon { width: 13px; height: 13px; }
   .pstep__text { display: none; }
-  .pstep { justify-content: center; }
-  .pstep.is-active { grid-column: auto; }
-  .pstep.is-active .pstep__text {
-    display: block; position: absolute; left: 20px; right: 20px;
-    margin-top: 52px; text-align: center;
-  }
-  .pstep.is-active .pstep__caption { display: none; }
-  .progress__steps { position: relative; padding-bottom: 26px; }
 
   .cta { padding: 26px 20px; }
   .cta__actions .btn { width: 100%; }
