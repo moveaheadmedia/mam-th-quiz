@@ -19,49 +19,65 @@
      ------------------------------------------------------------------ */
   var SERVICE_URLS = {
     /* ── SEO ── */
-    "ai-seo": "",
-    "seo-campaigns": "",
-    "seo-audit": "",
-    "on-page-seo": "",
-    "content-marketing": "",
-    "technical-seo": "",
-    "ecommerce-seo": "",
-    "video-seo": "",
-    "keyword-mapping": "",
-    "google-business-profile": "",
-    "seo-reseller": "",
-    "link-building": "",
-    "local-seo": "",
+    "ai-seo": "https://www.moveaheadmedia.co.th/seo/ai-seo/",
+    "seo-campaigns": "https://www.moveaheadmedia.co.th/seo/",
+    "seo-audit": "https://www.moveaheadmedia.co.th/seo/seo-audit/",
+    "on-page-seo": "https://www.moveaheadmedia.co.th/seo/on-page-seo/",
+    "content-marketing":
+      "https://www.moveaheadmedia.co.th/seo/content-marketing/",
+    "technical-seo": "https://www.moveaheadmedia.co.th/seo/technical-seo/",
+    "ecommerce-seo": "https://www.moveaheadmedia.co.th/seo/e-commerce-seo/",
+    "video-seo": "https://www.moveaheadmedia.co.th/seo/video-seo/",
+    "keyword-mapping": "https://www.moveaheadmedia.co.th/seo/keyword-mapping/",
+    "google-business-profile":
+      "https://www.moveaheadmedia.co.th/seo/google-business-profile-management/",
+    "seo-reseller": "https://www.moveaheadmedia.co.th/seo/seo-reseller/",
+    "link-building": "https://www.moveaheadmedia.co.th/seo/link-building/",
+    "local-seo": "https://www.moveaheadmedia.co.th/seo/local-seo/",
 
     /* ── Google Ads ── */
-    "google-ads-campaigns": "",
-    "google-display-ads": "",
-    "performance-max": "",
-    "google-shopping": "",
-    "youtube-ads": "",
+    "google-ads-campaigns":
+      "https://www.moveaheadmedia.co.th/paid-media/google-ads/",
+    "google-display-ads":
+      "https://www.moveaheadmedia.co.th/paid-media/google-ads/google-display-network/",
+    "performance-max":
+      "https://www.moveaheadmedia.co.th/paid-media/google-ads/performancemax/",
+    "google-shopping":
+      "https://www.moveaheadmedia.co.th/paid-media/google-ads/google-shopping/",
+    "youtube-ads": "https://www.moveaheadmedia.co.th/paid-media/youtube-ads/",
 
     /* ── Social Media ── */
-    "social-media-campaigns": "",
-    "facebook-ads": "",
-    "cpas-ads": "",
-    "linkedin-ads": "",
-    "reddit-ads": "",
-    "line-ads": "",
-    "x-ads": "",
-    "tiktok-ads": "",
-    "premium-creative": "",
+    "social-media-campaigns":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/",
+    "facebook-ads":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/facebook",
+    "cpas-ads":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/cpas-ads/",
+    "linkedin-ads":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/linkedin-ads/",
+    "reddit-ads":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/reddit-ads/",
+    "line-ads":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/line-ads/",
+    "x-ads": "https://www.moveaheadmedia.co.th/social-media-marketing/x-ads/",
+    "tiktok-ads":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/tiktok-ads/",
+    "premium-creative":
+      "https://www.moveaheadmedia.co.th/social-media-marketing/premium-creative/",
 
     /* ── Website Development ── */
-    "web-design": "",
-    "web-maintenance": "",
-    "ui-ux": "",
-    "heat-maps": "",
-    "cro": "",
+    "web-design": "https://www.moveaheadmedia.co.th/website/design/",
+    "web-maintenance": "https://www.moveaheadmedia.co.th/website/maintenance/",
+    "ui-ux": "https://www.moveaheadmedia.co.th/website/ux-ui/",
+    "heat-maps": "https://www.moveaheadmedia.co.th/heat-maps/",
+    "cro": "https://www.moveaheadmedia.co.th/cro/",
 
     /* ── Other Services ── */
-    "email-marketing": "",
-    "programmatic-ads": "",
-    "outcome-marketing": "",
+    "email-marketing": "https://www.moveaheadmedia.co.th/email-marketing/",
+    "programmatic-ads":
+      "https://www.moveaheadmedia.co.th/paid-media/programmatic/",
+    "outcome-marketing":
+      "https://www.moveaheadmedia.co.th/outcome-marketing-thailand/",
   };
 
   /* ── Icons ──────────────────────────────────────────────────────────── */
@@ -657,7 +673,7 @@
         "Ongoing support",
       ],
     },
-    "cro": {
+    cro: {
       name: "Conversion Rate Optimisation (CRO)",
       category: "Website Development",
       family: "conversion",
@@ -1016,31 +1032,31 @@
      extras that fill later slots after the challenge's fix.
      ------------------------------------------------------------------ */
   var OBJECTIVE_NEEDS = {
-    "leads":             ["paid", "paid2", "conversion"],
-    "sales":             ["paid", "organic", "paid2", "conversion"],
-    "traffic":           ["paid", "paid2", "reach"],
+    leads: ["paid", "paid2", "conversion"],
+    sales: ["paid", "organic", "paid2", "conversion"],
+    traffic: ["paid", "paid2", "reach"],
     /* v6.1 — "Improve Google visibility" is general SEO, not local. Local
        search is now its own goal below, chosen by the client, so we never
        assume it from the business type. */
     "google-visibility": ["organic", "technical"],
-    "local-visibility":  ["local", "organic", "technical"],
-    "ai-visibility":     ["ai", "organic", "content"],
-    "awareness":         ["paid", "reach"],
-    "conversions":       ["conversion", "website", "uiux"],
-    "unsure":            [],
+    "local-visibility": ["local", "organic", "technical"],
+    "ai-visibility": ["ai", "organic", "content"],
+    awareness: ["paid", "reach"],
+    conversions: ["conversion", "website", "uiux"],
+    unsure: [],
   };
 
   var CHALLENGE_NEEDS = {
-    "ranking":  ["organic", "technical"],
-    "ai":       ["ai", "organic", "content", "technical"],
-    "ads":      ["paid", "conversion"],
+    ranking: ["organic", "technical"],
+    ai: ["ai", "organic", "content", "technical"],
+    ads: ["paid", "conversion"],
     /* v6.1 — "traffic but no sales" is a conversion problem, not a rebuild.
        Web Design only appears when the client says the site needs an upgrade
        (the "website" challenge), never from low conversions alone. */
     "no-sales": ["conversion"],
-    "website":  ["website", "uiux", "conversion"],
-    "brand":    ["paid", "reach"],
-    "unsure":   ["technical", "conversion"],
+    website: ["website", "uiux", "conversion"],
+    brand: ["paid", "reach"],
+    unsure: ["technical", "conversion"],
   };
 
   /* Both answers "not sure": no direction at all, so fall back to a safe
@@ -1054,11 +1070,36 @@
      a client who can fund both runs both from the start.
      ------------------------------------------------------------------ */
   var BUDGET_PLAN = {
-    under50:   { primary: 1, supporting: 1, label: "Start here", nextLabel: "Next phase" },
-    "50to100": { primary: 2, supporting: 1, label: "Start with both", nextLabel: "Add next" },
-    "100to300":{ primary: 2, supporting: 2, label: "Start with both", nextLabel: "Add next" },
-    over300:   { primary: 2, supporting: 2, label: "Integrated programme", nextLabel: "Runs alongside" },
-    unsure:    { primary: 1, supporting: 1, label: "Size the budget first", nextLabel: "Then add" },
+    under50: {
+      primary: 1,
+      supporting: 1,
+      label: "Start here",
+      nextLabel: "Next phase",
+    },
+    "50to100": {
+      primary: 2,
+      supporting: 1,
+      label: "Start with both",
+      nextLabel: "Add next",
+    },
+    "100to300": {
+      primary: 2,
+      supporting: 2,
+      label: "Start with both",
+      nextLabel: "Add next",
+    },
+    over300: {
+      primary: 2,
+      supporting: 2,
+      label: "Integrated programme",
+      nextLabel: "Runs alongside",
+    },
+    unsure: {
+      primary: 1,
+      supporting: 1,
+      label: "Size the budget first",
+      nextLabel: "Then add",
+    },
   };
 
   /* ── Budget framing shown on the results screen ─────────────────────── */
