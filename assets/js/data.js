@@ -78,6 +78,12 @@
       "https://www.moveaheadmedia.co.th/paid-media/programmatic/",
     "outcome-marketing":
       "https://www.moveaheadmedia.co.th/outcome-marketing-thailand/",
+
+    /* ── Quiz-only cards (logic v7) ── */
+    /* The free AI SEO audit MAM already offers is delivered on LINE, so the
+       audit card opens the LINE account the website links to. */
+    "seo-ai-visibility-audit": "https://page.line.me/pmi1665e",
+    "strategy-consultation": "https://www.moveaheadmedia.co.th/contact-us/",
   };
 
   /* ── Icons ──────────────────────────────────────────────────────────── */
@@ -116,14 +122,14 @@
     mail: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>',
     palette:
       '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-.9 2-1.8 0-1.2-1-1.6-1-2.7 0-.8.7-1.5 1.5-1.5H16a4.5 4.5 0 0 0 4.5-4.5C20.5 6.4 16.7 3.5 12 3.5Z"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/>',
+    /* Logic v7 — the consultation card and the results-page chat button. */
+    chat: '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5Z"/><path d="M8 10h8M8 13h5"/>',
   };
 
-  /* ── CATALOGUE (logic v5) ───────────────────────────────────────────
-     The 35 services exactly as signed off on the service sheet.
-
-     Nothing reads this yet — the live quiz still runs on SERVICES above.
-     It is wired up in step 3 of the build, so this file can be reviewed
-     and the URLs filled in without changing a single recommendation.
+  /* ── CATALOGUE (logic v5, extended in v7) ───────────────────────────
+     The 35 services exactly as signed off on the service sheet, plus two
+     quiz-only cards added in logic v7: the SEO & AI Visibility Audit and the
+     Free Strategy Consultation.
 
      Each entry carries three fields the old catalogue did not have:
 
@@ -138,6 +144,8 @@
                  "platform" named inside the Social Media Campaigns card
                             rather than winning a card of its own
                  "overlay"  changes how work is delivered, never a card
+
+     Optional: linkText replaces the card's default "Explore <name>" link.
      ------------------------------------------------------------------ */
   var CATALOGUE = {
     /* ══ SEO ═══════════════════════════════════════════════════════ */
@@ -265,6 +273,29 @@
         "Competitor insights",
       ],
     },
+    "seo-ai-visibility-audit": {
+      name: "SEO & AI Visibility Audit",
+      category: "SEO",
+      family: "seo-diagnostic",
+      /* Logic v7 — the reviewer's diagnostic for the "Google visibility + AI
+         Search" goal and the "not sure what's wrong" challenge, and nowhere
+         else. SEO Audit above stays the ranking fix. Opens the free AI SEO
+         audit MAM offers on LINE until the reviewer confirms it is the one
+         meant. */
+      role: "support",
+      kicker: "Find What's Holding You Back",
+      icon: ICONS.search,
+      url: SERVICE_URLS["seo-ai-visibility-audit"],
+      linkText: "Get your free audit on LINE",
+      blurb:
+        "See how visible your business is on Google and in AI search such as ChatGPT, Gemini and Google AI Overviews, and what is holding it back.",
+      deliverables: [
+        "Google visibility check",
+        "AI search visibility check",
+        "Technical & content review",
+        "Priority fixes",
+      ],
+    },
     "on-page-seo": {
       name: "On-page SEO",
       category: "SEO",
@@ -303,6 +334,9 @@
       name: "Google Business Profile",
       category: "SEO",
       family: "seo-local",
+      /* Support by default. Logic v7 lets it lead the "Get found by nearby /
+         local customers" goal, and only that goal — see LEAD_EXCEPTIONS in
+         planner.js. */
       role: "support",
       kicker: "Improve Local Presence",
       icon: ICONS.pin,
@@ -556,7 +590,10 @@
       name: "TikTok Ads",
       category: "Social Media",
       family: "paid-social",
-      role: "platform",
+      /* Logic v7 — the reviewer names TikTok for the "not enough people know
+         my brand" challenge, so it can take a supporting card of its own there.
+         It is still named inside the Social Media Campaigns card as well. */
+      role: "support",
       kicker: "Reach New Audiences",
       icon: ICONS.share,
       url: SERVICE_URLS["tiktok-ads"],
@@ -677,10 +714,9 @@
       name: "Conversion Rate Optimisation (CRO)",
       category: "Website Development",
       family: "conversion",
-      /* Support by default. Logic v6 lets the planner promote CRO to a
-         PRIMARY only for conversion-focused answers (objective "Improve
-         website conversions", or the "traffic but no sales" challenge) —
-         see ctx.croCanLead in planner.js. It leads nowhere else. */
+      /* Support by default. The planner promotes CRO to a PRIMARY only when
+         the goal is "Improve website conversions" — see LEAD_EXCEPTIONS in
+         planner.js. It leads nowhere else. */
       role: "support",
       kicker: "Turn More Visitors into Customers",
       icon: ICONS.trending,
@@ -762,6 +798,30 @@
         "Download, first-order or sales tracking",
         "Performance optimisation",
         "Transparent reporting",
+      ],
+    },
+
+    /* ══ Start with a conversation (logic v7) ══════════════════════════ */
+    "strategy-consultation": {
+      name: "Free Strategy Consultation",
+      category: "Consultation",
+      family: "consultation",
+      /* Leads a plan only when BOTH the goal and the challenge are "not sure".
+         With no direction at all, the honest first step is a conversation,
+         not a guessed retainer. No menu points here, so it is reached from
+         nowhere else. */
+      role: "lead",
+      kicker: "Start With a Conversation",
+      icon: ICONS.chat,
+      url: SERVICE_URLS["strategy-consultation"],
+      linkText: "Book your free consultation",
+      blurb:
+        "Talk through your goals, challenges and budget with a strategist, and leave with a clear, prioritised plan for where to start.",
+      deliverables: [
+        "30-minute strategy call",
+        "Competitor snapshot",
+        "Goal & budget sizing",
+        "Clear next steps",
       ],
     },
   };
@@ -905,22 +965,19 @@
           phrase: "you want more website traffic",
         },
         {
-          id: "google-visibility",
-          label: "Improve Google visibility",
-          desc: "Get found more often when customers search on Google.",
-          phrase: "you want to be found on Google",
+          /* Logic v7 — "Improve Google visibility" and "Improve visibility in
+             AI Search" merged into one goal (the reviewer's wording). Old
+             answers are mapped here by OBJECTIVE_ALIASES below. */
+          id: "search-visibility",
+          label: "Improve Google visibility + AI Search",
+          desc: "Get found on Google, ChatGPT, Gemini and AI Overviews.",
+          phrase: "you want to be found on Google and in AI search",
         },
         {
           id: "local-visibility",
           label: "Get found by nearby / local customers",
           desc: "Show up when people close to you search for what you offer.",
           phrase: "you want to be found by nearby customers",
-        },
-        {
-          id: "ai-visibility",
-          label: "Improve visibility in AI Search",
-          desc: "Get found in ChatGPT, Gemini and Google AI Overviews.",
-          phrase: "you want to show up in AI search",
         },
         {
           id: "awareness",
@@ -1013,55 +1070,94 @@
      type + budget pick the exact service and how many show. This is the
      code form of the team-lead service menus.
 
-     Needs vocabulary (unchanged from v5):
+     Needs vocabulary:
        paid / paid2  a paid channel; RULE 5.1 decides search vs social
-       organic       SEO Campaigns, or E-commerce SEO for online stores
+       organic       the goal decides (v7): E-commerce SEO when the goal is
+                     "Increase online sales", SEO Campaigns for every other goal
        ai            AI SEO
        local         Local SEO, then Google Business Profile
+       gbp           Google Business Profile (v7; never for an agency)
        website       Web Design, then Web Maintenance
        uiux          UI/UX
-       conversion    CRO (may lead here), then Heat Maps
+       conversion    CRO first at every budget (v7), then Heat Maps
        content       Content Marketing
        technical     Technical SEO, or On-page SEO / SEO Audit below 100K
        authority     Link Building
        reach         Programmatic Ads, Display or YouTube
+       brandreach    ONE reach card for a brand problem (v7): TikTok Ads, then
+                     YouTube Ads, then Programmatic Ads
        retention     Email Marketing
        creative      Premium Creative
+
+     From v7 a menu may also name a service directly by its catalogue id
+     (e.g. "google-shopping") when the reviewer's table names that exact
+     service. It resolves to itself.
 
      The first need of each objective is its LEAD direction; the rest are
      extras that fill later slots after the challenge's fix.
      ------------------------------------------------------------------ */
   var OBJECTIVE_NEEDS = {
     leads: ["paid", "paid2", "conversion"],
-    sales: ["paid", "organic", "paid2", "conversion"],
+    /* v7 — the reviewer's list, service by service. CPAS takes the paid-social
+       slot at every budget. Performance Max is always support: it shares the
+       paid-search family with Google Shopping (RULE 5.2). E-commerce SEO last. */
+    sales: ["google-shopping", "cpas-ads", "performance-max", "organic"],
     traffic: ["paid", "paid2", "reach"],
-    /* v6.1 — "Improve Google visibility" is general SEO, not local. Local
-       search is now its own goal below, chosen by the client, so we never
-       assume it from the business type. */
-    "google-visibility": ["organic", "technical"],
-    "local-visibility": ["local", "organic", "technical"],
-    "ai-visibility": ["ai", "organic", "content"],
+    /* v7 — "Google visibility" and "AI Search" are one goal. AI SEO leads and
+       SEO Campaigns is the second main. Local SEO follows for a local or mixed
+       business only (routeLocal returns nothing for the others), then the
+       diagnostic audit and content. */
+    "search-visibility": ["ai", "organic", "local", "seo-ai-visibility-audit", "content"],
+    /* v7 — Google Business Profile first (it may lead this goal only), Local
+       SEO second (allowed alongside it as a second main), then Google Ads. */
+    "local-visibility": ["gbp", "local", "google-ads-campaigns"],
     awareness: ["paid", "reach"],
     conversions: ["conversion", "website", "uiux"],
     unsure: [],
   };
 
+  /* Which of a goal's needs may take a MAIN card — the reviewer's
+     "Prioritise" list. A goal not listed here leads with its first need
+     only; a paid channel may always lead. */
+  var OBJECTIVE_MAINS = {
+    sales: ["google-shopping", "cpas-ads"],
+    "search-visibility": ["ai", "organic"],
+    "local-visibility": ["gbp", "local"],
+  };
+
+  /* v7 merged two goals into one. Answers saved before the change — a visitor
+     part-way through the quiz, or a stored result — still plan correctly. */
+  var OBJECTIVE_ALIASES = {
+    "google-visibility": "search-visibility",
+    "ai-visibility": "search-visibility",
+  };
+
   var CHALLENGE_NEEDS = {
+    /* v7 — Keyword Mapping is no longer one of the ranking fixes (the reviewer
+       lists SEO Audit / Technical SEO / On-page SEO). */
     ranking: ["organic", "technical"],
-    ai: ["ai", "organic", "content", "technical"],
+    ai: ["ai", "organic", "content", "technical-seo"],
     ads: ["paid", "conversion"],
     /* v6.1 — "traffic but no sales" is a conversion problem, not a rebuild.
        Web Design only appears when the client says the site needs an upgrade
-       (the "website" challenge), never from low conversions alone. */
-    "no-sales": ["conversion"],
+       (the "website" challenge), never from low conversions alone.
+       v7 — CRO, then Heat Maps, then UI/UX (the reviewer's order). */
+    "no-sales": ["conversion", "heat-maps", "uiux"],
+    /* v7 — UI/UX stays second here (planner.js keeps it out of the usual
+       push-to-the-back): a rebuild designs the journey before tuning it. */
     website: ["website", "uiux", "conversion"],
-    brand: ["paid", "reach"],
-    unsure: ["technical", "conversion"],
+    /* v7 — Facebook Ads plus ONE reach card; the other reach channels are
+       named first under "Also often relevant". */
+    brand: ["paid", "brandreach"],
+    /* v7 — the audit. The Free Strategy Consultation is the results-page
+       consultation box, which speaks to this challenge directly (app.js). */
+    unsure: ["seo-ai-visibility-audit"],
   };
 
-  /* Both answers "not sure": no direction at all, so fall back to a safe
-     starter mix and let business type + budget pick the specifics
-     (decision 3). Organic foundation + a paid channel + conversion. */
+  /* Both answers "not sure" (v7): the plan is a Free Strategy Consultation
+     plus the SEO & AI Visibility Audit (planner.js). This starter mix is no
+     longer recommended — business type + budget turn it into the "Also often
+     relevant" ideas shown beneath the consultation. */
   var DEFAULT_NEEDS = ["organic", "paid", "conversion", "local"];
 
   /* ── BUDGET PLAN (logic v5) ─────────────────────────────────────────
@@ -1106,25 +1202,25 @@
   var BUDGET_NOTES = {
     under50: {
       tier: "Focused start",
-      text: "Fund the primary recommendation first. Treat the other two services as a roadmap rather than three simultaneous retainers.",
+      text: "Fund the main recommendation first. Treat the supporting service as your next phase rather than a second retainer from day one.",
       supportHeading: "Keep these as your next priorities",
       activeWorkstreams: 1,
     },
     "50to100": {
       tier: "Growth",
-      text: "Run the primary and first supporting service together; keep the third recommendation as the next phase.",
+      text: "Start with the services at the top of your plan; add the supporting service as the next phase once they are running well.",
       supportHeading: "Support it with",
       activeWorkstreams: 2,
     },
     "100to300": {
       tier: "Scale",
-      text: "This supports two active workstreams, with the third recommendation sequenced as the next expansion.",
+      text: "This supports two active workstreams from the start, with the supporting services sequenced in as the next expansion.",
       supportHeading: "Build alongside it with",
       activeWorkstreams: 2,
     },
     over300: {
       tier: "Enterprise",
-      text: "This can support all three recommendations as an integrated programme, subject to channel forecasts and delivery capacity.",
+      text: "This can support every recommendation here as one integrated programme, subject to channel forecasts and delivery capacity.",
       supportHeading: "Complete the mix with",
       activeWorkstreams: 3,
     },
@@ -1142,6 +1238,8 @@
     SERVICE_URLS: SERVICE_URLS,
     CATALOGUE: CATALOGUE,
     OBJECTIVE_NEEDS: OBJECTIVE_NEEDS,
+    OBJECTIVE_MAINS: OBJECTIVE_MAINS,
+    OBJECTIVE_ALIASES: OBJECTIVE_ALIASES,
     CHALLENGE_NEEDS: CHALLENGE_NEEDS,
     DEFAULT_NEEDS: DEFAULT_NEEDS,
     BUDGET_PLAN: BUDGET_PLAN,

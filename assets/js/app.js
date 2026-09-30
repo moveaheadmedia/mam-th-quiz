@@ -67,6 +67,10 @@
       var saved = JSON.parse(raw);
       if (!saved || !saved.answers) return;
       state.answers = saved.answers;
+      /* Logic v7 merged two goals into one — carry an answer saved under an
+         old goal id across, so the goal step still shows it as chosen. */
+      var alias = (D.OBJECTIVE_ALIASES || {})[state.answers.objective];
+      if (alias) state.answers.objective = alias;
       state.startedAt = saved.startedAt || Date.now();
       state.index = Math.min(saved.index || 0, D.QUESTIONS.length);
       var restored = PLANNER.plan(state.answers);
@@ -303,8 +307,38 @@
       (platforms.length ? '<p class="rec__platforms">' + esc(platforms.join(' \u00b7 ')) +
         ' &mdash; we will choose the right platforms with you.</p>' : '') +
       (service.url ? '<a class="rec__link" href="' + esc(service.url) + '" target="_blank" rel="noopener">' +
-        'Explore ' + esc(service.name) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' : '') +
+        esc(service.linkText || 'Explore ' + service.name) +
+        icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' : '') +
     '</article>';
+  }
+
+  /* ── Chat button (logic v7) ─────────────────────────────────────────────
+     TH shows LINE, AU shows WhatsApp — the `market` setting in config.js.
+     The chat opens with the plan already typed so the team has the context:
+     service names only, never the visitor's name, email or phone. */
+  function chatButtonHTML(result) {
+    var chat = (CFG.chat || {})[CFG.market];
+    if (!chat) return '';
+    var names = (result.all || []).map(function (id) {
+      return D.CATALOGUE[id] ? D.CATALOGUE[id].name : null;
+    }).filter(Boolean);
+    var message = 'Hi MAM, I just did the quiz. My plan: ' + names.join(' + ') + '.';
+    var href = '';
+    if (chat.app === 'line') {
+      /* LINE's pre-typed-message link only works inside the LINE app. On a
+         computer it falls back to LINE's homepage, so computers open the
+         account page instead and phones get the pre-typed chat. */
+      var onPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+      href = onPhone && chat.lineId
+        ? 'https://line.me/R/oaMessage/' + chat.lineId + '/?' + encodeURIComponent(message)
+        : chat.pageUrl || '';
+    } else if (chat.app === 'whatsapp') {
+      var number = String(chat.number || '').replace(/\D/g, '');
+      if (number) href = 'https://wa.me/' + number + '?text=' + encodeURIComponent(message);
+    }
+    if (!href) return '';
+    return '<a class="btn btn--lg btn--chat btn--chat-' + esc(chat.app) + '" href="' + esc(href) +
+      '" target="_blank" rel="noopener">' + icon(D.ICONS.chat, 'icon--chat') + esc(chat.label) + '</a>';
   }
 
   function resultsHTML() {
@@ -362,10 +396,14 @@
       '<p class="eyebrow">Your personalised plan</p>' +
       '<h1 class="results__title">' + esc(firstName) + ', here is where we would start.</h1>' +
       '<p class="results__lead">Based on ' + article + ' <strong>' + esc(noun) + '</strong> where ' +
-        esc(challenge) + ', this is the mix our strategists would recommend' +
-        (result.primaries.length > 1
-          ? ' &mdash; starting with two channels that work together.</p>'
-          : ' &mdash; starting with one channel done properly.</p>') +
+        esc(challenge) +
+        (result.consultation
+          /* v7 — no goal and no problem yet: the plan is a conversation. */
+          ? ', the best first step is a free conversation with a strategist, before any budget is committed.</p>'
+          : ', this is the mix our strategists would recommend' +
+            (result.primaries.length > 1
+              ? ' &mdash; starting with two channels that work together.</p>'
+              : ' &mdash; starting with one channel done properly.</p>')) +
 
       '<p class="results__rank">' + esc(quota.label) + '</p>' +
       '<div class="results__primary' +
@@ -379,7 +417,9 @@
       (overlays ? '<div class="overlays"><p class="overlays__title">How we would deliver it</p>' +
         '<ul class="overlays__list">' + overlays + '</ul></div>' : '') +
 
-      (note ? '<div class="budget-note">' +
+      /* The budget note is about funding services, so a consultation plan
+         (v7) skips it — sizing the budget is part of the conversation. */
+      (note && !result.consultation ? '<div class="budget-note">' +
         '<p class="budget-note__tier">' + esc(note.tier) + '</p>' +
         '<p class="budget-note__text">' + esc(note.text) + '</p>' +
       '</div>' : '') +
@@ -388,13 +428,21 @@
         also + '</p>' : '') +
 
       '<div class="cta">' +
-        '<h2 class="cta__title">Want a strategist to pressure-test this?</h2>' +
-        '<p class="cta__text">Book a free 30-minute consultation. We will show you what your competitors are doing, ' +
-          'what it would realistically take to beat them, and whether we are the right fit. No obligation.</p>' +
+        /* v7 — "I'm not sure what's wrong": the consultation box speaks to
+           that directly (the reviewer's Audit + Free Strategy Consultation). */
+        (result.challenge === 'unsure'
+          ? '<h2 class="cta__title">Not sure what&rsquo;s holding you back?</h2>' +
+            '<p class="cta__text">Let&rsquo;s find out together. Book a free 30-minute strategy consultation &mdash; ' +
+              'we will look at your website and marketing, show you what is getting in the way, and tell you ' +
+              'honestly what we would fix first. No obligation.</p>'
+          : '<h2 class="cta__title">Want a strategist to pressure-test this?</h2>' +
+            '<p class="cta__text">Book a free 30-minute consultation. We will show you what your competitors are doing, ' +
+              'what it would realistically take to beat them, and whether we are the right fit. No obligation.</p>') +
         '<div class="cta__actions">' +
           '<a class="btn btn--primary btn--lg" href="' + esc(CFG.consultationUrl) + '" target="_blank" rel="noopener">' +
             'Book your free consultation' + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' +
           '<a class="btn btn--ghost btn--lg" href="' + esc(CFG.phoneHref) + '">Call ' + esc(CFG.phone) + '</a>' +
+          chatButtonHTML(result) +
         '</div>' +
         '<p class="cta__meta"><a href="' + esc(CFG.caseStudiesUrl) + '" target="_blank" rel="noopener">' +
           'See results we have delivered for businesses like yours &rarr;</a></p>' +

@@ -33,6 +33,33 @@ window.MAM_CONFIG = {
   email: 'info@moveaheadmedia.com',
 
   /* --------------------------------------------------------------------
+     2b. Chat button on the results page — one per market
+     --------------------------------------------------------------------
+     The results page shows a chat button next to "Book" and "Call". Which
+     app it opens depends on `market`: TH → LINE, AU → WhatsApp. The chat
+     opens with the visitor's plan already typed (service names only — never
+     their name, email or phone), so the team sees the context straight away.
+
+     A market with no account set here simply shows no chat button.
+     -------------------------------------------------------------------- */
+  market: 'TH',
+  chat: {
+    /* The LINE Official Account linked from moveaheadmedia.co.th.
+       pageUrl  — the account page; used on computers, which have no LINE app.
+       lineId   — used on phones to open the LINE app with the plan pre-typed
+                  (keeps its "@"). */
+    TH: {
+      app: 'line',
+      label: 'Chat on LINE',
+      pageUrl: 'https://page.line.me/pmi1665e',
+      lineId: '@pmi1665e'
+    },
+    /* AU version not decided yet. Add the WhatsApp number (digits only, with
+       country code, e.g. '61412345678') to switch the button on. */
+    AU: { app: 'whatsapp', label: 'Chat on WhatsApp', number: '' }
+  },
+
+  /* --------------------------------------------------------------------
      3. Behaviour
      -------------------------------------------------------------------- */
   persistAnswers: true,  // remember progress on refresh (sessionStorage)

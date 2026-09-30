@@ -272,7 +272,7 @@
     <div class="wrap">
       <header class="top">
         <div class="toprow">
-          <h1>Plan Sandbox <span class="badge">logic v6</span></h1>
+          <h1>Plan Sandbox <span class="badge">logic v7</span></h1>
           <button type="button" class="act ghost themebtn" id="themeToggle"
                   aria-label="Switch between light and dark"></button>
         </div>
@@ -287,7 +287,7 @@
       <div class="tabs" role="tablist">
         <button class="tab" role="tab" data-view="try" aria-selected="true">Try a combination</button>
         <button class="tab" role="tab" data-view="personas" aria-selected="false">The 20 personas</button>
-        <button class="tab" role="tab" data-view="services" aria-selected="false">All 35 services</button>
+        <button class="tab" role="tab" data-view="services" aria-selected="false">All 37 cards</button>
         <button class="tab" role="tab" data-view="situations" aria-selected="false">The two menus</button>
         <button class="tab" role="tab" data-view="payload" aria-selected="false">Lead data sent to n8n</button>
       </div>
@@ -356,13 +356,14 @@
         <div class="panel">
           <h2>The service catalogue</h2>
           <p class="h2note">
-            All 35 services. <b>Can lead</b> means it can be the main
-            recommendation. <b>Supporting only</b> means it can never lead — the
-            rule protecting UI/UX, Technical SEO, Content Marketing and Link
-            Building from being sold as a headline service. CRO is the one
-            exception: it may lead a conversion-focused plan (Goal "Improve
-            website conversions" or the "traffic but no sales" Challenge), and
-            supports everywhere else.
+            The 35 services plus two quiz-only cards added in logic v7 (SEO &amp;
+            AI Visibility Audit, Free Strategy Consultation). <b>Can lead</b>
+            means it can be the main recommendation. <b>Supporting only</b>
+            means it can never lead — the rule protecting UI/UX, Technical SEO,
+            Content Marketing and Link Building from being sold as a headline
+            service. Two scoped exceptions: CRO may lead only the Goal "Improve
+            website conversions", and Google Business Profile may lead only the
+            Goal "Get found by nearby / local customers".
           </p>
           <p id="serviceSummary"></p>
           <div class="scroll"><table id="serviceTable"></table></div>
@@ -374,10 +375,12 @@
         <div class="panel">
           <h2>The two menus</h2>
           <p class="h2note">
-            Each Goal and each Challenge points to a list of service kinds, in
-            order. The planner merges the two — Goal first (the direction), then
-            the Challenge's fix — and business type + budget pick the exact
-            service that fills each slot.
+            Each Goal and each Challenge points to a list of service kinds (or,
+            where the reviewer names one, an exact service), in order. The
+            planner merges the two — Goal first (the direction), then the
+            Challenge's fix — and business type + budget pick the exact service
+            that fills each slot. <b>(can lead)</b> marks the Goal's
+            "Prioritise" list: the needs allowed to take a main card.
           </p>
           <div class="scroll"><table id="situationTable"></table></div>
         </div>
@@ -555,8 +558,11 @@
             esc(optionLabel("objective", answers.objective)) + "</b> and challenge is <b>" +
             esc(optionLabel("challenge", answers.challenge)) + "</b>.";
 
-          el("planNote").textContent =
-            "This budget shows " + q.primary + " main " +
+          el("planNote").textContent = result.consultation
+            ? "Both answers are \"not sure\" — no clear match — so the plan is a Free Strategy Consultation" +
+              " plus the SEO & AI Visibility Audit, at every budget (logic v7). The type + budget starter mix" +
+              " is named under \"Also often relevant\" as ideas for the conversation."
+            : "This budget shows " + q.primary + " main " +
             (q.primary === 1 ? "service" : "services") + " and " + q.supporting +
             " supporting " + (q.supporting === 1 ? "one" : "ones") + "." +
             (q.primary > 1
@@ -604,28 +610,29 @@
 
         /* ── The 20 personas ───────────────────────────────────────── */
         /* [ #, profile, type, budget, objective, challenge, primaries, supporting ]
-           The v6 acceptance oracle — 9 reproduce the v5 sheet, 11 re-approved. */
+           The v7 acceptance oracle — mirrors tests/planner.test.js. 6 unchanged
+           from v6.1; 14 re-signed by the reviewer's Goal + Challenge tables. */
         var PERSONAS = [
           [1, "sme", "local", "under50", "leads", "ai", "Facebook Ads", "AI SEO"],
           [2, "sme", "local", "under50", "leads", "ranking", "Google Ads Campaigns", "SEO Campaigns"],
-          [3, "sme", "local", "under50", "google-visibility", "ranking", "SEO Campaigns", "SEO Audit"],
-          [4, "sme", "ecommerce", "under50", "leads", "ranking", "Google Ads Campaigns", "E-commerce SEO"],
-          [5, "sme", "ecommerce", "50to100", "leads", "website", "Facebook Ads + Web Design", "Conversion Rate Optimisation (CRO)"],
-          [6, "inhouse", "ecommerce", "50to100", "sales", "ranking", "Google Shopping + E-commerce SEO", "Facebook Ads"],
-          [7, "inhouse", "national", "50to100", "ai-visibility", "ranking", "AI SEO + SEO Campaigns", "Content Marketing"],
+          [3, "sme", "local", "under50", "search-visibility", "ranking", "AI SEO", "SEO Campaigns"],
+          [4, "sme", "ecommerce", "under50", "leads", "ranking", "Google Ads Campaigns", "SEO Campaigns"],
+          [5, "sme", "ecommerce", "50to100", "leads", "website", "Facebook Ads + Web Design", "UI/UX"],
+          [6, "inhouse", "ecommerce", "50to100", "sales", "ranking", "Google Shopping + E-commerce SEO", "CPAS Ads"],
+          [7, "inhouse", "national", "50to100", "search-visibility", "ranking", "AI SEO + SEO Campaigns", "SEO & AI Visibility Audit"],
           [8, "inhouse", "national", "100to300", "leads", "ai", "Google Ads Campaigns + AI SEO", "Content Marketing + SEO Campaigns"],
-          [9, "inhouse", "ecommerce", "100to300", "leads", "website", "Google Shopping + Web Design", "Conversion Rate Optimisation (CRO) + Facebook Ads"],
-          [10, "enterprise", "enterprise", "100to300", "ai-visibility", "ranking", "AI SEO + SEO Campaigns", "Content Marketing + Technical SEO"],
-          [11, "enterprise", "enterprise", "over300", "leads", "brand", "Google Ads Campaigns + Facebook Ads", "Programmatic Ads + Conversion Rate Optimisation (CRO)"],
-          [12, "enterprise", "national", "over300", "google-visibility", "ai", "SEO Campaigns + AI SEO", "Content Marketing + Technical SEO"],
-          [13, "enterprise", "ecommerce", "over300", "leads", "website", "Google Shopping + Web Design", "Conversion Rate Optimisation (CRO) + Facebook Ads"],
-          [14, "agency", "mixed", "50to100", "google-visibility", "ranking", "SEO Campaigns + AI SEO", "Link Building"],
-          [15, "agency", "enterprise", "100to300", "google-visibility", "ai", "SEO Campaigns + AI SEO", "Link Building + Content Marketing"],
+          [9, "inhouse", "ecommerce", "100to300", "leads", "website", "Google Shopping + Web Design", "UI/UX + Conversion Rate Optimisation (CRO)"],
+          [10, "enterprise", "enterprise", "100to300", "search-visibility", "ranking", "AI SEO + SEO Campaigns", "SEO & AI Visibility Audit + Content Marketing"],
+          [11, "enterprise", "enterprise", "over300", "leads", "brand", "Google Ads Campaigns + Facebook Ads", "TikTok Ads + Conversion Rate Optimisation (CRO)"],
+          [12, "enterprise", "national", "over300", "search-visibility", "ai", "AI SEO + SEO Campaigns", "Content Marketing + SEO & AI Visibility Audit"],
+          [13, "enterprise", "ecommerce", "over300", "leads", "website", "Google Shopping + Web Design", "UI/UX + Conversion Rate Optimisation (CRO)"],
+          [14, "agency", "mixed", "50to100", "search-visibility", "ranking", "AI SEO + SEO Campaigns", "Link Building"],
+          [15, "agency", "enterprise", "100to300", "search-visibility", "ai", "AI SEO + SEO Campaigns", "Link Building + Content Marketing"],
           [16, "sme", "mixed", "under50", "leads", "website", "Facebook Ads", "Web Design"],
-          [17, "inhouse", "mixed", "50to100", "google-visibility", "website", "Web Design + SEO Campaigns", "Conversion Rate Optimisation (CRO)"],
-          [18, "enterprise", "enterprise", "over300", "leads", "website", "Google Ads Campaigns + Web Design", "Conversion Rate Optimisation (CRO) + Facebook Ads"],
-          [19, "sme", "local", "under50", "leads", "unsure", "Facebook Ads", "Heat Maps"],
-          [20, "enterprise", "mixed", "over300", "leads", "unsure", "Google Ads Campaigns + Facebook Ads", "Conversion Rate Optimisation (CRO) + Technical SEO"],
+          [17, "inhouse", "mixed", "50to100", "search-visibility", "website", "AI SEO + Web Design", "UI/UX"],
+          [18, "enterprise", "enterprise", "over300", "leads", "website", "Google Ads Campaigns + Web Design", "UI/UX + Conversion Rate Optimisation (CRO)"],
+          [19, "sme", "local", "under50", "leads", "unsure", "Facebook Ads", "SEO & AI Visibility Audit"],
+          [20, "enterprise", "mixed", "over300", "leads", "unsure", "Google Ads Campaigns + Facebook Ads", "SEO & AI Visibility Audit + Conversion Rate Optimisation (CRO)"],
         ];
 
         function sortedSet(str) { return str.split(" + ").slice().sort().join("|"); }
@@ -655,7 +662,7 @@
             "<thead><tr><th>#</th><th>Client</th><th>Budget</th><th>Goal + Challenge</th>" +
             "<th>Main services</th><th>Supporting</th><th></th><th></th></tr></thead><tbody>" + rows + "</tbody>";
           el("personaSummary").innerHTML = '<span class="big ' + (pass === 20 ? "ok" : "no") + '">' +
-            pass + " of 20</span> &nbsp;personas reproduce the agreed v6 plan exactly.";
+            pass + " of 20</span> &nbsp;personas reproduce the agreed v7 plan exactly.";
         }
 
         /* ── Catalogue ─────────────────────────────────────────────── */
@@ -699,13 +706,18 @@
           content: "Content", technical: "Technical SEO",
           authority: "Link building", reach: "Paid reach",
           retention: "Email", creative: "Creative",
+          gbp: "Google Business Profile", brandreach: "One reach channel (TikTok › YouTube › Programmatic)",
         };
 
-        function needList(list) {
+        /* v7 — a menu may name an exact service; it reads as that service's
+           name. `mains` marks the goal's "Prioritise" list. */
+        function needList(list, mains) {
           return list.map(function (raw) {
             var only = raw.charAt(raw.length - 1) === "!";
             var need = only ? raw.slice(0, -1) : raw;
-            return (NEED_TEXT[need] || need) + (only ? " (main only)" : "");
+            var text = NEED_TEXT[need] || (C[need] && C[need].name) || need;
+            return text + (only ? " (main only)" : "") +
+              (mains && mains.indexOf(need) !== -1 ? " (can lead)" : "");
           }).join("  ›  ");
         }
 
@@ -715,7 +727,10 @@
           Object.keys(D.OBJECTIVE_NEEDS).forEach(function (key) {
             var needs = D.OBJECTIVE_NEEDS[key];
             rows += "<tr><td class=\"sml\">Goal</td><td><b>" + esc(optionLabel("objective", key)) + "</b></td>" +
-              "<td>" + (needs.length ? esc(needList(needs)) : '<span class="sml">— falls back to type + budget —</span>') + "</td></tr>";
+              "<td>" + (needs.length
+                ? esc(needList(needs, D.OBJECTIVE_MAINS[key]))
+                : '<span class="sml">— the Challenge leads; if it is also "not sure": Free Strategy Consultation + SEO &amp; AI Visibility Audit —</span>') +
+              "</td></tr>";
           });
           rows += '<tr><td><span class="tagsup">Step 5 · Challenge</span></td><td></td><td></td></tr>';
           Object.keys(D.CHALLENGE_NEEDS).forEach(function (key) {

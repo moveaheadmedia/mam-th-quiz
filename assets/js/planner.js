@@ -1,9 +1,12 @@
 /* ==========================================================================
-   PLANNER — logic v6.
+   PLANNER — logic v7.
 
-   Turns five answers into a service plan. v6 splits the old single
+   Turns five answers into a service plan. v6 split the old single
    "challenge" question into two: an OBJECTIVE (the goal) and a CHALLENGE
-   (the problem). The pipeline:
+   (the problem). v7 applies the reviewer's Goal + Challenge tables: CRO
+   before Heat Maps, one Google + AI goal, Google Business Profile leading
+   the local goal, and a Free Strategy Consultation when both answers are
+   "not sure". The pipeline:
 
      1. MERGE      The objective's lead need comes first (the direction),
                    then the challenge's needs (the fix), then the objective's
@@ -13,10 +16,11 @@
                    online store, Google Ads Campaigns for everyone else.
      3. QUANTITY   Budget decides how many services are shown, and which
                    are primary. It never changes WHICH service is right.
-     4. GUARDRAIL  Only services with role "lead" may be primary. From v6,
-                   CRO is a lead (it may head a conversion-focused plan);
-                   UI/UX, Technical SEO, Content Marketing and Link Building
-                   still can never lead, whatever is answered.
+     4. GUARDRAIL  Only services with role "lead" may be primary, plus the
+                   two scoped exceptions in LEAD_EXCEPTIONS (CRO for the
+                   conversions goal, Google Business Profile for the local
+                   goal). UI/UX, Technical SEO, Content Marketing and Link
+                   Building can never lead, whatever is answered.
    ========================================================================== */
 (function () {
   "use strict";
@@ -57,8 +61,9 @@
   /**
    * The objective sets the direction (its first need leads); the challenge
    * adds the fix; then the objective's remaining needs fill later slots.
-   * When BOTH answers are "not sure" there is no direction at all, so we
-   * fall back to a safe starter mix and let type + budget pick specifics.
+   * When BOTH answers are "not sure" there is no direction at all, so the
+   * starter mix stands in — v7 shows it only as "Also often relevant" ideas
+   * beneath a Free Strategy Consultation (see consultationPlan).
    */
   function mergeNeeds(ctx) {
     if (ctx.objective === "unsure" && ctx.challenge === "unsure") {
@@ -81,8 +86,12 @@
     var real = dedupe(obj.slice(0, 1).concat(chal).concat(obj.slice(1)));
 
     /* Technical SEO and UI/UX only ever deepen a primary, so they sort to the
-       back of the real needs — a substantive service takes each slot first. */
-    var DEEP = ["technical", "uiux"];
+       back of the real needs — a substantive service takes each slot first.
+       v7 — except UI/UX on the "website needs an upgrade" challenge, where the
+       reviewer puts it second: a rebuild designs the journey before tuning it. */
+    var DEEP = ctx.challenge === "website"
+      ? ["technical", "technical-seo"]
+      : ["technical", "technical-seo", "uiux"];
     real = real.filter(function (n) { return DEEP.indexOf(n) === -1; })
       .concat(real.filter(function (n) { return DEEP.indexOf(n) !== -1; }));
 
@@ -151,8 +160,12 @@
     return out;
   }
 
+  /* v7 — the goal decides which SEO. E-commerce SEO only when the goal is
+     "Increase online sales" (the reviewer lists it there); every other goal
+     gets SEO Campaigns, online stores included. One rule, so a plan can never
+     carry both. */
   function routeOrganic(ctx) {
-    return [ctx.sells ? "ecommerce-seo" : "seo-campaigns"];
+    return [ctx.objective === "sales" ? "ecommerce-seo" : "seo-campaigns"];
   }
 
   function routeLocal(ctx) {
@@ -167,24 +180,22 @@
 
   function routeTechnical(ctx) {
     /* One need, answered at the level the client can actually use. A large
-       organisation needs the technical foundation fixed; an in-house team
-       can execute a keyword map itself; a small business is better served
-       by a cheap tactical fix or a diagnostic than by a retainer.
-       Every entry after the first is a fallback for the deepening pass. */
+       organisation needs the technical foundation fixed; a small business is
+       better served by a cheap tactical fix or a diagnostic than by a
+       retainer. Every entry after the first is a fallback for the deepening
+       pass. v7 — these three are the reviewer's ranking fixes; Keyword
+       Mapping is no longer one of them. */
     if (
       has(FUNDED, ctx.budget) ||
       ctx.type === "enterprise" ||
       ctx.type === "national"
     ) {
-      return ["technical-seo", "on-page-seo", "keyword-mapping", "seo-audit"];
-    }
-    if (has(["inhouse", "agency"], ctx.profile)) {
-      return ["keyword-mapping", "on-page-seo", "seo-audit", "technical-seo"];
+      return ["technical-seo", "on-page-seo", "seo-audit"];
     }
     if (ctx.budget === "under50" || ctx.budget === "unsure") {
-      return ["seo-audit", "on-page-seo", "keyword-mapping", "technical-seo"];
+      return ["seo-audit", "on-page-seo", "technical-seo"];
     }
-    return ["on-page-seo", "seo-audit", "keyword-mapping", "technical-seo"];
+    return ["on-page-seo", "seo-audit", "technical-seo"];
   }
 
   function routeWebsite(ctx) {
@@ -224,14 +235,20 @@
     content: function () { return ["content-marketing"]; },
     authority: function () { return ["link-building"]; },
     uiux: function () { return ["ui-ux"]; },
-    /* CRO leads a conversion-focused plan (see ctx.croCanLead); Heat Maps is
-       the cheaper stand-in below 100K and the deepening partner above it.
-       When CRO may lead, it is promoted from this list even if it appears
-       second, so the cheaper ordering below is safe either way. */
-    conversion: function (ctx) {
-      return ctx.budget === "under50" || ctx.budget === "unsure"
-        ? ["heat-maps", "cro"]
-        : ["cro", "heat-maps"];
+    /* v7 — CRO first at every budget. Heat Maps is part of CRO's work (its
+       card lists "Heat map insights"), so it follows as the deepening partner
+       or is named under "Also often relevant" — never the budget stand-in. */
+    conversion: function () { return ["cro", "heat-maps"]; },
+    /* v7 — Google Business Profile, for the local goal. Like Local SEO it
+       needs a real catchment area, which an agency buying fulfilment lacks. */
+    gbp: function (ctx) {
+      return ctx.profile === "agency" ? [] : ["google-business-profile"];
+    },
+    /* v7 — the reviewer's reach channels for a brand problem, open to every
+       business type and budget. One takes a card; the others are named first
+       under "Also often relevant". */
+    brandreach: function () {
+      return ["tiktok-ads", "youtube-ads", "programmatic-ads"];
     },
     creative: function () { return ["premium-creative"]; },
   };
@@ -244,7 +261,40 @@
       return ROUTES[slot](ctx);
     }
     var route = ROUTES[need];
-    return route ? route(ctx) : [];
+    if (route) return route(ctx);
+    /* v7 — a menu may name an exact service when the reviewer's table does. */
+    return D.CATALOGUE[need] ? [need] : [];
+  }
+
+  /* ── Who may lead ─────────────────────────────────────────────────── */
+
+  /**
+   * RULE 3.1 — only "lead" services may be primary, with two scoped
+   * exceptions: CRO may head a plan whose GOAL is "Improve website
+   * conversions", and Google Business Profile may head a plan whose GOAL is
+   * "Get found by nearby / local customers". Neither leads anywhere else.
+   */
+  var LEAD_EXCEPTIONS = {
+    cro: function (ctx) { return ctx.objective === "conversions"; },
+    "google-business-profile": function (ctx) { return ctx.objective === "local-visibility"; },
+  };
+
+  function canLead(id, ctx) {
+    var service = D.CATALOGUE[id];
+    if (!service) return false;
+    if (service.role === "lead") return true;
+    return !!(LEAD_EXCEPTIONS[id] && LEAD_EXCEPTIONS[id](ctx));
+  }
+
+  /**
+   * RULE 5.2 — two primaries may never come from the same family. The one v7
+   * exception: Google Business Profile + Local SEO on the local goal, which
+   * are different jobs (the Maps listing, and the website ranking locally)
+   * and are the reviewer's first two priorities there.
+   */
+  function familyTaken(service, families, ctx) {
+    if (!has(families, service.family)) return false;
+    return !(service.family === "seo-local" && ctx.objective === "local-visibility");
   }
 
   /* ── Step 1b — persona adjustments to the merged needs ────────────── */
@@ -285,8 +335,10 @@
      Challenge explicitly points at it — otherwise it rides as support behind
      the main channel, which is what stops a business-type label from inventing
      a second headline service the client never asked for. CRO leads only a
-     conversion-goal plan. Everything else (technical, content, UX, authority,
-     reach, creative) is support only. */
+     conversion-goal plan. v7 — a goal's "Prioritise" list (OBJECTIVE_MAINS in
+     data.js) may also take mains, e.g. Google Shopping + CPAS on the sales
+     goal. Everything else (technical, content, UX, authority, reach,
+     creative) is support only. */
   var ALWAYS_MAIN = { paid: true, paid2: true };
   function mainEligible(need, ctx) {
     /* RULE 5.4 — an agency's AI visibility is a headline differentiator, even
@@ -296,6 +348,7 @@
        that was only added to fill a big budget. */
     if (!ctx.realNeeds || !has(ctx.realNeeds, need)) return false;
     if (ALWAYS_MAIN[need]) return true;
+    if (has(ctx.goalMains || [], need)) return true;
     if (need === "conversion") return !!ctx.croCanLead;
     if (need === "organic" || need === "ai" || need === "local" || need === "website") {
       return need === ctx.primaryDirection || has(ctx.challengeNeeds, need);
@@ -304,9 +357,9 @@
   }
 
   /**
-   * RULE 3.1 — only "lead" services may be primary (CRO is the one exception,
-   *            for a conversion-goal plan).
-   * RULE 5.2 — two primaries may never come from the same family.
+   * RULE 3.1 — only "lead" services may be primary (see LEAD_EXCEPTIONS).
+   * RULE 5.2 — two primaries may never come from the same family (see
+   *            familyTaken for the one local-goal exception).
    *
    * Budget sets the TOTAL number of cards; the brief decides how many of them
    * are mains. A brief with a single genuine lead shows one main and spends
@@ -347,8 +400,7 @@
       var hName = needs[h].charAt(needs[h].length - 1) === "!" ? needs[h].slice(0, -1) : needs[h];
       if (!mainEligible(hName, ctx)) continue;
       var resolves = candidates(hName, ctx).some(function (id) {
-        var s = D.CATALOGUE[id];
-        return s && (s.role === "lead" || (id === "cro" && ctx.croCanLead));
+        return canLead(id, ctx);
       });
       if (resolves) {
         if (h > 0) needs.unshift(needs.splice(h, 1)[0]);
@@ -369,8 +421,8 @@
           id = options[i];
           service = D.CATALOGUE[id];
           if (!service || has(used, id)) continue;
-          if (service.role !== "lead" && !(id === "cro" && ctx.croCanLead)) continue;
-          if (has(families, service.family)) continue;    // RULE 5.2
+          if (!canLead(id, ctx)) continue;                  // RULE 3.1
+          if (familyTaken(service, families, ctx)) continue; // RULE 5.2
           primaries.push(id);
           families.push(service.family);
           used.push(id);
@@ -468,10 +520,32 @@
     reach: "search demand alone caps out at your scale",
     retention: "keeping a customer costs less than winning a new one",
     creative: "paid social lives or dies on the creative",
+    /* v7 needs, and the services the reviewer's menus name directly. */
+    gbp: "nearby customers find you on Google Maps before they see your website",
+    brandreach: "more people need to see your brand before they search for it",
+    "google-shopping": "shoppers are already searching for products like yours",
+    "cpas-ads": "your products can reach shoppers on the marketplaces they already buy from",
+    "performance-max": "it takes a working Shopping account across all of Google's channels",
+    "google-ads-campaigns": "people nearby are searching for what you offer right now",
+    "heat-maps": "you need to see where visitors drop off before you fix it",
+    "technical-seo": "AI search can only cite a site it can crawl and understand",
+    "seo-ai-visibility-audit": "an audit shows what is holding you back on Google and in AI search",
+    "strategy-consultation": "we should understand your goals before recommending where to spend",
   };
+
+  /* v7 — "My ads aren't generating enough results" means the ads come first
+     as a FIX, not as a new channel: the first paid card says so. */
+  var ADS_FIX_REASON = "your current campaigns need fixing before they need more budget";
+  var PAID_FAMILIES = ["paid-search", "paid-social"];
 
   /** Plain-English reason a given service is on this plan. */
   function reasonFor(result, serviceId) {
+    if (result.challenge === "ads") {
+      var firstPaid = (result.all || []).filter(function (id) {
+        return D.CATALOGUE[id] && has(PAID_FAMILIES, D.CATALOGUE[id].family);
+      })[0];
+      if (firstPaid === serviceId) return ADS_FIX_REASON;
+    }
     var entry = (result.trace || []).filter(function (t) {
       return t.service === serviceId;
     })[0];
@@ -486,6 +560,26 @@
   function alsoRelevant(needs, ctx, chosen, limit) {
     var out = [];
     var cap = limit || 3;
+
+    /* v7 — the challenge's own list comes first, and all of it: whatever the
+       reviewer's Step 5 table names for it that did not fit as a card (Heat
+       Maps behind CRO, the reach channels behind the brand card, the other
+       ranking fixes…), so the reviewer's full list is always on the page. It
+       sits outside the cap; the cap only limits what is added after it. A paid
+       or website need names its channel only, not the deeper services behind
+       it. */
+    (D.CHALLENGE_NEEDS[ctx.challenge] || []).forEach(function (need) {
+      var options = candidates(need, ctx);
+      if (need === "paid" || need === "paid2" || need === "website") {
+        options = options.slice(0, 1);
+      }
+      options.forEach(function (id) {
+        if (has(chosen, id) || has(out, id)) return;
+        var service = D.CATALOGUE[id];
+        if (!service || service.role === "overlay") return;
+        out.push(id);
+      });
+    });
 
     needs.forEach(function (raw) {
       if (out.length >= cap) return;
@@ -617,7 +711,46 @@
     };
   }
 
+  /* ── Both answers "not sure" (logic v7) ───────────────────────────── */
+
+  /**
+   * The reviewer's rule: "not sure" falls back to business type + budget, and
+   * if there is still no clear match, recommend a Free Strategy Consultation.
+   * With neither a goal nor a problem, that is the plan: the consultation
+   * leads and the SEO & AI Visibility Audit supports it — two cards at every
+   * budget, because we do not know what a bigger budget should buy yet. The
+   * type + budget starter mix is still worked out, and named under "Also
+   * often relevant" as ideas for the conversation.
+   */
+  function consultationPlan(ctx, key) {
+    var primaries = ["strategy-consultation"];
+    var supporting = ["seo-ai-visibility-audit"];
+    var all = primaries.concat(supporting);
+    var ideas = mergeNeeds(ctx);
+    return {
+      logicVersion: LOGIC_VERSION,
+      isComplete: true,
+      situationKey: key,
+      objective: ctx.objective,
+      challenge: ctx.challenge,
+      consultation: true,
+      needs: ideas,
+      primaries: primaries,
+      supporting: supporting,
+      all: all,
+      quota: { primary: 1, supporting: 1, label: "Start here", nextLabel: "Alongside it" },
+      overlays: overlaysFor(ctx),
+      alsoRelevant: alsoRelevant(ideas, ctx, all),
+      trace: [
+        { need: "strategy-consultation", service: "strategy-consultation", outcome: "primary" },
+        { need: "seo-ai-visibility-audit", service: "seo-ai-visibility-audit", outcome: "supporting" },
+      ],
+    };
+  }
+
   /* ── Public entry point ───────────────────────────────────────────── */
+
+  var LOGIC_VERSION = 7;
 
   /**
    * @param {Object} answers { profile, type, budget, objective, challenge }
@@ -625,7 +758,9 @@
    */
   function plan(answers) {
     answers = answers || {};
-    var objective = ids(answers.objective)[0] || null;
+    var rawObjective = ids(answers.objective)[0] || null;
+    /* v7 merged two goals into one; an answer saved before that still plans. */
+    var objective = (D.OBJECTIVE_ALIASES || {})[rawObjective] || rawObjective;
     var challenge = ids(answers.challenge)[0] || null;
     var ctx = {
       profile: answers.profile,
@@ -635,7 +770,9 @@
       challenge: challenge,
       /* "Sells products online" — an online store, OR anyone whose GOAL is
          online sales. Follows what the client asked for, not just the
-         business-type label. Drives E-commerce SEO and store-only channels. */
+         business-type label. Drives the store-only channels (CPAS behind
+         Facebook Ads, retention). Which SEO a plan gets is the goal's call —
+         see routeOrganic. */
       sells: answers.type === "ecommerce" || objective === "sales",
       /* Google Shopping leads the paid-search slot when the goal is online
          sales, or for an online store that is not a small owner-run shop (a
@@ -648,6 +785,8 @@
       /* Decision 1 — CRO leads only when the GOAL itself is about conversions.
          The "traffic but no sales" challenge still adds CRO, but as support. */
       croCanLead: objective === "conversions",
+      /* v7 — the goal's "Prioritise" list: needs that may take a main card. */
+      goalMains: (D.OBJECTIVE_MAINS || {})[objective] || [],
       /* The business-type signature, used to fill a spare support slot. */
       typeSupport: TYPE_SUPPORT[answers.type] || [],
     };
@@ -665,13 +804,19 @@
 
     if (missing.length || !validObjective || !validChallenge) {
       return {
-        logicVersion: 6,
+        logicVersion: LOGIC_VERSION,
         isComplete: false,
         missing: missing,
         situationKey: key,
         primaries: [],
         supporting: [],
       };
+    }
+
+    /* v7 — both answers "not sure": no clear match, so the plan is a
+       conversation rather than a guessed retainer. */
+    if (objective === "unsure" && challenge === "unsure") {
+      return consultationPlan(ctx, key);
     }
 
     var quotaBase = D.BUDGET_PLAN[answers.budget] || D.BUDGET_PLAN.unsure;
@@ -714,11 +859,12 @@
     };
 
     return {
-      logicVersion: 6,
+      logicVersion: LOGIC_VERSION,
       isComplete: true,
       situationKey: key,
       objective: objective,
       challenge: challenge,
+      consultation: false,
       needs: needs,
       primaries: built.primaries,
       supporting: built.supporting,

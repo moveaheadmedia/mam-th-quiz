@@ -1,15 +1,14 @@
 /* ==========================================================================
-   MAM quiz — logic v6 regression suite
+   MAM quiz — logic v7 regression suite
 
    Dependency-free by design. Load after assets/js/data.js and planner.js.
    Runs in a browser, in Node, or in macOS JavaScriptCore (jsc).
 
-   v6 splits the old single "challenge" question into two — an OBJECTIVE (the
-   goal) and a CHALLENGE (the problem). The 20 personas below are the v6
-   acceptance oracle: 9 reproduce the v5 signed sheet unchanged; 11 were
-   re-approved with new (sensible) recommendations when the two-question
-   model gave a different answer. If a future change breaks one, it has
-   changed a decision the business has agreed, and the build fails.
+   v6 split the old single "challenge" question into two — an OBJECTIVE (the
+   goal) and a CHALLENGE (the problem). v7 applies the reviewer's Goal +
+   Challenge tables (see QUIZ-LOGIC.md). The 20 personas below are the
+   acceptance oracle; if a future change breaks one, it has changed a
+   decision the business has agreed, and the build fails.
    ========================================================================== */
 (function (root) {
   "use strict";
@@ -61,10 +60,15 @@
   var CHALLENGES = Object.keys(D.CHALLENGE_NEEDS);
 
   var KNOWN_NEEDS = [
-    "paid", "paid2", "organic", "ai", "local", "website", "uiux",
-    "conversion", "content", "technical", "authority", "reach",
+    "paid", "paid2", "organic", "ai", "local", "gbp", "website", "uiux",
+    "conversion", "content", "technical", "authority", "reach", "brandreach",
     "retention", "creative",
   ];
+
+  /* v7 — a menu may also name an exact service by its catalogue id. */
+  function knownNeed(need) {
+    return KNOWN_NEEDS.indexOf(need) !== -1 || !!D.CATALOGUE[need];
+  }
 
   function planFor(profile, type, budget, objective, challenge) {
     return P.plan({
@@ -102,9 +106,9 @@
 
   /* ══ 1. The catalogue ═══════════════════════════════════════════════ */
 
-  test("the catalogue holds all 35 services with everything a card needs", function () {
+  test("the catalogue holds the 35 services + 2 quiz cards, with everything a card needs", function () {
     var ids = Object.keys(D.CATALOGUE);
-    equal(ids.length, 35, "service count");
+    equal(ids.length, 37, "service count");
 
     var roles = { lead: 0, support: 0, platform: 0, overlay: 0 };
     ids.forEach(function (id) {
@@ -122,8 +126,10 @@
       assert(typeof s.url === "string", id + " url must be a string, blank is fine");
     });
 
-    same(roles, { lead: 11, support: 17, platform: 5, overlay: 2 }, "role split");
-    equal(Object.keys(D.SERVICE_URLS).length, 35, "URL slots");
+    /* v7: + Free Strategy Consultation (lead), + SEO & AI Visibility Audit
+       (support), and TikTok Ads moved from platform to support. */
+    same(roles, { lead: 12, support: 19, platform: 4, overlay: 2 }, "role split");
+    equal(Object.keys(D.SERVICE_URLS).length, 37, "URL slots");
     Object.keys(D.SERVICE_URLS).forEach(function (id) {
       assert(D.CATALOGUE[id], "URL slot " + id + " has no service");
     });
@@ -154,25 +160,51 @@
 
     OBJECTIVES.forEach(function (key) {
       D.OBJECTIVE_NEEDS[key].forEach(function (need) {
-        assert(KNOWN_NEEDS.indexOf(need) !== -1, "objective " + key + " uses unknown need " + need);
+        assert(knownNeed(need), "objective " + key + " uses unknown need " + need);
+      });
+      (D.OBJECTIVE_MAINS[key] || []).forEach(function (need) {
+        assert(D.OBJECTIVE_NEEDS[key].indexOf(need) !== -1,
+          "objective " + key + " lets " + need + " lead but never asks for it");
       });
     });
     CHALLENGES.forEach(function (key) {
       D.CHALLENGE_NEEDS[key].forEach(function (need) {
-        assert(KNOWN_NEEDS.indexOf(need) !== -1, "challenge " + key + " uses unknown need " + need);
+        assert(knownNeed(need), "challenge " + key + " uses unknown need " + need);
       });
     });
     D.DEFAULT_NEEDS.forEach(function (need) {
-      assert(KNOWN_NEEDS.indexOf(need) !== -1, "default mix uses unknown need " + need);
+      assert(knownNeed(need), "default mix uses unknown need " + need);
+    });
+    Object.keys(D.OBJECTIVE_ALIASES).forEach(function (old) {
+      assert(D.OBJECTIVE_NEEDS[D.OBJECTIVE_ALIASES[old]], "alias " + old + " points nowhere");
     });
   });
 
-  test("'not sure' on both questions still produces a complete plan", function () {
+  test("'not sure' on both questions recommends a Free Strategy Consultation", function () {
+    /* v7 — no goal and no problem is "no clear match": the consultation leads
+       and the SEO & AI Visibility Audit supports it, at every budget. */
     everyCase.filter(function (c) {
       return c.objective === "unsure" && c.challenge === "unsure";
     }).forEach(function (c) {
       assert(c.result.isComplete, label(c) + " both-unsure must still plan");
-      assert(c.result.primaries.length >= 1, label(c) + " needs at least one primary");
+      same(c.result.primaries, ["strategy-consultation"], label(c) + " primary");
+      same(c.result.supporting, ["seo-ai-visibility-audit"], label(c) + " supporting");
+      assert(c.result.consultation, label(c) + " should be flagged as a consultation plan");
+    });
+    everyCase.forEach(function (c) {
+      if (c.objective === "unsure" && c.challenge === "unsure") return;
+      assert(c.result.all.indexOf("strategy-consultation") === -1,
+        label(c) + " recommended the consultation card with a real goal or problem");
+    });
+  });
+
+  test("an answer saved under a pre-v7 goal id still plans", function () {
+    ["google-visibility", "ai-visibility"].forEach(function (old) {
+      var result = P.plan({
+        profile: "sme", type: "local", budget: "under50", objective: old, challenge: "ranking",
+      });
+      assert(result.isComplete, old + " should map onto the merged goal");
+      equal(result.objective, "search-visibility", old + " maps to");
     });
   });
 
@@ -180,33 +212,39 @@
 
   /* [ #, profile, type, budget, objective, challenge, primaries, supporting ]
      Recommendations are compared as sets (the two primaries are equal to each
-     other). The v6.1 acceptance oracle: 19 reproduce the v6 sheet unchanged;
-     persona 3 was re-signed when the goal-driven routing replaced the
-     auto-added Local SEO with the ranking fix the client actually asked for. */
+     other). The v7 oracle: 6 reproduce the v6.1 plan unchanged (1, 2, 8, 14,
+     15, 16 — 14 and 15 now use the merged goal id); 14 were re-signed by the
+     reviewer's tables, each marked with the rule that changed it:
+       Google + AI goal .... 3, 7, 10, 12, 17   (AI SEO first; Audit support)
+       goal decides SEO .... 4                  (SEO Campaigns unless "sales")
+       sales goal .......... 6                  (CPAS replaces Facebook Ads)
+       website challenge ... 5, 9, 13, 18       (UI/UX before CRO)
+       brand challenge ..... 11                 (TikTok is the reach card)
+       not-sure challenge .. 19, 20             (SEO & AI Visibility Audit) */
   var PERSONAS = [
     [1,  "sme","local","under50","leads","ai",                    ["Facebook Ads"],                        ["AI SEO"]],
     [2,  "sme","local","under50","leads","ranking",               ["Google Ads Campaigns"],                ["SEO Campaigns"]],
-    [3,  "sme","local","under50","google-visibility","ranking",   ["SEO Campaigns"],                       ["SEO Audit"]],
-    [4,  "sme","ecommerce","under50","leads","ranking",           ["Google Ads Campaigns"],                ["E-commerce SEO"]],
-    [5,  "sme","ecommerce","50to100","leads","website",           ["Facebook Ads","Web Design"],           ["Conversion Rate Optimisation (CRO)"]],
-    [6,  "inhouse","ecommerce","50to100","sales","ranking",       ["Google Shopping","E-commerce SEO"],    ["Facebook Ads"]],
-    [7,  "inhouse","national","50to100","ai-visibility","ranking",["AI SEO","SEO Campaigns"],              ["Content Marketing"]],
+    [3,  "sme","local","under50","search-visibility","ranking",   ["AI SEO"],                              ["SEO Campaigns"]],
+    [4,  "sme","ecommerce","under50","leads","ranking",           ["Google Ads Campaigns"],                ["SEO Campaigns"]],
+    [5,  "sme","ecommerce","50to100","leads","website",           ["Facebook Ads","Web Design"],           ["UI/UX"]],
+    [6,  "inhouse","ecommerce","50to100","sales","ranking",       ["Google Shopping","E-commerce SEO"],    ["CPAS Ads"]],
+    [7,  "inhouse","national","50to100","search-visibility","ranking",["AI SEO","SEO Campaigns"],          ["SEO & AI Visibility Audit"]],
     [8,  "inhouse","national","100to300","leads","ai",            ["Google Ads Campaigns","AI SEO"],       ["Content Marketing","SEO Campaigns"]],
-    [9,  "inhouse","ecommerce","100to300","leads","website",      ["Google Shopping","Web Design"],        ["Conversion Rate Optimisation (CRO)","Facebook Ads"]],
-    [10, "enterprise","enterprise","100to300","ai-visibility","ranking",["AI SEO","SEO Campaigns"],        ["Content Marketing","Technical SEO"]],
-    [11, "enterprise","enterprise","over300","leads","brand",     ["Google Ads Campaigns","Facebook Ads"], ["Programmatic Ads","Conversion Rate Optimisation (CRO)"]],
-    [12, "enterprise","national","over300","google-visibility","ai",["SEO Campaigns","AI SEO"],            ["Content Marketing","Technical SEO"]],
-    [13, "enterprise","ecommerce","over300","leads","website",    ["Google Shopping","Web Design"],        ["Conversion Rate Optimisation (CRO)","Facebook Ads"]],
-    [14, "agency","mixed","50to100","google-visibility","ranking",["SEO Campaigns","AI SEO"],              ["Link Building"]],
-    [15, "agency","enterprise","100to300","google-visibility","ai",["SEO Campaigns","AI SEO"],             ["Link Building","Content Marketing"]],
+    [9,  "inhouse","ecommerce","100to300","leads","website",      ["Google Shopping","Web Design"],        ["UI/UX","Conversion Rate Optimisation (CRO)"]],
+    [10, "enterprise","enterprise","100to300","search-visibility","ranking",["AI SEO","SEO Campaigns"],    ["SEO & AI Visibility Audit","Content Marketing"]],
+    [11, "enterprise","enterprise","over300","leads","brand",     ["Google Ads Campaigns","Facebook Ads"], ["TikTok Ads","Conversion Rate Optimisation (CRO)"]],
+    [12, "enterprise","national","over300","search-visibility","ai",["AI SEO","SEO Campaigns"],            ["Content Marketing","SEO & AI Visibility Audit"]],
+    [13, "enterprise","ecommerce","over300","leads","website",    ["Google Shopping","Web Design"],        ["UI/UX","Conversion Rate Optimisation (CRO)"]],
+    [14, "agency","mixed","50to100","search-visibility","ranking",["AI SEO","SEO Campaigns"],              ["Link Building"]],
+    [15, "agency","enterprise","100to300","search-visibility","ai",["AI SEO","SEO Campaigns"],             ["Link Building","Content Marketing"]],
     [16, "sme","mixed","under50","leads","website",               ["Facebook Ads"],                        ["Web Design"]],
-    [17, "inhouse","mixed","50to100","google-visibility","website",["Web Design","SEO Campaigns"],         ["Conversion Rate Optimisation (CRO)"]],
-    [18, "enterprise","enterprise","over300","leads","website",   ["Google Ads Campaigns","Web Design"],   ["Conversion Rate Optimisation (CRO)","Facebook Ads"]],
-    [19, "sme","local","under50","leads","unsure",                ["Facebook Ads"],                        ["Heat Maps"]],
-    [20, "enterprise","mixed","over300","leads","unsure",         ["Google Ads Campaigns","Facebook Ads"], ["Conversion Rate Optimisation (CRO)","Technical SEO"]],
+    [17, "inhouse","mixed","50to100","search-visibility","website",["AI SEO","Web Design"],                ["UI/UX"]],
+    [18, "enterprise","enterprise","over300","leads","website",   ["Google Ads Campaigns","Web Design"],   ["UI/UX","Conversion Rate Optimisation (CRO)"]],
+    [19, "sme","local","under50","leads","unsure",                ["Facebook Ads"],                        ["SEO & AI Visibility Audit"]],
+    [20, "enterprise","mixed","over300","leads","unsure",         ["Google Ads Campaigns","Facebook Ads"], ["SEO & AI Visibility Audit","Conversion Rate Optimisation (CRO)"]],
   ];
 
-  test("all 20 personas produce exactly the agreed v6 plan", function () {
+  test("all 20 personas produce exactly the agreed v7 plan", function () {
     PERSONAS.forEach(function (p) {
       var result = P.plan({
         profile: p[1], type: p[2], budget: p[3], objective: p[4], challenge: p[5],
@@ -221,19 +259,22 @@
 
   /* ══ 4. The guardrails, across every combination ════════════════════ */
 
-  test("support services never lead, except CRO for a conversions goal", function () {
+  test("support services never lead, except CRO and Google Business Profile on their own goal", function () {
     /* UI/UX, Technical SEO, Content Marketing and Link Building can never be
-       primary. CRO is the one v6.1 exception: it may head a plan, but only when
-       the GOAL is "Improve website conversions". The "traffic but no sales"
-       challenge adds CRO as support, not as a headline. */
+       primary. Two scoped exceptions: CRO may head a plan only when the GOAL
+       is "Improve website conversions" (the "traffic but no sales" challenge
+       adds CRO as support, not as a headline), and v7 lets Google Business
+       Profile head a plan only when the GOAL is "Get found by nearby / local
+       customers". */
     var NEVER_PRIMARY = ["ui-ux", "technical-seo", "content-marketing", "link-building"];
+    var EXCEPTION_GOAL = { cro: "conversions", "google-business-profile": "local-visibility" };
     everyCase.forEach(function (c) {
       c.result.primaries.forEach(function (id) {
         assert(NEVER_PRIMARY.indexOf(id) === -1,
           label(c) + " made support-only service " + id + " primary");
-        if (id === "cro") {
-          equal(c.objective, "conversions",
-            label(c) + " let CRO lead outside a conversions goal");
+        if (EXCEPTION_GOAL[id]) {
+          equal(c.objective, EXCEPTION_GOAL[id],
+            label(c) + " let " + id + " lead outside its own goal");
         } else {
           equal(D.CATALOGUE[id].role, "lead", label(c) + " made non-lead " + id + " primary");
         }
@@ -241,11 +282,14 @@
     });
   });
 
-  test("two primaries are never from the same family", function () {
+  test("two primaries are never from the same family, bar the local-goal pair", function () {
+    /* v7 — the one exception: Google Business Profile + Local SEO on the local
+       goal, the reviewer's first two priorities there. */
     everyCase.forEach(function (c) {
       if (c.result.primaries.length < 2) return;
       var a = D.CATALOGUE[c.result.primaries[0]].family;
       var b = D.CATALOGUE[c.result.primaries[1]].family;
+      if (a === "seo-local" && b === "seo-local" && c.objective === "local-visibility") return;
       assert(a !== b, label(c) + " gave two primaries from " + a);
     });
   });
@@ -269,7 +313,9 @@
       var r = c.result;
       assert(r.isComplete, label(c) + " should be complete");
       var quota = D.BUDGET_PLAN[c.budget];
-      var total = quota.primary + quota.supporting;
+      /* v7 — a consultation plan is two cards at every budget: we do not yet
+         know what a bigger budget should buy. */
+      var total = r.consultation ? 2 : quota.primary + quota.supporting;
       assert(r.primaries.length >= 1, label(c) + " has no main service");
       assert(r.primaries.length <= quota.primary,
         label(c) + " has more mains than the budget allows");
@@ -355,8 +401,10 @@
      can honestly point to them, so offering one would be a guess dressed up
      as advice. Video SEO (no way to know a client has video) and Email
      Marketing (no menu points to retention) stay in the catalogue with full
-     copy and a link, and can be raised in the consultation. */
-  var NEVER_RECOMMENDED = ["video-seo", "email-marketing"];
+     copy and a link, and can be raised in the consultation. v7 — Keyword
+     Mapping joins them: the reviewer's ranking fixes are SEO Audit, On-page
+     SEO and Technical SEO. */
+  var NEVER_RECOMMENDED = ["video-seo", "email-marketing", "keyword-mapping"];
 
   test("every service is either recommendable or knowingly held back", function () {
     var onACard = {};
@@ -376,6 +424,7 @@
     NEVER_RECOMMENDED.forEach(function (id) {
       assert(D.CATALOGUE[id], "unknown service on the held-back list: " + id);
       assert(!onACard[id], id + " is on the held-back list but reaches a card");
+      assert(!offered[id], id + " is on the held-back list but is still offered");
     });
   });
 
@@ -447,7 +496,7 @@
     equal(rec.objective, "leads", "recommendation objective");
     equal(rec.challenge, "website", "recommendation challenge");
     equal(payload.version, 4, "payload version");
-    equal(rec.logic_version, 6, "logic version");
+    equal(rec.logic_version, 7, "logic version");
   });
 
   /* ══ 9. Bad input ═══════════════════════════════════════════════════ */
@@ -485,10 +534,105 @@
       Object.keys(distinct).length + " distinct plans");
   });
 
+  /* ══ 10. The reviewer's v7 decisions, across every combination ═══════ */
+
+  test("CRO always comes before Heat Maps, at every budget", function () {
+    everyCase.forEach(function (c) {
+      var at = c.result.all.indexOf("heat-maps");
+      if (at === -1) return;
+      var cro = c.result.all.indexOf("cro");
+      assert(cro !== -1 && cro < at, label(c) + " showed Heat Maps without CRO ahead of it");
+    });
+  });
+
+  test("the goal decides which SEO: E-commerce SEO only for online sales, never both", function () {
+    everyCase.forEach(function (c) {
+      var all = c.result.all.concat(c.result.alsoRelevant || []);
+      if (all.indexOf("ecommerce-seo") !== -1) {
+        equal(c.objective, "sales", label(c) + " offered E-commerce SEO outside the sales goal");
+      }
+      assert(!(c.result.all.indexOf("ecommerce-seo") !== -1 && c.result.all.indexOf("seo-campaigns") !== -1),
+        label(c) + " carried both SEO cards");
+    });
+  });
+
+  test("each reworked goal leads with the reviewer's first service", function () {
+    var LEADS_WITH = {
+      sales: "google-shopping",
+      "search-visibility": "ai-seo",
+      "local-visibility": "google-business-profile",
+    };
+    everyCase.forEach(function (c) {
+      var first = LEADS_WITH[c.objective];
+      if (!first) return;
+      /* An agency buys fulfilment, not a catchment area — no Google Business
+         Profile for it, the same rule as Local SEO. */
+      if (first === "google-business-profile" && c.profile === "agency") return;
+      equal(c.result.primaries[0], first, label(c) + " headline");
+    });
+  });
+
+  test("the sales goal puts CPAS in place of Facebook Ads", function () {
+    /* The brand challenge asks for Facebook Ads by name, so it is the one
+       exception. A challenge's own fix may take CPAS's slot on a small budget
+       (goal + challenge are read together), but Facebook Ads never does. */
+    everyCase.forEach(function (c) {
+      if (c.objective !== "sales" || c.challenge === "brand") return;
+      assert(c.result.all.indexOf("facebook-ads") === -1,
+        label(c) + " gave the sales goal Facebook Ads instead of CPAS");
+    });
+    ["under50", "50to100", "100to300", "over300"].forEach(function (budget) {
+      var result = planFor("inhouse", "ecommerce", budget, "sales", "ranking");
+      assert(budget === "under50" || result.primaries.indexOf("cpas-ads") !== -1 ||
+        result.supporting.indexOf("cpas-ads") !== -1, budget + " sales + ranking should carry CPAS");
+    });
+  });
+
+  test("on the ads challenge the first paid card is framed as fixing the campaigns", function () {
+    everyCase.forEach(function (c) {
+      if (c.challenge !== "ads") return;
+      var paid = c.result.all.filter(function (id) {
+        var family = D.CATALOGUE[id].family;
+        return family === "paid-search" || family === "paid-social";
+      })[0];
+      if (!paid) return;
+      assert(/campaigns need fixing/.test(P.reasonFor(c.result, paid)),
+        label(c) + " " + paid + " should explain it fixes the current campaigns");
+    });
+  });
+
+  test("the website challenge puts UI/UX before CRO", function () {
+    everyCase.forEach(function (c) {
+      if (c.challenge !== "website") return;
+      var uiux = c.result.all.indexOf("ui-ux");
+      var cro = c.result.all.indexOf("cro");
+      if (uiux === -1 || cro === -1 || c.objective === "conversions") return;
+      assert(uiux < cro, label(c) + " put CRO ahead of UI/UX");
+    });
+  });
+
+  test("the brand challenge names every reach channel the reviewer listed", function () {
+    /* The brand fix takes ONE reach card; the others lead "Also often
+       relevant". (A goal that asks for reach itself — traffic, awareness — or
+       a spare budget slot may still add another reach channel.) */
+    var REACH = ["tiktok-ads", "youtube-ads", "programmatic-ads"];
+    everyCase.forEach(function (c) {
+      if (c.challenge !== "brand") return;
+      var fromFix = c.result.trace.filter(function (t) {
+        return t.need === "brandreach" && (t.outcome === "primary" || t.outcome === "supporting");
+      });
+      assert(fromFix.length <= 1, label(c) + " gave the brand fix more than one reach card");
+      REACH.forEach(function (id) {
+        assert(c.result.all.indexOf(id) !== -1 || (c.result.alsoRelevant || []).indexOf(id) !== -1,
+          label(c) + " never named " + id);
+      });
+    });
+  });
+
   /* ── Runner ──────────────────────────────────────────────────────────── */
 
   function run() {
-    writeLine("MAM quiz — logic v6 suite", "heading");
+    writeLine("MAM quiz — logic v7 suite", "heading");
     writeLine("");
 
     tests.forEach(function (item) {

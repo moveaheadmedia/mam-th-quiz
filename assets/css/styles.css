@@ -160,6 +160,17 @@ img, svg { display: block; max-width: 100%; }
 .btn--ghost { border-color: var(--mam-white-45); color: #fff; background: transparent; }
 .btn--ghost:hover { border-color: #fff; background: rgba(255,255,255,.08); }
 
+/* Chat buttons (logic v7) — each app's own green, so the button is recognised
+   at a glance. Dark ink text rather than white: white on these greens falls
+   below readable contrast. */
+.btn--chat { color: var(--mam-ink); }
+.btn--chat:hover { transform: translateY(-1px); }
+.btn--chat .icon--chat { width: 18px; height: 18px; margin-right: 8px; }
+.btn--chat-line { background: #06C755; }
+.btn--chat-line:hover { background: #05B34C; }
+.btn--chat-whatsapp { background: #25D366; }
+.btn--chat-whatsapp:hover { background: #1FBE5B; }
+
 .btn--text {
   background: none; color: var(--mam-muted); padding: 10px 4px;
   text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 14px;
