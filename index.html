@@ -11,8 +11,16 @@
       content="Answer 5 quick questions and get a personalised digital marketing plan — SEO + AI Visibility, Google Ads, Social Media or Website Development. Takes 60 seconds."
     />
     <meta name="robots" content="index, follow" />
+    <!-- The quiz in each language. This address stays English (decision
+         2026-10-16); en/ forwards here, th/ is the Thai page. -->
+    <link rel="canonical" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
+    <link rel="alternate" hreflang="en" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
+    <link rel="alternate" hreflang="th" href="https://moveaheadmedia.github.io/mam-th-quiz/th/" />
+    <link rel="alternate" hreflang="x-default" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
 
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="th_TH" />
     <meta
       property="og:title"
       content="Which Digital Marketing Services Do You Need? | Move Ahead Media"
@@ -74,13 +82,19 @@
             height="40"
           />
         </a>
-        <a
-          class="btn btn--ghost btn--sm site-header__cta"
-          href="https://www.moveaheadmedia.co.th/contact-us/"
-          target="_blank"
-          rel="noopener"
-          >Talk to us</a
-        >
+        <div class="site-header__actions">
+          <nav class="lang-switch" aria-label="Language">
+            <a href="./" lang="en" hreflang="en" aria-current="page">EN</a>
+            <a href="th/" lang="th" hreflang="th">TH</a>
+          </nav>
+          <a
+            class="btn btn--ghost btn--sm site-header__cta"
+            href="https://www.moveaheadmedia.co.th/contact-us/"
+            target="_blank"
+            rel="noopener"
+            >Talk to us</a
+          >
+        </div>
       </div>
     </header>
 
@@ -134,6 +148,9 @@
     <!-- Logic v5. Loaded but not yet called — app.js switches to it in
          build step 3, so this file changes nothing on its own. -->
     <script src="assets/js/planner.js"></script>
+    <!-- Screen text. th/index.html also loads i18n/th.js before i18n.js. -->
+    <script src="assets/js/i18n/en.js"></script>
+    <script src="assets/js/i18n.js"></script>
     <script src="assets/js/app.js"></script>
   </body>
 </html>

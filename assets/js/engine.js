@@ -53,9 +53,12 @@
 
     recaptchaLoad = new Promise(function (resolve) {
       var script = document.createElement("script");
+      /* Google's reCAPTCHA notice follows the page language (hl=th on /th/). */
+      var pageLang = (document.documentElement.lang || "en").slice(0, 2);
       script.src =
         "https://www.google.com/recaptcha/api.js?render=" +
-        encodeURIComponent(siteKey);
+        encodeURIComponent(siteKey) +
+        (pageLang === "en" ? "" : "&hl=" + encodeURIComponent(pageLang));
       script.async = true;
       script.onload = function () {
         resolve(true);

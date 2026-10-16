@@ -10,9 +10,15 @@
   /* Logic v5. ENGINE is still used for reCAPTCHA, spam signals and the POST
      itself; everything about WHAT is recommended now comes from PLANNER. */
   var PLANNER = window.MAM_PLANNER;
+  /* Every sentence on screen comes from T — English or Thai, decided by the
+     page's <html lang>. See i18n.js. */
+  var T = window.MAM_I18N;
 
+  /* Shared by both languages, so switching language mid-quiz keeps the answers. */
   var STORAGE_KEY = 'mam-quiz-state-v3';
-  var STEP_LABELS = ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Get results'];
+  var STEP_LABELS = [1, 2, 3, 4, 5].map(function (n) {
+    return T.t('progress.step', { n: n });
+  }).concat(T.t('progress.getResults'));
 
   var el = {
     stage: document.getElementById('stage'),
@@ -123,19 +129,19 @@
       var number = i + 1;
       var done = step > number;
       var active = step === number;
-      var caption = i < D.QUESTIONS.length ? D.QUESTIONS[i].shortLabel : 'Your plan';
+      var caption = i < D.QUESTIONS.length ? T.question(D.QUESTIONS[i]).shortLabel : T.t('progress.yourPlan');
       return '' +
         '<li class="pstep ' + (done ? 'is-done ' : '') + (active ? 'is-active' : '') + '"' +
             (active ? ' aria-current="step"' : '') + '>' +
           '<span class="pstep__dot">' + (done ? icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>', 'icon--tick') : number) + '</span>' +
-          '<span class="pstep__text"><span class="pstep__label">' + label + '</span>' +
+          '<span class="pstep__text"><span class="pstep__label">' + esc(label) + '</span>' +
           '<span class="pstep__caption">' + esc(caption) + '</span></span>' +
         '</li>';
     }).join('');
 
     var pct = Math.min(100, Math.max(0, ((step - 1) / (STEP_LABELS.length - 1)) * 100));
     el.progressFill.style.width = pct + '%';
-    el.progressSteps.setAttribute('aria-label', 'Step ' + Math.min(step, 6) + ' of 6');
+    el.progressSteps.setAttribute('aria-label', T.t('progress.aria', { n: Math.min(step, 6) }));
   }
 
   /* ── Screens ────────────────────────────────────────────────────────── */
@@ -143,17 +149,20 @@
   /* Shown under question 1 only. The splash screen used to carry this proof;
      it still has to land before the visitor decides whether to answer. */
   function trustHTML() {
+    var reviews = CFG.reviews || {};
     return '' +
     '<ul class="trust">' +
-      '<li>' + icon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>') + '60 seconds, 5 questions</li>' +
-      '<li>' + icon('<path d="m12 3 2.6 5.6 6.1.8-4.5 4.2 1.2 6L12 16.8 6.6 19.6l1.2-6L3.3 9.4l6.1-.8L12 3Z"/>') + '4.8&#9733; from 51 Google reviews</li>' +
-      '<li>' + icon('<path d="M4 7.5 12 4l8 3.5v5c0 4.4-3.3 7.6-8 8.5-4.7-.9-8-4.1-8-8.5v-5Z"/><path d="m9 12 2 2 4-4"/>') + 'No obligation, no hard sell</li>' +
+      '<li>' + icon('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>') + esc(T.t('trust.time')) + '</li>' +
+      '<li>' + icon('<path d="m12 3 2.6 5.6 6.1.8-4.5 4.2 1.2 6L12 16.8 6.6 19.6l1.2-6L3.3 9.4l6.1-.8L12 3Z"/>') +
+        esc(T.t('trust.reviews', { rating: reviews.rating, count: reviews.count })) + '</li>' +
+      '<li>' + icon('<path d="M4 7.5 12 4l8 3.5v5c0 4.4-3.3 7.6-8 8.5-4.7-.9-8-4.1-8-8.5v-5Z"/><path d="m9 12 2 2 4-4"/>') + esc(T.t('trust.noHardSell')) + '</li>' +
     '</ul>' +
-    '<p class="trust__meta">Trusted by Accor, Decathlon, The Mall, Brighton College and IHG Group.</p>';
+    '<p class="trust__meta">' + esc(T.t('trust.clients')) + '</p>';
   }
 
   function questionHTML() {
     var question = D.QUESTIONS[state.index];
+    var copy = T.question(question);
     var multi = !!question.multi;
     var limit = multi ? (question.maxSelections || 1) : 1;
     var chosen = chosenIds(question.id);
@@ -164,8 +173,9 @@
       var rank = chosen.indexOf(option.id) + 1;
       var selected = rank > 0;
       var stateClass = selected ? (multi ? ' is-rank' + rank : ' is-selected') : '';
+      var answer = T.option(question.id, option);
       /* Only the challenge step ranks its answers, so only it gets a badge. */
-      var rankLabel = !multi ? '' : rank === 1 ? 'Main challenge' : rank === 2 ? 'Also' : '';
+      var rankLabel = !multi ? '' : rank === 1 ? T.t('multi.main') : rank === 2 ? T.t('multi.also') : '';
       return '' +
       '<button type="button" class="option' + stateClass + '"' +
         (multi
@@ -176,9 +186,9 @@
         '<span class="option__key" aria-hidden="true">' +
           (multi && selected ? rank : String.fromCharCode(65 + i)) + '</span>' +
         '<span class="option__body">' +
-          '<span class="option__label">' + esc(option.label) + '</span>' +
+          '<span class="option__label">' + esc(answer.label) + '</span>' +
           (rankLabel ? '<span class="option__rank">' + esc(rankLabel) + '</span>' : '') +
-          '<span class="option__desc">' + esc(option.desc) + '</span>' +
+          '<span class="option__desc">' + esc(answer.desc) + '</span>' +
         '</span>' +
         '<span class="option__check" aria-hidden="true">' + icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>', 'icon--tick') + '</span>' +
       '</button>';
@@ -190,16 +200,14 @@
     if (multi) {
       text = state.notice ||
         (chosen.length === 0
-          ? 'Pick the challenge that matters most. You can add a second one if you have two.'
+          ? T.t('multi.hintEmpty')
           : needsPartner(question.id)
-            ? 'Which of these is closest to your situation? Pick one more and we can plan from it.'
+            ? T.t('multi.hintNeedsSecond')
             : chosen.length < limit
-              ? 'Add a second challenge if you have one, or press Continue.'
-              : 'We read both together — the pair is what shapes your plan. Press Continue when you are ready.');
+              ? T.t('multi.hintAddSecond')
+              : T.t('multi.hintBoth'));
     } else {
-      text = chosen.length === 0
-        ? 'Choose the one that fits best.'
-        : 'You can change your answer — press Continue when you are ready.';
+      text = chosen.length === 0 ? T.t('hint.choose') : T.t('hint.change');
     }
     var warn = !!state.notice || needsPartner(question.id);
     var hint = '<p class="options__hint' + (warn ? ' options__hint--warn' : '') +
@@ -207,21 +215,21 @@
 
     return '' +
     '<section class="card card--question">' +
-      '<p class="eyebrow">Step ' + (state.index + 1) + ' of 6 &mdash; ' + esc(question.shortLabel) + '</p>' +
-      '<h1 class="question__title">' + esc(question.title) + '</h1>' +
-      '<p class="question__subtitle">' + esc(question.subtitle) + '</p>' +
+      '<p class="eyebrow">' + esc(T.t('question.eyebrow', { n: state.index + 1, 'short label': copy.shortLabel })) + '</p>' +
+      '<h1 class="question__title">' + esc(copy.title) + '</h1>' +
+      '<p class="question__subtitle">' + esc(copy.subtitle) + '</p>' +
       '<div class="options" role="' + (multi ? 'group' : 'radiogroup') + '"' +
-        ' aria-label="' + esc(question.title) + '">' + options + '</div>' + hint +
+        ' aria-label="' + esc(copy.title) + '">' + options + '</div>' + hint +
       /* Question 1 with nothing chosen has neither button — emitting the nav
          anyway would leave a divider rule above empty space. */
       (state.index > 0 || chosen.length
         ? '<div class="card__nav">' +
             (state.index > 0
               ? '<button type="button" class="btn btn--text" data-action="back">' +
-                  icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + 'Back</button>'
+                  icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + esc(T.t('nav.back')) + '</button>'
               : '<span></span>') +
             (chosen.length && !needsPartner(question.id)
-              ? '<button type="button" class="btn btn--primary" data-action="next">Continue' +
+              ? '<button type="button" class="btn btn--primary" data-action="next">' + esc(T.t('nav.continue')) +
                 icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</button>'
               : '') +
           '</div>'
@@ -236,7 +244,7 @@
       return '' +
       '<div class="field">' +
         '<label class="field__label" for="f-' + name + '">' + esc(label) +
-          (required ? ' <span class="field__req" aria-hidden="true">*</span>' : ' <span class="field__opt">Optional</span>') + '</label>' +
+          (required ? ' <span class="field__req" aria-hidden="true">*</span>' : ' <span class="field__opt">' + esc(T.t('form.optional')) + '</span>') + '</label>' +
         '<input class="field__input" id="f-' + name + '" name="' + name + '" type="' + type + '"' +
           ' placeholder="' + esc(placeholder) + '" value="' + esc(lead[name] || '') + '"' +
           (required ? ' required' : '') + ' autocomplete="' +
@@ -246,68 +254,79 @@
       '</div>';
     }
 
+    /* Google's policy pages open in the visitor's language. */
+    var googleLang = T.lang === 'en' ? '' : '?hl=' + T.lang;
+    function googleLink(page, key) {
+      return '<a href="https://policies.google.com/' + page + googleLang + '" target="_blank" rel="noopener">' +
+        esc(T.t(key)) + '</a>';
+    }
+
     return '' +
     '<section class="card card--form">' +
-      '<p class="eyebrow">Step 6 of 6 &mdash; Your plan</p>' +
-      '<h1 class="question__title">Just one more step to see your personalised recommendation</h1>' +
-      '<p class="question__subtitle">Your results appear on the next screen straight away. We send a copy, plus a short ' +
-        'competitor snapshot, to your inbox.</p>' +
+      '<p class="eyebrow">' + esc(T.t('form.eyebrow')) + '</p>' +
+      '<h1 class="question__title">' + esc(T.t('form.title')) + '</h1>' +
+      '<p class="question__subtitle">' + esc(T.t('form.subtitle')) + '</p>' +
       '<form class="form" id="leadForm" novalidate>' +
         '<div class="form__grid">' +
-          field('name', 'Your name', 'text', 'Somchai Jaidee', '', true) +
-          field('email', 'Email address', 'email', 'you@company.com', '', true) +
-          field('phone', 'Phone number', 'tel', '08X XXX XXXX', '', true) +
-          field('website', 'Company website', 'text', 'yourcompany.com', "Leave blank if you don't have one yet.", false) +
+          field('name', T.t('form.name'), 'text', T.t('form.namePlaceholder'), '', true) +
+          field('email', T.t('form.email'), 'email', 'you@company.com', '', true) +
+          field('phone', T.t('form.phone'), 'tel', '08X XXX XXXX', '', true) +
+          field('website', T.t('form.website'), 'text', 'yourcompany.com', T.t('form.websiteHint'), false) +
         '</div>' +
         '<div class="hp" aria-hidden="true"><label>Do not fill this in<input type="text" name="company_fax" tabindex="-1" autocomplete="off"></label></div>' +
         '<p class="form__error" id="formError" role="alert"></p>' +
         '<button type="submit" class="btn btn--primary btn--lg btn--block" id="submitBtn">' +
-          'Get my custom plan now' + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') +
+          esc(T.t('form.submit')) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') +
         '</button>' +
-        '<p class="form__consent">We will only use these details to send your recommendation and follow up once. ' +
-          'No lists, no spam &mdash; and you can tell us to stop at any time.</p>' +
+        '<p class="form__consent">' + esc(T.t('form.consent')) + '</p>' +
         /* Required by Google whenever reCAPTCHA runs — shown only when it does. */
         ((CFG.spam || {}).recaptchaSiteKey
-          ? '<p class="form__legal">This site is protected by reCAPTCHA and the Google ' +
-            '<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> and ' +
-            '<a href="https://policies.google.com/terms" target="_blank" rel="noopener">Terms of Service</a> apply.</p>'
+          ? '<p class="form__legal">' + T.html('form.recaptcha', {
+              privacy: googleLink('privacy', 'form.privacy'),
+              terms: googleLink('terms', 'form.terms')
+            }) + '</p>'
           : '') +
       '</form>' +
       '<div class="card__nav card__nav--form">' +
         '<button type="button" class="btn btn--text" data-action="back">' +
-          icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + 'Back</button>' +
+          icon('<path d="M19 12H6"/><path d="m11.5 6-6 6 6 6"/>', 'icon--arrow-back') + esc(T.t('nav.back')) + '</button>' +
       '</div>' +
     '</section>';
   }
 
+  /* The name a visitor sees for a service, in the page's language. */
+  function serviceName(id) {
+    return D.CATALOGUE[id] ? T.service(id).name : null;
+  }
+
   function serviceCardHTML(serviceId, variant) {
     var service = D.CATALOGUE[serviceId];
-    var reason = PLANNER.reasonFor(state.result, serviceId);
-    var chips = service.deliverables.map(function (item) {
+    var copy = T.service(serviceId);
+    var reason = T.reason(PLANNER.reasonKeyFor(state.result, serviceId),
+      PLANNER.reasonFor(state.result, serviceId));
+    var chips = copy.deliverables.map(function (item) {
       return '<li>' + esc(item) + '</li>';
     }).join('');
     /* Platform choice is made in the consultation, not by four questions. */
-    var platforms = (service.platforms || []).map(function (id) {
-      return D.CATALOGUE[id] ? D.CATALOGUE[id].name : null;
-    }).filter(Boolean);
+    var platforms = (service.platforms || []).map(serviceName).filter(Boolean);
 
     return '' +
     '<article class="rec rec--' + variant + '">' +
       '<div class="rec__head">' +
         '<span class="rec__icon">' + icon(service.icon) + '</span>' +
         '<div>' +
-          '<p class="rec__kicker">' + esc(service.kicker) + '</p>' +
-          '<h3 class="rec__name">' + esc(service.name) + '</h3>' +
+          '<p class="rec__kicker">' + esc(copy.kicker) + '</p>' +
+          '<h3 class="rec__name">' + esc(copy.name) + '</h3>' +
         '</div>' +
       '</div>' +
-      '<p class="rec__blurb">' + esc(service.blurb) + '</p>' +
+      '<p class="rec__blurb">' + esc(copy.blurb) + '</p>' +
       (reason ? '<p class="rec__reason">' + icon('<path d="m5 12.5 4.5 4.5L19 7.5"/>', 'icon--tick') +
-        '<span>On your plan because <strong>' + esc(reason) + '</strong></span></p>' : '') +
+        '<span>' + T.html('card.because', { reason: '<strong>' + esc(reason) + '</strong>' }) + '</span></p>' : '') +
       '<ul class="rec__chips">' + chips + '</ul>' +
-      (platforms.length ? '<p class="rec__platforms">' + esc(platforms.join(' \u00b7 ')) +
-        ' &mdash; we will choose the right platforms with you.</p>' : '') +
+      (platforms.length ? '<p class="rec__platforms">' +
+        esc(T.t('card.platforms', { 'platform names': platforms.join(' \u00b7 ') })) + '</p>' : '') +
       (service.url ? '<a class="rec__link" href="' + esc(service.url) + '" target="_blank" rel="noopener">' +
-        esc(service.linkText || 'Explore ' + service.name) +
+        esc(copy.linkText || T.t('card.explore', { 'service name': copy.name })) +
         icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' : '') +
     '</article>';
   }
@@ -319,10 +338,8 @@
   function chatButtonHTML(result) {
     var chat = (CFG.chat || {})[CFG.market];
     if (!chat) return '';
-    var names = (result.all || []).map(function (id) {
-      return D.CATALOGUE[id] ? D.CATALOGUE[id].name : null;
-    }).filter(Boolean);
-    var message = 'Hi MAM, I just did the quiz. My plan: ' + names.join(' + ') + '.';
+    var names = (result.all || []).map(serviceName).filter(Boolean);
+    var message = T.t('chat.message', { 'service names': names.join(' + ') });
     var href = '';
     if (chat.app === 'line') {
       /* LINE's pre-typed-message link only works inside the LINE app. On a
@@ -338,26 +355,32 @@
     }
     if (!href) return '';
     return '<a class="btn btn--lg btn--chat btn--chat-' + esc(chat.app) + '" href="' + esc(href) +
-      '" target="_blank" rel="noopener">' + icon(D.ICONS.chat, 'icon--chat') + esc(chat.label) + '</a>';
+      '" target="_blank" rel="noopener">' + icon(D.ICONS.chat, 'icon--chat') + esc(T.t('chat.' + chat.app)) + '</a>';
   }
 
   function resultsHTML() {
     var result = state.result;
-    var firstName = (state.lead.name || '').trim().split(/\s+/)[0] || 'there';
-    var typeOption = ENGINE.answerOption('type', state.answers.type);
+    var firstName = (state.lead.name || '').trim().split(/\s+/)[0] || T.t('results.nameFallback');
+    /* The answers' own words, in the page's language. */
+    function answerText(questionId) {
+      var option = ENGINE.answerOption(questionId, state.answers[questionId]);
+      return option ? T.option(questionId, option) : null;
+    }
+    var typeOption = answerText('type');
     /* v6 reads the two answers together: the goal, then the problem. */
-    var objectiveOption = ENGINE.answerOption('objective', state.answers.objective);
-    var challengeOption = ENGINE.answerOption('challenge', state.answers.challenge);
+    var objectiveOption = answerText('objective');
+    var challengeOption = answerText('challenge');
     var phrases = [
       objectiveOption && objectiveOption.phrase,
       challengeOption && challengeOption.phrase,
     ].filter(Boolean);
-    var noun = (typeOption && typeOption.noun) || 'business';
+    var noun = (typeOption && typeOption.noun) || T.t('lead.fallbackNoun');
+    /* English grammar only — the Thai sentence has no slot for it. */
     var article = /^[aeiou]/i.test(noun) ? 'an' : 'a';
     var challenge = phrases.length
-      ? phrases.join(' and ')
-      : 'you want to grow';
-    var note = D.BUDGET_NOTES[state.answers.budget] || null;
+      ? phrases.join(T.t('lead.and'))
+      : T.t('lead.fallbackSituation');
+    var note = T.budgetNote(state.answers.budget);
     var quota = result.quota || { label: 'Start here', nextLabel: 'Then add' };
 
     /* One or two primaries, one or two supporting — the budget decides how
@@ -375,46 +398,46 @@
       var service = D.CATALOGUE[id];
       if (!service) return '';
       return service.url
-        ? '<a href="' + esc(service.url) + '" target="_blank" rel="noopener">' + esc(service.name) + '</a>'
-        : '<span>' + esc(service.name) + '</span>';
+        ? '<a href="' + esc(service.url) + '" target="_blank" rel="noopener">' + esc(serviceName(id)) + '</a>'
+        : '<span>' + esc(serviceName(id)) + '</span>';
     }).filter(Boolean).join('<i aria-hidden="true">\u00b7</i>');
 
     var overlays = (result.overlays || []).map(function (item) {
-      return '<li><strong>' + esc(item.label) + '</strong> ' + esc(item.note) + '</li>';
+      var copy = T.overlay(item);
+      return '<li><strong>' + esc(copy.label) + '</strong> ' + esc(copy.note) + '</li>';
     }).join('');
 
     var deliveryWarning = state.delivery && !state.delivery.ok && state.delivery.reason !== 'not-configured'
-      ? '<p class="notice notice--warn">' +
-          'Your plan is ready below, but we could not reach our system to email you a copy. ' +
-          'Please screenshot this page or email <a href="mailto:' + esc(CFG.email) + '">' + esc(CFG.email) + '</a> and we will pick it up.' +
-        '</p>'
+      ? '<p class="notice notice--warn">' + T.html('results.deliveryWarning', {
+          email: '<a href="mailto:' + esc(CFG.email) + '">' + esc(CFG.email) + '</a>'
+        }) + '</p>'
       : '';
 
     return '' +
     '<section class="card card--results">' +
       deliveryWarning +
-      '<p class="eyebrow">Your personalised plan</p>' +
-      '<h1 class="results__title">' + esc(firstName) + ', here is where we would start.</h1>' +
-      '<p class="results__lead">Based on ' + article + ' <strong>' + esc(noun) + '</strong> where ' +
-        esc(challenge) +
-        (result.consultation
+      '<p class="eyebrow">' + esc(T.t('results.eyebrow')) + '</p>' +
+      '<h1 class="results__title">' + esc(T.t('results.title', { 'first name': firstName })) + '</h1>' +
+      '<p class="results__lead">' + T.html('lead.start', {
+          article: esc(article),
+          'business words': '<strong>' + esc(noun) + '</strong>',
+          situation: esc(challenge)
+        }) +
+        esc(T.t(result.consultation
           /* v7 — no goal and no problem yet: the plan is a conversation. */
-          ? ', the best first step is a free conversation with a strategist, before any budget is committed.</p>'
-          : ', this is the mix our strategists would recommend' +
-            (result.primaries.length > 1
-              ? ' &mdash; starting with two channels that work together.</p>'
-              : ' &mdash; starting with one channel done properly.</p>')) +
+          ? 'lead.endConsult'
+          : result.primaries.length > 1 ? 'lead.endPair' : 'lead.endSingle')) + '</p>' +
 
-      '<p class="results__rank">' + esc(quota.label) + '</p>' +
+      '<p class="results__rank">' + esc(T.planLabel(quota.label)) + '</p>' +
       '<div class="results__primary' +
         (result.primaries.length > 1 ? ' results__primary--pair' : '') + '">' +
         primaryCards +
       '</div>' +
 
-      (support ? '<p class="results__rank results__rank--support">' + esc(quota.nextLabel) + '</p>' +
+      (support ? '<p class="results__rank results__rank--support">' + esc(T.planLabel(quota.nextLabel)) + '</p>' +
         '<div class="results__support">' + support + '</div>' : '') +
 
-      (overlays ? '<div class="overlays"><p class="overlays__title">How we would deliver it</p>' +
+      (overlays ? '<div class="overlays"><p class="overlays__title">' + esc(T.t('results.overlaysTitle')) + '</p>' +
         '<ul class="overlays__list">' + overlays + '</ul></div>' : '') +
 
       /* The budget note is about funding services, so a consultation plan
@@ -424,32 +447,29 @@
         '<p class="budget-note__text">' + esc(note.text) + '</p>' +
       '</div>' : '') +
 
-      (also ? '<p class="results__also"><span>Also often relevant for a business like yours:</span> ' +
+      (also ? '<p class="results__also"><span>' + esc(T.t('results.also')) + '</span> ' +
         also + '</p>' : '') +
 
       '<div class="cta">' +
         /* v7 — "I'm not sure what's wrong": the consultation box speaks to
            that directly (the reviewer's Audit + Free Strategy Consultation). */
         (result.challenge === 'unsure'
-          ? '<h2 class="cta__title">Not sure what&rsquo;s holding you back?</h2>' +
-            '<p class="cta__text">Let&rsquo;s find out together. Book a free 30-minute strategy consultation &mdash; ' +
-              'we will look at your website and marketing, show you what is getting in the way, and tell you ' +
-              'honestly what we would fix first. No obligation.</p>'
-          : '<h2 class="cta__title">Want a strategist to pressure-test this?</h2>' +
-            '<p class="cta__text">Book a free 30-minute consultation. We will show you what your competitors are doing, ' +
-              'what it would realistically take to beat them, and whether we are the right fit. No obligation.</p>') +
+          ? '<h2 class="cta__title">' + esc(T.t('cta.unsureTitle')) + '</h2>' +
+            '<p class="cta__text">' + esc(T.t('cta.unsureText')) + '</p>'
+          : '<h2 class="cta__title">' + esc(T.t('cta.title')) + '</h2>' +
+            '<p class="cta__text">' + esc(T.t('cta.text')) + '</p>') +
         '<div class="cta__actions">' +
           '<a class="btn btn--primary btn--lg" href="' + esc(CFG.consultationUrl) + '" target="_blank" rel="noopener">' +
-            'Book your free consultation' + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' +
-          '<a class="btn btn--ghost btn--lg" href="' + esc(CFG.phoneHref) + '">Call ' + esc(CFG.phone) + '</a>' +
+            esc(T.t('cta.book')) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' +
+          '<a class="btn btn--ghost btn--lg" href="' + esc(CFG.phoneHref) + '">' + esc(T.t('cta.call', { phone: CFG.phone })) + '</a>' +
           chatButtonHTML(result) +
         '</div>' +
         '<p class="cta__meta"><a href="' + esc(CFG.caseStudiesUrl) + '" target="_blank" rel="noopener">' +
-          'See results we have delivered for businesses like yours &rarr;</a></p>' +
+          esc(T.t('cta.caseStudies')) + '</a></p>' +
       '</div>' +
 
       '<div class="card__nav card__nav--results">' +
-        '<button type="button" class="btn btn--text" data-action="restart">Retake the quiz</button>' +
+        '<button type="button" class="btn btn--text" data-action="restart">' + esc(T.t('cta.retake')) + '</button>' +
       '</div>' +
     '</section>';
   }
@@ -467,7 +487,7 @@
 
     renderProgress();
     el.stageNote.textContent = state.screen === 'question' || state.screen === 'form'
-      ? 'Your answers are private and are only used to build your recommendation.' : '';
+      ? T.t('stage.note') : '';
 
     if (state.screen === 'form') {
       state.formShownAt = Date.now();
@@ -504,7 +524,7 @@
     var questionId = D.QUESTIONS[state.index].id;
     if (!chosenIds(questionId).length) return;
     if (needsPartner(questionId)) {
-      state.notice = 'Tell us which of these is closest to your situation and we can plan from it.';
+      state.notice = T.t('multi.noticeNeedsSecond');
       render(false);
       return;
     }
@@ -565,8 +585,7 @@
         return !(other && other.exclusive && !other.requiresSecond);
       });
       if (chosen.length >= limit) {
-        state.notice = 'You can pick up to ' + limit +
-          '. Deselect one first, then choose this instead.';
+        state.notice = T.t('multi.noticeLimit', { n: limit });
       } else {
         chosen.push(optionId);
       }
@@ -599,21 +618,21 @@
 
   var VALIDATORS = {
     name: function (value) {
-      return value.trim().length >= 2 ? '' : 'Please tell us your name.';
+      return value.trim().length >= 2 ? '' : T.t('error.name');
     },
     email: function (value) {
-      if (!value.trim()) return 'We need an email to send your plan.';
-      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim()) ? '' : 'That email address does not look right.';
+      if (!value.trim()) return T.t('error.emailEmpty');
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim()) ? '' : T.t('error.emailInvalid');
     },
     phone: function (value) {
       var digits = value.replace(/\D/g, '');
-      if (!digits) return 'A phone number lets us reach you faster.';
-      return digits.length >= 8 ? '' : 'Please enter a full phone number.';
+      if (!digits) return T.t('error.phoneEmpty');
+      return digits.length >= 8 ? '' : T.t('error.phoneShort');
     },
     website: function (value) {
       if (!value.trim()) return '';
       return /^([a-z][a-z0-9+.-]*:\/\/)?[^\s.]+\.[^\s]{2,}$/i.test(value.trim())
-        ? '' : 'Please enter a valid website, e.g. yourcompany.com';
+        ? '' : T.t('error.website');
     }
   };
 
@@ -657,7 +676,7 @@
     if (button.disabled) return;                       // guard against double-submit
     button.disabled = true;
     button.classList.add('is-loading');
-    button.innerHTML = '<span class="spinner" aria-hidden="true"></span>Building your plan&hellip;';
+    button.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + esc(T.t('form.loading'));
 
     state.lead = {
       name: values.name.trim(),
@@ -687,6 +706,9 @@
         signals: assessment.signals,
         client_spam_score: assessment.client_spam_score
       });
+      /* Which page the lead came from. Everything else in the payload stays
+         English on both pages, so the lead table reads the same (D-02). */
+      payload.language = T.lang;
       return ENGINE.submit(payload);
     }).then(function (delivery) {
       state.delivery = delivery;
@@ -748,6 +770,10 @@
   /* ── Boot ───────────────────────────────────────────────────────────── */
 
   document.getElementById('year').textContent = new Date().getFullYear();
+  /* The EN | TH switch keeps the campaign tags (utm_…, gclid) in the address. */
+  Array.prototype.forEach.call(document.querySelectorAll('.lang-switch a'), function (link) {
+    if (window.location.search) link.setAttribute('href', link.getAttribute('href') + window.location.search);
+  });
   restore();
   render(false);
 })();
