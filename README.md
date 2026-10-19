@@ -3,7 +3,8 @@
 An interactive 5-step quiz that recommends which digital marketing services a
 visitor actually needs, then captures the lead to an n8n webhook.
 
-**Live:** https://moveaheadmedia.github.io/mam-th-quiz/
+**Live:** https://moveaheadmedia.github.io/mam-th-quiz/ (English) ·
+https://moveaheadmedia.github.io/mam-th-quiz/th/ (Thai)
 
 No build step, no dependencies — plain HTML, CSS and JavaScript.
 
@@ -294,6 +295,15 @@ a browser — it runs on load. Or from the command line on macOS:
   assets/js/data.js assets/js/planner.js tests/planner.test.js
 ```
 
+Open `tests/i18n.html` to check the Thai translation is complete, or:
+
+```bash
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc \
+  -e 'var window=this;' \
+  assets/js/data.js assets/js/planner.js assets/js/i18n/en.js \
+  assets/js/i18n/th.js tests/i18n.test.js
+```
+
 ---
 
 ## Editing content
@@ -305,7 +315,36 @@ a browser — it runs on load. Or from the command line on macOS:
 | Routing rules, how a plan is assembled, payload shape | `assets/js/planner.js` |
 | Spam signals, reCAPTCHA, the POST to n8n | `assets/js/engine.js` |
 | Screen flow, validation, markup | `assets/js/app.js` |
+| Wording on screen (buttons, hints, errors, results page) | `assets/js/i18n/en.js` |
+| Thai wording — everything a visitor sees on `/th/` | `assets/js/i18n/th.js` |
+| Google rating under question 1 (both languages) | `config.js` → `reviews` |
 | Styling | `assets/css/styles.css` |
+
+## Languages (English and Thai)
+
+| Address | Shows |
+| --- | --- |
+| `/` | English — the original address, unchanged so existing links and embeds keep working |
+| `/th/` | Thai |
+| `/en/` | forwards to `/` (keeps `utm_…` tags) |
+
+Both pages run the same quiz logic; only the text differs. The `<html lang>` of
+the page decides which text `assets/js/i18n.js` serves. An EN | TH switch sits
+in the header, and answers carry across when a visitor switches mid-quiz.
+
+- **Change English wording:** questions, answers and service cards in `data.js`;
+  everything else on screen in `i18n/en.js`.
+- **Change Thai wording:** `i18n/th.js`. Keep `{curly}` parts exactly as they are.
+- **Add new English text?** Add its Thai too, then open `tests/i18n.html` — it
+  fails if the Thai page would show English anywhere a visitor can look.
+- **The lead sent to n8n is English on both pages** (answer labels, service
+  names, budget tier), plus `"language": "th"` or `"en"`. The lead table reads
+  the same whichever page the lead came from.
+- The Thai page loads Noto Sans Thai alongside Be Vietnam Pro, the same pair as
+  moveaheadmedia.co.th, and drops the letter spacing on small labels (Thai
+  vowel and tone marks would drift apart).
+- Links still go to the English pages of moveaheadmedia.co.th; the site's `/th/`
+  pages can be swapped in later in `data.js` (`SERVICE_URLS`) and `config.js`.
 
 ### Branding notes
 
@@ -335,5 +374,8 @@ addEventListener('message', function (e) {
 });
 </script>
 ```
+
+For the Thai quiz on a Thai page, use
+`https://moveaheadmedia.github.io/mam-th-quiz/th/` as the `src`.
 
 Set `embedResize: false` in `config.js` to disable the height messages.

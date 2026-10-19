@@ -30,7 +30,9 @@
   --mam-success:      #129B5C;
 
   /* Kit typography */
-  --font: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Same pair as moveaheadmedia.co.th: Be Vietnam Pro draws the Latin letters,
+     Noto Sans Thai the Thai ones (it is only downloaded on the Thai page). */
+  --font: "Be Vietnam Pro", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* + Shape & depth (the kit defines neither) */
   --radius-sm: 10px;
@@ -114,6 +116,17 @@ img, svg { display: block; max-width: 100%; }
   gap: 16px; min-height: 72px;
 }
 .site-header__logo img { height: 34px; width: auto; }
+.site-header__actions { display: flex; align-items: center; gap: 18px; }
+.site-header__cta { white-space: nowrap; }
+
+/* EN | TH. The current language is marked, not linked away from. */
+.lang-switch { display: flex; align-items: center; font-size: 13px; font-weight: 700; }
+.lang-switch a {
+  color: var(--mam-muted); text-decoration: none; padding: 4px 9px; line-height: 1;
+}
+.lang-switch a + a { border-left: 1.5px solid var(--mam-line-strong); }
+.lang-switch a:hover { color: var(--mam-primary); }
+.lang-switch a[aria-current="page"] { color: var(--mam-text); }
 
 /* .btn--ghost is designed for dark panels (the results CTA still uses it there),
    so it needs a light-background variant inside the now-white header. */
@@ -700,9 +713,34 @@ img, svg { display: block; max-width: 100%; }
 }
 
 @media (max-width: 420px) {
+  /* Logo, EN | TH and "Talk to us" share one row on a phone. */
+  .site-header__logo img { height: 28px; }
+  .site-header__actions { gap: 8px; }
+  .lang-switch a { padding: 4px 7px; }
+  .site-header__cta { padding: 9px 13px; }
+
   .btn--lg { padding: 16px 22px; font-size: 14px; }
   .rec--primary { padding: 22px; }
 }
+
+/* --------------------------------------------------------------------------
+   Thai page (decision D-06)
+   Thai has no capital letters, and letter spacing pulls Thai vowel and tone
+   marks away from their letters — so the small spaced-out labels lose it.
+   Thai also needs a little more line height for marks above and below.
+   -------------------------------------------------------------------------- */
+:lang(th) .btn,
+:lang(th) .rec__link,
+:lang(th) .eyebrow,
+:lang(th) .pstep__label,
+:lang(th) .option__rank,
+:lang(th) .field__opt,
+:lang(th) .results__rank,
+:lang(th) .rec__kicker,
+:lang(th) .overlays__title,
+:lang(th) .budget-note__tier,
+:lang(th) h1, :lang(th) h2, :lang(th) h3 { letter-spacing: 0; }
+:lang(th) body { line-height: 1.65; }
 
 /* --------------------------------------------------------------------------
    Motion & print

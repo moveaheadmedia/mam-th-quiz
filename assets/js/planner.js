@@ -538,18 +538,25 @@
   var ADS_FIX_REASON = "your current campaigns need fixing before they need more budget";
   var PAID_FAMILIES = ["paid-search", "paid-social"];
 
-  /** Plain-English reason a given service is on this plan. */
-  function reasonFor(result, serviceId) {
+  /** Which reason applies: a NEED_REASON key, "ads-fix", or "" for none.
+      The Thai page looks its text up by this key (i18n.js). */
+  function reasonKeyFor(result, serviceId) {
     if (result.challenge === "ads") {
       var firstPaid = (result.all || []).filter(function (id) {
         return D.CATALOGUE[id] && has(PAID_FAMILIES, D.CATALOGUE[id].family);
       })[0];
-      if (firstPaid === serviceId) return ADS_FIX_REASON;
+      if (firstPaid === serviceId) return "ads-fix";
     }
     var entry = (result.trace || []).filter(function (t) {
       return t.service === serviceId;
     })[0];
-    return (entry && NEED_REASON[entry.need]) || "";
+    return entry && NEED_REASON[entry.need] ? entry.need : "";
+  }
+
+  /** Plain-English reason a given service is on this plan. */
+  function reasonFor(result, serviceId) {
+    var key = reasonKeyFor(result, serviceId);
+    return key === "ads-fix" ? ADS_FIX_REASON : NEED_REASON[key] || "";
   }
 
   /**
@@ -879,6 +886,13 @@
   window.MAM_PLANNER = {
     plan: plan,
     reasonFor: reasonFor,
+    reasonKeyFor: reasonKeyFor,
+    /* Every reason by key, for the translation check in tests/i18n.test.js. */
+    REASONS: (function () {
+      var all = { "ads-fix": ADS_FIX_REASON };
+      Object.keys(NEED_REASON).forEach(function (key) { all[key] = NEED_REASON[key]; });
+      return all;
+    })(),
     buildPayload: buildPayload,
     paidOrder: paidOrder,
     candidates: candidates,

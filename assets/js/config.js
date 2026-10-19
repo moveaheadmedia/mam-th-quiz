@@ -32,6 +32,10 @@ window.MAM_CONFIG = {
   phoneHref: 'tel:+6622600424',
   email: 'info@moveaheadmedia.com',
 
+  /* Google rating shown under question 1, in every language. Update both
+     numbers here when the reviews change. */
+  reviews: { rating: '4.8', count: 51 },
+
   /* --------------------------------------------------------------------
      2b. Chat button on the results page — one per market
      --------------------------------------------------------------------
@@ -50,13 +54,13 @@ window.MAM_CONFIG = {
                   (keeps its "@"). */
     TH: {
       app: 'line',
-      label: 'Chat on LINE',
       pageUrl: 'https://page.line.me/pmi1665e',
       lineId: '@pmi1665e'
     },
     /* AU version not decided yet. Add the WhatsApp number (digits only, with
-       country code, e.g. '61412345678') to switch the button on. */
-    AU: { app: 'whatsapp', label: 'Chat on WhatsApp', number: '' }
+       country code, e.g. '61412345678') to switch the button on.
+       The button text is in i18n/en.js and th.js ("chat.line", "chat.whatsapp"). */
+    AU: { app: 'whatsapp', number: '' }
   },
 
   /* --------------------------------------------------------------------
