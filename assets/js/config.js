@@ -23,13 +23,31 @@ window.MAM_CONFIG = {
   webhookTimeoutMs: 8000,
 
   /* --------------------------------------------------------------------
-     2. Links & contact details
+     2. Market, links & contact details
+     --------------------------------------------------------------------
+     Each page names its market in <html data-market="…">: / and /th/ are
+     TH, /au/ is AU (a page without one is TH). The market picks the website
+     every link goes to and the phone number shown — the service links in
+     data.js follow `site` — and is sent with the lead as "market".
      -------------------------------------------------------------------- */
-  site: 'https://www.moveaheadmedia.co.th',
-  consultationUrl: 'https://www.moveaheadmedia.co.th/contact-us/',
-  caseStudiesUrl: 'https://www.moveaheadmedia.co.th/about/case-studies/',
-  phone: '02 260 0424',
-  phoneHref: 'tel:+6622600424',
+  market: ((typeof document !== 'undefined' &&
+    document.documentElement.getAttribute('data-market')) || 'TH').toUpperCase(),
+  markets: {
+    TH: {
+      site: 'https://www.moveaheadmedia.co.th',
+      consultationUrl: 'https://www.moveaheadmedia.co.th/contact-us/',
+      caseStudiesUrl: 'https://www.moveaheadmedia.co.th/about/case-studies/',
+      phone: '02 260 0424',
+      phoneHref: 'tel:+6622600424'
+    },
+    AU: {
+      site: 'https://www.moveaheadmedia.com.au',
+      consultationUrl: 'https://www.moveaheadmedia.com.au/contact-us/',
+      caseStudiesUrl: 'https://www.moveaheadmedia.com.au/about/case-studies/',
+      phone: '02 9161 8033',
+      phoneHref: 'tel:+61291618033'
+    }
+  },
   email: 'info@moveaheadmedia.com',
 
   /* Google rating shown under question 1, in every language. Update both
@@ -40,13 +58,12 @@ window.MAM_CONFIG = {
      2b. Chat button on the results page — one per market
      --------------------------------------------------------------------
      The results page shows a chat button next to "Book" and "Call". Which
-     app it opens depends on `market`: TH → LINE, AU → WhatsApp. The chat
+     app it opens depends on the page's market: TH → LINE, AU → WhatsApp. The chat
      opens with the visitor's plan already typed (service names only — never
      their name, email or phone), so the team sees the context straight away.
 
      A market with no account set here simply shows no chat button.
      -------------------------------------------------------------------- */
-  market: 'TH',
   chat: {
     /* The LINE Official Account linked from moveaheadmedia.co.th.
        pageUrl  — the account page; used on computers, which have no LINE app.
@@ -57,10 +74,11 @@ window.MAM_CONFIG = {
       pageUrl: 'https://page.line.me/pmi1665e',
       lineId: '@pmi1665e'
     },
-    /* AU version not decided yet. Add the WhatsApp number (digits only, with
-       country code, e.g. '61412345678') to switch the button on.
+    /* The AU office's WhatsApp — the same Sydney line as the Call button
+       (02 9161 8033). Digits only, with country code and no leading 0.
+       Set it to '' to hide the button.
        The button text is in i18n/en.js and th.js ("chat.line", "chat.whatsapp"). */
-    AU: { app: 'whatsapp', number: '' }
+    AU: { app: 'whatsapp', number: '61291618033' }
   },
 
   /* --------------------------------------------------------------------
@@ -106,3 +124,11 @@ window.MAM_CONFIG = {
     ]
   }
 };
+
+/* The page's market's links and phone become MAM_CONFIG.site, .phone, etc.
+   An unknown market falls back to TH. */
+(function (cfg) {
+  if (!cfg.markets[cfg.market]) cfg.market = 'TH';
+  var own = cfg.markets[cfg.market];
+  for (var key in own) cfg[key] = own[key];
+})(window.MAM_CONFIG);

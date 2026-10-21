@@ -4,7 +4,8 @@ An interactive 5-step quiz that recommends which digital marketing services a
 visitor actually needs, then captures the lead to an n8n webhook.
 
 **Live:** https://moveaheadmedia.github.io/mam-th-quiz/ (English) ·
-https://moveaheadmedia.github.io/mam-th-quiz/th/ (Thai)
+https://moveaheadmedia.github.io/mam-th-quiz/th/ (Thai) ·
+https://moveaheadmedia.github.io/mam-th-quiz/au/ (English, Australia)
 
 No build step, no dependencies — plain HTML, CSS and JavaScript.
 
@@ -310,7 +311,7 @@ Open `tests/i18n.html` to check the Thai translation is complete, or:
 
 | Want to change… | Edit |
 | --- | --- |
-| Webhook, phone, links, reCAPTCHA key, behaviour flags | `assets/js/config.js` |
+| Webhook, phone, links, reCAPTCHA key, behaviour flags | `assets/js/config.js` (phone and links per market in `markets`) |
 | Service links (all 35 in one block), icons, questions, answers, the 30 briefs, budget quota | `assets/js/data.js` |
 | Routing rules, how a plan is assembled, payload shape | `assets/js/planner.js` |
 | Spam signals, reCAPTCHA, the POST to n8n | `assets/js/engine.js` |
@@ -320,17 +321,19 @@ Open `tests/i18n.html` to check the Thai translation is complete, or:
 | Google rating under question 1 (both languages) | `config.js` → `reviews` |
 | Styling | `assets/css/styles.css` |
 
-## Languages (English and Thai)
+## Languages and markets
 
-| Address | Shows |
-| --- | --- |
-| `/` | English — the original address, unchanged so existing links and embeds keep working |
-| `/th/` | Thai |
-| `/en/` | forwards to `/` (keeps `utm_…` tags) |
+| Address | Shows | Market |
+| --- | --- | --- |
+| `/` | English — the original address, unchanged so existing links and embeds keep working | TH |
+| `/th/` | Thai | TH |
+| `/au/` | English, the same text as `/` | AU |
+| `/en/` | forwards to `/` (keeps `utm_…` tags) | — |
 
-Both pages run the same quiz logic; only the text differs. The `<html lang>` of
-the page decides which text `assets/js/i18n.js` serves. An EN | TH switch sits
-in the header, and answers carry across when a visitor switches mid-quiz.
+All three pages run the same quiz logic; only the text and links differ. The
+`<html lang>` of the page decides which text `assets/js/i18n.js` serves. An
+EN | TH | AU switch sits in the header (like the website's language and location
+pickers, in one), and answers carry across when a visitor switches mid-quiz.
 
 - **Change English wording:** questions, answers and service cards in `data.js`;
   everything else on screen in `i18n/en.js`.
@@ -345,6 +348,27 @@ in the header, and answers carry across when a visitor switches mid-quiz.
   vowel and tone marks would drift apart).
 - Links still go to the English pages of moveaheadmedia.co.th; the site's `/th/`
   pages can be swapped in later in `data.js` (`SERVICE_URLS`) and `config.js`.
+
+### Australia (`/au/`)
+
+The market is set by the page itself: `<html data-market="AU">` in
+`au/index.html`. Pages without it are TH. The market decides:
+
+- **Where links go.** `config.js` → `markets` holds each market's website,
+  contact page, case studies page and phone number. The 35 service links in
+  `data.js` are written once against moveaheadmedia.co.th and move to
+  moveaheadmedia.com.au on the AU page, because the AU site uses the same
+  paths. A page at a different path there (Outcome Marketing) is listed in
+  `MARKET_SERVICE_URLS`. Links that aren't to the website, like the LINE audit,
+  stay as they are.
+- **The chat button.** TH shows LINE. AU shows WhatsApp, on the Sydney number
+  in `config.js` → `chat.AU` (set it to `''` to hide the button).
+- **The lead.** Every lead carries `"market": "TH"` or `"AU"` next to
+  `"language"`. Add both as columns in the n8n *Build lead row* step to keep
+  them.
+
+Everything else is the English page as it is: the questions, the THB budget
+answers, the free audit on LINE and the Google rating.
 
 ### Branding notes
 
@@ -376,6 +400,7 @@ addEventListener('message', function (e) {
 ```
 
 For the Thai quiz on a Thai page, use
-`https://moveaheadmedia.github.io/mam-th-quiz/th/` as the `src`.
+`https://moveaheadmedia.github.io/mam-th-quiz/th/` as the `src`; for the
+Australian site, `https://moveaheadmedia.github.io/mam-th-quiz/au/`.
 
 Set `embedResize: false` in `config.js` to disable the height messages.

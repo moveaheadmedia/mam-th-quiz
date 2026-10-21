@@ -706,9 +706,11 @@
         signals: assessment.signals,
         client_spam_score: assessment.client_spam_score
       });
-      /* Which page the lead came from. Everything else in the payload stays
-         English on both pages, so the lead table reads the same (D-02). */
+      /* Which page the lead came from: language "en"/"th", market "TH"/"AU".
+         Everything else in the payload stays English on every page, so the
+         lead table reads the same (D-02). */
       payload.language = T.lang;
+      payload.market = CFG.market;
       return ENGINE.submit(payload);
     }).then(function (delivery) {
       state.delivery = delivery;
@@ -770,7 +772,7 @@
   /* ── Boot ───────────────────────────────────────────────────────────── */
 
   document.getElementById('year').textContent = new Date().getFullYear();
-  /* The EN | TH switch keeps the campaign tags (utm_…, gclid) in the address. */
+  /* The EN | TH | AU switch keeps the campaign tags (utm_…, gclid) in the address. */
   Array.prototype.forEach.call(document.querySelectorAll('.lang-switch a'), function (link) {
     if (window.location.search) link.setAttribute('href', link.getAttribute('href') + window.location.search);
   });
