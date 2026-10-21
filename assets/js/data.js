@@ -5,6 +5,8 @@
 (function () {
   "use strict";
 
+  /* The service links below are written against the Thai website. The AU
+     page moves them to the Australian one — see "Other markets" below. */
   var SITE = "https://www.moveaheadmedia.co.th";
 
   /* ── SERVICE URLS ────────────────────────────────────────────────────
@@ -85,6 +87,31 @@
     "seo-ai-visibility-audit": "https://page.line.me/pmi1665e",
     "strategy-consultation": "https://www.moveaheadmedia.co.th/contact-us/",
   };
+
+  /* ── Other markets ──
+     moveaheadmedia.com.au has the same pages at the same paths, so on the AU
+     page (config.js → market) every link above moves to config.js → site.
+     A page that lives at a different path there is listed here. Links that
+     don't go to the website (the LINE audit) stay as they are. */
+  var MARKET_SERVICE_URLS = {
+    AU: {
+      "outcome-marketing":
+        "https://www.moveaheadmedia.com.au/outcome-marketing-australia/",
+    },
+  };
+
+  var CFG = window.MAM_CONFIG || {};
+  if (CFG.site && CFG.site !== SITE) {
+    Object.keys(SERVICE_URLS).forEach(function (id) {
+      if (SERVICE_URLS[id].indexOf(SITE + "/") === 0) {
+        SERVICE_URLS[id] = CFG.site + SERVICE_URLS[id].slice(SITE.length);
+      }
+    });
+  }
+  var ownUrls = MARKET_SERVICE_URLS[CFG.market] || {};
+  Object.keys(ownUrls).forEach(function (id) {
+    SERVICE_URLS[id] = ownUrls[id];
+  });
 
   /* ── Icons ──────────────────────────────────────────────────────────── */
   var ICONS = {
