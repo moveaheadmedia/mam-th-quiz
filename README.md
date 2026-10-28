@@ -41,9 +41,11 @@ the checks and how to roll back. On those pages:
   a copy of the plugin's script (`tests/fixtures/`); when the plugin changes,
   replace the copy and the test shows what the quiz must learn.
 - **Google Tag Manager:** each site's own container (GTM-NHTDCN6S on .co.th,
-  GTM-NRK28BX5 on .com.au). The quiz pushes `mam_quiz_step` (every new screen)
-  and `mam_quiz_lead` (lead sent) to the dataLayer, with no personal data;
-  a tag needs a Custom Event trigger on those names. Link clicks on the
+  GTM-NRK28BX5 on .com.au). The quiz pushes `mam_quiz_start`,
+  `mam_quiz_step_complete`, `mam_quiz_lead`, `mam_quiz_complete`,
+  `mam_quiz_consultation_click` and `mam_quiz_chat_click` to the dataLayer, with no
+  personal data (list in `app.js` → Analytics). [deploy/gtm/](deploy/gtm/) has the
+  matching GA4 tags as GTM import files. Link clicks on the
   results page (phone, LINE, WhatsApp) reach the containers' existing
   link-click triggers as on any page.
 - **Language switch:** EN | TH on the co.th pages; none on the Australian page.
