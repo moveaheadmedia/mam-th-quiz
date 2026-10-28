@@ -29,8 +29,12 @@ n8n then creates the Pipedrive person, a lead titled `<Lead Source> | <name>`
 and a note listing the answers and the plan. The page address decides the
 label and owner (.co.th → Thailand, .com.au → Australia).
 
-Nothing goes through WordPress. A bot that fills in the hidden honeypot field
-is not sent on. There is no reCAPTCHA, because the workflow does not check a
+Nothing goes through WordPress, and **every lead is sent**: nothing is
+filtered as spam on the page (operator's decision — spam is removed in
+Pipedrive). What looks like spam (the hidden anti-bot field filled in, the form
+filled in under 2 seconds, a throwaway email domain…) is written in the note as
+`Quiz: Spam check`. If the request gets no answer, the page sends it once more
+as a beacon. There is no reCAPTCHA, because the workflow does not check a
 token.
 
 ## Release

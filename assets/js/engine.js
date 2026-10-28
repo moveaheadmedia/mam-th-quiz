@@ -257,22 +257,34 @@
     return parts.day + "/" + parts.month + "/" + parts.year + " " + hour + ":" + parts.minute;
   }
 
+  /** What looks like spam about a lead, in words for the Pipedrive note;
+      "" when nothing does. Only a hint: every lead is sent (operator's
+      decision 2026-10-28 — spam is removed in Pipedrive, never here). */
+  function spamCheck(signals) {
+    var flags = [];
+    if (signals.honeypot_filled) flags.push("the hidden anti-bot field was filled in");
+    if (signals.faster_than_minimum) flags.push("the contact form took " + signals.seconds_on_form + " s");
+    if (signals.name_contains_url) flags.push("a link in the name");
+    if (signals.name_has_no_letters) flags.push("no letters in the name");
+    if (signals.email_disposable) flags.push("a throwaway email domain");
+    if (signals.phone_repeated_digit) flags.push("the phone is one digit repeated");
+    return flags.length ? "Possible spam: " + flags.join("; ") : "";
+  }
+
   /**
-   * The request for the configured webhook format, or null when nothing
-   * should be sent (a bot filled in the hidden honeypot field).
-   * @returns {{type:string, body:string}|null}
+   * The request for the configured webhook format.
+   * @returns {{type:string, body:string}}
    */
   function request(payload) {
     var config = window.MAM_CONFIG;
     if (config.webhookFormat !== "mam-forms") {
       return { type: "application/json", body: JSON.stringify(payload) };
     }
-    /* "MAM Forms => PIPEDRIVE" creates a lead for everything it receives. */
-    var signals = (payload.security && payload.security.signals) || {};
-    if (signals.honeypot_filled) return null;
-
     var forms = config.forms || {};
+    var signals = (payload.security && payload.security.signals) || {};
     var fields = formFields(payload, window.MAM_UTM ? window.MAM_UTM.values() : {});
+    var spam = spamCheck(signals);
+    if (spam) fields["_Quiz: Spam check"] = spam;
     fields["_Form Name"] = forms.formName || "Service Quiz";
     fields._date = formDate(new Date(), forms.timeZone, forms.dateStyle);
     /* Form-encoded, like Quform: a "simple" cross-site request, so the
@@ -293,7 +305,6 @@
     var url = config.webhookUrl;
     var req = request(payload);
 
-    if (!req) return Promise.resolve({ ok: true, reason: "not-sent" });
     if (!url || url.indexOf("REPLACE_WITH") === 0) {
       console.warn(
         "[MAM quiz] No webhook configured — request not sent:",
@@ -316,12 +327,26 @@
     })
       .then(function (response) {
         clearTimeout(timer);
-        if (!response.ok) throw new Error("HTTP " + response.status);
+        if (!response.ok) {
+          console.error("[MAM quiz] Webhook answered HTTP " + response.status);
+          return { ok: false, reason: "HTTP " + response.status };
+        }
         return { ok: true };
       })
       .catch(function (error) {
         clearTimeout(timer);
         console.error("[MAM quiz] Webhook failed:", error);
+        /* No answer at all (network, timeout, a blocker): send it once more
+           as a beacon, which the browser delivers in the background even if
+           the page is closed. A lead counts more than the rare duplicate. */
+        var form = req.type.indexOf("application/x-www-form-urlencoded") === 0;
+        if (form && typeof navigator !== "undefined" && navigator.sendBeacon) {
+          try {
+            if (navigator.sendBeacon(url, new URLSearchParams(req.body))) {
+              return { ok: true, reason: "beacon" };
+            }
+          } catch (e) { /* fall through */ }
+        }
         return { ok: false, reason: String((error && error.message) || error) };
       });
   }
@@ -346,6 +371,7 @@
     submit: submit,
     formFields: formFields,
     formDate: formDate,
+    spamCheck: spamCheck,
     request: request,
     answerIds: answerIds,
     answerOption: answerOption,

@@ -181,10 +181,22 @@
     Object.keys(sent).forEach(function (key) { assert(key.charAt(0) === "_", key + " has no leading _"); });
   });
 
-  test("a filled-in honeypot sends nothing (the workflow would create a lead)", function () {
+  test("suspected spam is still sent, and marked in the note", function () {
     var payload = payloadFor(LEADS_ANSWERS);
     payload.security.signals.honeypot_filled = true;
-    same(withConfig({ webhookFormat: "mam-forms" }, function () { return E.request(payload); }), null);
+    payload.security.signals.faster_than_minimum = true;
+    payload.security.signals.seconds_on_form = 1.2;
+    var req = withConfig({ webhookFormat: "mam-forms" }, function () { return E.request(payload); });
+    assert(req && req.body, "nothing was sent");
+    var sent = {};
+    new URLSearchParams(req.body).forEach(function (value, key) { sent[key] = value; });
+    same(sent["_Quiz: Spam check"], "Possible spam: the hidden anti-bot field was filled in; the contact form took 1.2 s");
+    same(sent._Name, "Somchai Test");
+  });
+
+  test("a clean lead has no spam line", function () {
+    var req = withConfig({ webhookFormat: "mam-forms" }, function () { return E.request(payloadFor(LEADS_ANSWERS)); });
+    assert(req.body.indexOf("Spam") === -1, "a spam line was added");
   });
 
   test("dates are written like each site's Quform", function () {
