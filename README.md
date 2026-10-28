@@ -338,7 +338,8 @@ a browser — it runs on load. Or from the command line on macOS:
   assets/js/data.js assets/js/planner.js tests/planner.test.js
 ```
 
-Run every suite with Node (planner, Thai text, UTM attribution, lead fields):
+Run every suite with Node (planner, Thai text, UTM attribution, lead fields,
+the Australian page):
 
 ```bash
 node tests/run-node.mjs
@@ -415,12 +416,17 @@ The market is set by the page itself: `<html data-market="AU">` in
   stay as they are.
 - **The chat button.** TH shows LINE. AU shows WhatsApp, on the Sydney number
   in `config.js` → `chat.AU` (set it to `''` to hide the button).
+- **The budget answers.** AU shows the brackets of the moveaheadmedia.com.au
+  enquiry form, in AUD: 500 – 1,000 / 1,001 – 2,000 / 2,001 – 3,000 / Over
+  3,000 AUD (`data.js` → `MARKET_ANSWERS`). The lead sends them as that form
+  does: `Monthly Project Budget (AUD)` = `1,001 - 2,000 AUD`. Each bracket keeps
+  its id, so the plan for a budget is the same in both markets.
 - **The lead.** Every lead carries `"market": "TH"` or `"AU"` next to
   `"language"`. Add both as columns in the n8n *Build lead row* step to keep
   them.
 
-Everything else is the English page as it is: the questions, the THB budget
-answers, the free audit on LINE and the Google rating.
+Everything else is the English page as it is: the questions, the free audit
+on LINE and the Google rating.
 
 ### Branding notes
 

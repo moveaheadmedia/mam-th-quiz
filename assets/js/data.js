@@ -1260,6 +1260,34 @@
     },
   };
 
+  /* ── Answers per market ─────────────────────────────────────────────
+     The Australian page shows the budget brackets of the website's own
+     enquiry form on moveaheadmedia.com.au, in AUD (figures confirmed by
+     Thanya, 2026-10-28). Only the words change: each bracket keeps its id,
+     so a budget leads to the same plan in every market. formValue is what
+     the website form sends for that bracket, so the budget on a quiz lead
+     reads the same in Pipedrive as on a website enquiry. */
+  var MARKET_ANSWERS = {
+    AU: {
+      budget: {
+        under50: { label: "500 – 1,000 AUD", formValue: "500 - 1,000 AUD" },
+        "50to100": { label: "1,001 – 2,000 AUD", formValue: "1,001 - 2,000 AUD" },
+        "100to300": { label: "2,001 – 3,000 AUD", formValue: "2,001 - 3,000 AUD" },
+        over300: { label: "Over 3,000 AUD", formValue: "Over 3,000 AUD" },
+      },
+    },
+  };
+
+  var ownAnswers = MARKET_ANSWERS[CFG.market] || {};
+  QUESTIONS.forEach(function (question) {
+    var changes = ownAnswers[question.id] || {};
+    question.options.forEach(function (option) {
+      var change = changes[option.id];
+      if (!change) return;
+      for (var key in change) option[key] = change[key];
+    });
+  });
+
   window.MAM_DATA = {
     ICONS: ICONS,
     SERVICE_URLS: SERVICE_URLS,

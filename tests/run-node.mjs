@@ -17,7 +17,12 @@ const SUITES = {
   utm: ['assets/js/utm.js', 'tests/utm.test.js'],
   forms: ['assets/js/config.js', 'assets/js/data.js', 'assets/js/engine.js',
     'assets/js/planner.js', 'tests/forms.test.js'],
+  'market-au': ['assets/js/config.js', 'assets/js/data.js', 'assets/js/engine.js',
+    'assets/js/planner.js', 'tests/market-au.test.js'],
 };
+
+/* Suites that run as a page of another market (<html data-market>). */
+const MARKETS = { 'market-au': 'AU' };
 
 const only = process.argv.slice(2);
 let failedSuites = 0;
@@ -30,6 +35,11 @@ for (const [name, files] of Object.entries(SUITES)) {
     console, URL, URLSearchParams, setTimeout, clearTimeout, process: proc,
     MAM_UTM_PLUGIN_SOURCE: read('tests/fixtures/mam-quform-utms-scripts.js'),
   };
+  if (MARKETS[name]) {
+    context.document = {
+      documentElement: { lang: 'en', getAttribute: (attr) => (attr === 'data-market' ? MARKETS[name] : null) },
+    };
+  }
   context.window = context;
   vm.createContext(context);
   try {
