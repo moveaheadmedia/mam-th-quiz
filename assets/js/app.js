@@ -481,8 +481,8 @@
      phone. GTM needs a Custom Event trigger on these names to use them:
        mam_quiz_step  a new screen: quiz_step 1–5 = questions, 6 = the form,
                       7 = results; quiz_screen = question id, form or results
-       mam_quiz_lead  the lead form was sent; quiz_delivered false means the
-                      relay or n8n did not confirm it */
+       mam_quiz_lead  the lead form was sent; quiz_delivered false means n8n did
+                      not confirm it */
   var lastScreen = null;
 
   function track(event, data) {

@@ -19,15 +19,16 @@ step; the websites get a small one ([deploy/README.md](deploy/README.md)).
 ## On the websites
 
 The quiz has its own pages on moveaheadmedia.co.th (English `/quiz/`, Thai
-`/th/quiz/`) and moveaheadmedia.com.au (`/quiz/`), as plain files beside
-WordPress on Hostinger. [deploy/README.md](deploy/README.md) covers the build,
-the upload, the checks and how to roll back. On those pages:
+`/th/quiz/`) and moveaheadmedia.com.au (`/quiz/`). Each is a separate folder of
+plain files on Hostinger, apart from the website's WordPress code, and each has
+its own **live branch** in this repository: `live-mam-en`, `live-mam-th` and
+`live-mam-au` hold exactly what is in those folders.
+[deploy/README.md](deploy/README.md) covers the build, the branches, the upload,
+the checks and how to roll back. On those pages:
 
-- **Leads go where the website's enquiry forms send theirs:** n8n
-  **"MAM Forms => PIPEDRIVE"**, which creates the Pipedrive person, lead and
-  note. The page posts to `/quiz/submit.php` on its own site, and that relay
-  passes the lead on from the server like WordPress does for Quform, so the
-  webhook URL is never in the page. The lead is titled `<Lead Source> | <name>`,
+- **Leads go where the website's enquiry forms send theirs:** the page posts
+  straight to the webhook of n8n **"MAM Forms => PIPEDRIVE"**, which creates
+  the Pipedrive person, lead and note. The lead is titled `<Lead Source> | <name>`,
   labelled and assigned from the page address (.co.th → Thailand,
   .com.au → Australia), its "Service Interest" is the main recommendation
   (`config.js` → `forms.serviceInterest`), and the note lists the answers and
@@ -369,8 +370,8 @@ Open `tests/i18n.html` to check the Thai translation is complete, or:
 | Styling | `assets/css/styles.css` |
 | UTM rules (keep in step with the website's plugin) | `assets/js/utm.js`, `tests/utm.test.js` |
 | The lead's fields for "MAM Forms => PIPEDRIVE" | `assets/js/engine.js` → `formFields`; Service Interest names in `config.js` → `forms` |
-| GTM container, live addresses, form names, time zone — per website | `deploy/sites.mjs` |
-| What the relay accepts and passes on | `deploy/relay/submit.php` |
+| GTM container, live addresses, form names, time zone, webhook — per live page | `deploy/sites.mjs` |
+| How a release reaches the live branches and the server | `deploy/README.md` |
 
 ## Languages and markets
 

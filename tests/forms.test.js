@@ -1,11 +1,11 @@
 /* ==========================================================================
    MAM quiz — the lead as website-form fields (engine.js → formFields)
 
-   On the live websites a quiz lead goes to n8n "MAM Forms => PIPEDRIVE"
-   through the relay (deploy/relay/submit.php). This suite checks the fields
-   the page sends: their names (the workflow reads them by name), the
-   Pipedrive "Service Interest" names, and that the relay lets every one of
-   them through (it needs the relay's text; tests/run-node.mjs provides it).
+   On the live pages a quiz lead goes straight to the webhook of n8n
+   "MAM Forms => PIPEDRIVE", the websites' enquiry-form workflow. This suite
+   checks what the page sends: the field names (the workflow reads them by
+   name), the Pipedrive "Service Interest" names, the form name and date,
+   and the request itself.
 
    Dependency-free; load after config.js, data.js, engine.js and planner.js.
    ========================================================================== */
@@ -147,40 +147,53 @@
     });
   });
 
-  test('"quiz" format: the whole payload, as before', function () {
-    var payload = payloadFor(LEADS_ANSWERS);
-    var saved = CFG.webhookFormat;
-    CFG.webhookFormat = "quiz";
-    try { assert(E.requestBody(payload) === payload, "the payload itself"); }
-    finally { CFG.webhookFormat = saved; }
-  });
-
-  test('"mam-forms" format: fields, page language, honeypot, and the page\'s UTM values', function () {
-    var payload = payloadFor(LEADS_ANSWERS, { language: "th" });
-    payload.security.signals.honeypot_filled = true;
-    var saved = [CFG.webhookFormat, root.MAM_UTM];
-    CFG.webhookFormat = "mam-forms";
+  function withConfig(changes, fn) {
+    var saved = {};
+    Object.keys(changes).forEach(function (key) { saved[key] = CFG[key]; CFG[key] = changes[key]; });
+    var savedUtm = root.MAM_UTM;
     root.MAM_UTM = { values: function () { return UTM; } };
-    try {
-      var body = E.requestBody(payload);
-      same(Object.keys(body), ["fields", "lang", "hp"]);
-      same([body.lang, body.hp, body.fields._utm_medium], ["th", 1, "Organic_FB"]);
-    } finally {
-      CFG.webhookFormat = saved[0];
-      root.MAM_UTM = saved[1];
+    try { return fn(); }
+    finally {
+      Object.keys(saved).forEach(function (key) { CFG[key] = saved[key]; });
+      root.MAM_UTM = savedUtm;
     }
+  }
+
+  test('"quiz" format: the whole payload as JSON, as before', function () {
+    var payload = payloadFor(LEADS_ANSWERS);
+    var req = withConfig({ webhookFormat: "quiz" }, function () { return E.request(payload); });
+    same(req.type, "application/json");
+    same(JSON.parse(req.body).source, "mam-service-quiz");
   });
 
-  test("the relay lets every field through", function () {
-    var php = root.MAM_RELAY_SOURCE;
-    if (!php) { writeLine("      (no relay source: skipped)"); return; }
-    var block = /\$allowed = array\(([\s\S]*?)\);/.exec(php);
-    assert(block, "no $allowed list in submit.php");
-    var allowed = block[1].match(/'[^']*'/g).map(function (s) { return s.slice(1, -1); });
-    assert(/strpos\(\$key, '_Quiz: '\) === 0/.test(php), "the relay no longer allows _Quiz: fields");
-    Object.keys(E.formFields(payloadFor(LEADS_ANSWERS), UTM)).forEach(function (key) {
-      assert(allowed.indexOf(key) !== -1 || key.indexOf("_Quiz: ") === 0, key + " would be dropped by the relay");
-    });
+  test('"mam-forms" format: the fields form-encoded, with form name and site date', function () {
+    var payload = payloadFor(LEADS_ANSWERS, { language: "th" });
+    var forms = { formName: "Service Quiz - TH", timeZone: "Asia/Bangkok", dateStyle: "d/m/Y",
+      dialCodes: CFG.forms.dialCodes, serviceInterest: CFG.forms.serviceInterest };
+    var req = withConfig({ webhookFormat: "mam-forms", forms: forms }, function () { return E.request(payload); });
+    same(req.type, "application/x-www-form-urlencoded;charset=UTF-8");
+    var sent = {};
+    new URLSearchParams(req.body).forEach(function (value, key) { sent[key] = value; });
+    same(sent["_Form Name"], "Service Quiz - TH");
+    assert(/^\d{2}\/\d{2}\/\d{4} \d{1,2}:\d{2}$/.test(sent._date), "date " + sent._date);
+    same([sent._utm_source, sent._utm_medium, sent["_Email address"]], ["Meta", "Organic_FB", "somchai@example.com"]);
+    same(sent["_Quiz: Language"], "Thai");
+    Object.keys(sent).forEach(function (key) { assert(key.charAt(0) === "_", key + " has no leading _"); });
+  });
+
+  test("a filled-in honeypot sends nothing (the workflow would create a lead)", function () {
+    var payload = payloadFor(LEADS_ANSWERS);
+    payload.security.signals.honeypot_filled = true;
+    same(withConfig({ webhookFormat: "mam-forms" }, function () { return E.request(payload); }), null);
+  });
+
+  test("dates are written like each site's Quform", function () {
+    var at = new Date("2026-10-27T18:57:00Z");
+    same(E.formDate(at, "Australia/Sydney", "m/d/Y"), "10/28/2026 5:57 AM");
+    same(E.formDate(at, "Asia/Bangkok", "d/m/Y"), "28/10/2026 1:57");
+    same(E.formDate(new Date("2026-10-28T05:05:00Z"), "Asia/Bangkok", "d/m/Y"), "28/10/2026 12:05");
+    same(E.formDate(new Date("2026-10-28T02:30:00Z"), "Australia/Sydney", "m/d/Y"), "10/28/2026 1:30 PM");
+    same(E.formDate(new Date("2026-10-27T13:00:00Z"), "Australia/Sydney", "m/d/Y"), "10/28/2026 12:00 AM");
   });
 
   function run() {

@@ -1,99 +1,80 @@
-# Deploying the quiz to the websites
+# The live pages
 
-The quiz runs on Move Ahead Media's own WordPress sites as plain files next to
-WordPress, on Hostinger (account u945611451, server1832):
+Each live page is a folder of its own on its website, separate from the
+website's WordPress code, and a git branch of its own here:
 
-| Page | Address | Folder on the server (`/home/u945611451/domains/<domain>/`) |
+| Branch | Address | Folder on the server (Hostinger u945611451) |
 | --- | --- | --- |
-| English | https://www.moveaheadmedia.co.th/quiz/ | `public_html/quiz/index.html` |
-| Thai | https://www.moveaheadmedia.co.th/th/quiz/ | `public_html/th/quiz/index.html` |
-| Australia | https://www.moveaheadmedia.com.au/quiz/ | `public_html/quiz/index.html` (on moveaheadmedia.com.au) |
+| `live-mam-en` | https://www.moveaheadmedia.co.th/quiz/ | `moveaheadmedia.co.th/public_html/quiz/` |
+| `live-mam-th` | https://www.moveaheadmedia.co.th/th/quiz/ | `moveaheadmedia.co.th/public_html/th/quiz/` |
+| `live-mam-au` | https://www.moveaheadmedia.com.au/quiz/ | `moveaheadmedia.com.au/public_html/quiz/` |
 
-Each site also gets `public_html/quiz/assets/` (shared by both co.th pages),
-`public_html/quiz/submit.php` (the lead relay) and `mam-quiz-relay.config.php`
-one level above `public_html` (the relay's settings, including the n8n webhook
-URL — not in git, not reachable from the web).
+A live branch holds exactly what is in that folder: `index.html`, the page's
+own copy of `assets/`, and `.htaccess`. It is built from the source on `main`
+(this branch's history), so **never edit a live branch by hand**. Change the
+source, then build, push and upload.
 
-## Build
+## Leads
+
+Every live page posts its leads straight to the webhook of n8n
+**"MAM Forms => PIPEDRIVE"**, the workflow the websites' enquiry forms post to,
+in the same `_Field` shape (`assets/js/engine.js` → `formFields`). It is
+form-encoded like Quform, so the browser sends it without a CORS preflight.
+The page adds:
+
+- `_Form Name`: `Service Quiz`, `Service Quiz - TH` or `Service Quiz - AU`;
+- `_date`, in site time, written the way that site's Quform writes it.
+
+n8n then creates the Pipedrive person, a lead titled `<Lead Source> | <name>`
+and a note listing the answers and the plan. The page address decides the
+label and owner (.co.th → Thailand, .com.au → Australia).
+
+Nothing goes through WordPress. A bot that fills in the hidden honeypot field
+is not sent on. There is no reCAPTCHA, because the workflow does not check a
+token.
+
+## Release
 
 ```bash
-MAM_QUIZ_WEBHOOK_COTH=https://n8n.moveaheadmedia.com/webhook/… \
-MAM_QUIZ_WEBHOOK_COMAU=https://n8n.moveaheadmedia.com/webhook/… \
-node deploy/build.mjs            # or: node deploy/build.mjs coth
+node tests/run-node.mjs              # all suites must pass
+node deploy/build.mjs                # dist/live-mam-en/, dist/live-mam-th/, dist/live-mam-au/
+deploy/push-live-branches.sh         # commit each dist/<branch>/ to its branch and push
 ```
 
-`dist/<site>/` then mirrors the site's folder and is uploaded as it is.
-Everything that differs per site is in [`sites.mjs`](sites.mjs): the GTM
-container, the page addresses, the EN | TH links, the form names and the time
-zone the relay stamps on each lead. The build:
+Then upload each `dist/<branch>/` into its folder: hPanel → File Manager, FTP,
+or the Hostinger API (Mr Meeseeks uses
+`hostinger-deploy push dist/<branch> --dest <folder> --replace --delete-extra`).
+Only the page's own folder changes.
 
-- turns asset links into `/quiz/assets/…?v=<hash>` (the Thai page lives at
-  `/th/quiz/` but uses the same assets; the hash changes whenever an asset does,
-  so browsers never mix old and new files);
+Everything that differs per page is in [`sites.mjs`](sites.mjs): the address,
+the source page, the GTM container, the EN | TH links, the form name, the time
+zone and the webhook. The build:
+
+- points asset links at the page's own `assets/…?v=<hash>` (the hash changes
+  whenever an asset does, so browsers never mix old and new files);
 - points the EN | TH switch at the live addresses, and refuses a page with a
-  switch on a site that has none (Australia);
+  switch where the live page has none (Australia);
 - adds the site's Google Tag Manager container to `<head>` and `<body>`;
-- adds `window.MAM_DEPLOY`, which sends leads to `/quiz/submit.php` in the
-  website-form format (see `assets/js/config.js`);
-- writes `mam-quiz-relay.config.php` only when that site's webhook variable is
-  set. Without it the file is left out, and the copy already on the server
-  stays as it is.
+- adds `window.MAM_DEPLOY`, which tells `config.js` where leads go and how to
+  label them;
+- stamps `<!-- mam-th-quiz <commit> build <hash> — <branch> -->` into the page.
 
-The webhook is the **production** URL of n8n **"MAM Forms => PIPEDRIVE"** —
-the workflow the websites' Quform enquiry forms post to — the same URL for both
-sites. That workflow labels and assigns the lead from the page address
-(`.co.th` → Thailand, `.com.au` → Australia).
+## The Thai folder
 
-## Upload
+`public_html/th/` on moveaheadmedia.co.th belongs to the website. It holds the
+Thai `llms.txt`, and its `.htaccess` sends every `/th/…` address that is not a
+file to WordPress. The quiz's own `public_html/th/quiz/.htaccess` (from
+`htaccess/th-quiz.htaccess`) switches that off for the quiz folder only, so
+`/th/quiz/` is served from there. Nothing outside the quiz folders is touched.
 
-Upload the contents of `dist/<site>/` to the site's folder (the one that holds
-`public_html`), keeping the paths: hPanel → File Manager, FTP, or the Hostinger
-API's File Browser upload (Mr Meeseeks uses `hostinger-deploy`). Nothing else
-on the site changes: no WordPress page, no plugin, and no existing `.htaccess`.
+## Check after every release
 
-`public_html/th/` on moveaheadmedia.co.th already exists (it holds the Thai
-`llms.txt`), and its `.htaccess` sends every `/th/…` address that is not a file
-to WordPress. `public_html/th/quiz/.htaccess` turns that off for the quiz
-folder only, so `/th/quiz/` is served from there. Do not delete it.
-
-## Check after every deploy
-
-- `/quiz/` and `/th/quiz/` show the quiz; `/th/` and other Thai pages still
-  show WordPress.
-- The page source has the build comment `<!-- mam-th-quiz <commit> build <hash> -->`
-  and the site's `GTM-…` id.
-- `https://www.<domain>/quiz/submit.php` answers `405 {"ok":false,"error":"post-only"}`.
-  `500 not-configured` means the settings file is missing.
-- If the old version still shows, clear the cache in hPanel (or the Hostinger
-  API's `cache/clear`).
-
-## The relay (`relay/submit.php`)
-
-The page posts the lead to `/quiz/submit.php` on its own site. The relay then
-does what WordPress does for a Quform enquiry: it posts the fields to n8n from
-the server, form-encoded, each one with and without a leading `_`, and adds
-`_Form Name` (`Service Quiz`, or `Service Quiz - TH` from the Thai page),
-`_ip` and `_date` (site time). So the n8n webhook URL never appears in the
-page, and n8n sees a quiz lead the same way as a website enquiry.
-
-It also:
-- accepts only its own site's pages (`Origin`), and only the quiz's fields;
-- needs a name and a valid email;
-- keeps `_formURL` on its own site (it decides the Pipedrive label and owner);
-- thanks a bot that filled in the hidden honeypot field and sends nothing on;
-- takes at most 10 leads per visitor address per hour (`rateLimit`);
-- answers `{"ok":true}` only once n8n has accepted the lead. Otherwise the quiz
-  still shows the results, with the "we could not send your details" note and
-  an email link.
-
-There is no reCAPTCHA on the live pages: Quform checks the website forms'
-reCAPTCHA inside WordPress, and the relay has no secret key for the quiz's
-site key, so the page would load Google's script for a token nobody checks.
-To add it, put the secret in the relay's settings and verify the token in
-`submit.php` before the lead goes on.
+- Each address shows the quiz, with the build comment and the right `GTM-…` id
+  in the page source.
+- `/th/` and other Thai pages still show WordPress.
+- If an old version still shows, clear the cache in hPanel.
 
 ## Roll back
 
-Delete `public_html/quiz/` (and on co.th `public_html/th/quiz/`) in hPanel →
-File Manager; the addresses then return to WordPress's 404 page. Or upload
-the previous build.
+Upload the previous commit of the live branch, or delete the page's folder in
+hPanel → File Manager (the address then shows WordPress's 404 page).

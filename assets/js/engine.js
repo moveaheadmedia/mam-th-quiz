@@ -150,13 +150,12 @@
   }
 
   /* ── The website's enquiry-form workflow ──────────────────────────────
-     On moveaheadmedia.co.th and .com.au a lead goes where the website's own
-     enquiry forms send theirs: n8n "MAM Forms => PIPEDRIVE". That workflow
-     reads Quform's field names with a leading "_" and builds the Pipedrive
-     person, lead and note from them, so a quiz lead is sent in that shape.
-     The website's relay (deploy/relay/submit.php, served at
-     /quiz/submit.php) adds _Form Name, _ip and _date and passes it on from
-     the server, as WordPress does for Quform.
+     On the live pages (moveaheadmedia.co.th/quiz/, /th/quiz/ and
+     moveaheadmedia.com.au/quiz/) a lead goes where the websites' own enquiry
+     forms send theirs: n8n "MAM Forms => PIPEDRIVE". That workflow reads
+     Quform's field names with a leading "_" and builds the Pipedrive person,
+     lead and note from them, so the page posts a quiz lead to its webhook in
+     that shape, form-encoded like Quform.
      ------------------------------------------------------------------ */
 
   function label(answer) {
@@ -229,33 +228,69 @@
     };
   }
 
-  /** The request body for the configured webhook format. */
-  function requestBody(payload) {
-    if (window.MAM_CONFIG.webhookFormat !== "mam-forms") return payload;
+  /** Site-local date and time, written the way Quform writes _date on that
+      site: "d/m/Y" → 28/10/2026 9:47 (co.th), "m/d/Y" → 10/28/2026 5:57 AM
+      (com.au). */
+  function formDate(date, timeZone, style) {
+    var parts = {};
+    try {
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone || "Asia/Bangkok",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "numeric", minute: "2-digit", hourCycle: "h23",
+      }).formatToParts(date).forEach(function (part) { parts[part.type] = part.value; });
+    } catch (e) {
+      return date.toISOString();
+    }
+    var hour = Number(parts.hour) % 24;
+    if (style === "m/d/Y") {
+      return parts.month + "/" + parts.day + "/" + parts.year + " " +
+        (hour % 12 || 12) + ":" + parts.minute + " " + (hour < 12 ? "AM" : "PM");
+    }
+    return parts.day + "/" + parts.month + "/" + parts.year + " " + hour + ":" + parts.minute;
+  }
+
+  /**
+   * The request for the configured webhook format, or null when nothing
+   * should be sent (a bot filled in the hidden honeypot field).
+   * @returns {{type:string, body:string}|null}
+   */
+  function request(payload) {
+    var config = window.MAM_CONFIG;
+    if (config.webhookFormat !== "mam-forms") {
+      return { type: "application/json", body: JSON.stringify(payload) };
+    }
+    /* "MAM Forms => PIPEDRIVE" creates a lead for everything it receives. */
     var signals = (payload.security && payload.security.signals) || {};
-    var utm = window.MAM_UTM ? window.MAM_UTM.values() : {};
+    if (signals.honeypot_filled) return null;
+
+    var forms = config.forms || {};
+    var fields = formFields(payload, window.MAM_UTM ? window.MAM_UTM.values() : {});
+    fields["_Form Name"] = forms.formName || "Service Quiz";
+    fields._date = formDate(new Date(), forms.timeZone, forms.dateStyle);
+    /* Form-encoded, like Quform: a "simple" cross-site request, so the
+       browser sends it without asking n8n first (no CORS preflight). */
     return {
-      fields: formFields(payload, utm),
-      lang: payload.language === "th" ? "th" : "en",
-      /* A filled-in honeypot: the relay thanks the bot and sends nothing on. */
-      hp: signals.honeypot_filled ? 1 : 0,
+      type: "application/x-www-form-urlencoded;charset=UTF-8",
+      body: new URLSearchParams(fields).toString(),
     };
   }
 
   /**
-   * POST the lead to n8n (or to the website's relay). Never rejects — the
-   * visitor sees their results regardless of what the automation layer does.
+   * POST the lead to n8n. Never rejects — the visitor sees their results
+   * regardless of what the automation layer does.
    * @returns {Promise<{ok:boolean, reason?:string}>}
    */
   function submit(payload) {
     var config = window.MAM_CONFIG;
     var url = config.webhookUrl;
-    var body = requestBody(payload);
+    var req = request(payload);
 
+    if (!req) return Promise.resolve({ ok: true, reason: "not-sent" });
     if (!url || url.indexOf("REPLACE_WITH") === 0) {
       console.warn(
-        "[MAM quiz] No webhook configured — payload not sent:",
-        body,
+        "[MAM quiz] No webhook configured — request not sent:",
+        req.body,
       );
       return Promise.resolve({ ok: false, reason: "not-configured" });
     }
@@ -267,8 +302,8 @@
 
     return fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: { "Content-Type": req.type },
+      body: req.body,
       signal: controller.signal,
       keepalive: true,
     })
@@ -303,7 +338,8 @@
   window.MAM_ENGINE = {
     submit: submit,
     formFields: formFields,
-    requestBody: requestBody,
+    formDate: formDate,
+    request: request,
     answerIds: answerIds,
     answerOption: answerOption,
     answerOptions: answerOptions,

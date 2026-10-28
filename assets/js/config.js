@@ -2,9 +2,10 @@
    CONFIG — the only file you should need to edit to go live.
    ========================================================================== */
 
-/* On the live websites the build (deploy/build.mjs) puts a small
-   window.MAM_DEPLOY block in each page, from deploy/sites.mjs. It overrides
-   where leads go; everything else below applies everywhere. */
+/* On the live pages the build (deploy/build.mjs) puts a small
+   window.MAM_DEPLOY block in the page, from deploy/sites.mjs: where leads
+   go, and the form name and time zone they carry. Everything else below
+   applies everywhere. */
 var MAM_DEPLOY = window.MAM_DEPLOY || {};
 
 window.MAM_CONFIG = {
@@ -16,10 +17,10 @@ window.MAM_CONFIG = {
      payload goes straight to n8n "MAM Service Quiz — save leads to data
      table" (README → Storing leads in an n8n data table).
 
-     webhookFormat "mam-forms" (moveaheadmedia.co.th/quiz/, /th/quiz/ and
-     the AU site): the lead goes to the website's relay, /quiz/submit.php,
-     which passes it on to n8n "MAM Forms => PIPEDRIVE" like a website
-     enquiry form. See engine.js → formFields and deploy/README.md.
+     webhookFormat "mam-forms" (the live pages): the lead goes straight to
+     the webhook of n8n "MAM Forms => PIPEDRIVE", the workflow the websites'
+     enquiry forms use, in the same "_Field" shape (engine.js → formFields)
+     — so it lands in Pipedrive like a website enquiry.
 
      An empty webhookUrl still runs the quiz end to end: the request body is
      logged to the browser console instead of being sent.
@@ -98,6 +99,9 @@ window.MAM_CONFIG = {
   /* --------------------------------------------------------------------
      2c. The enquiry-form fields ("mam-forms" format only)
      --------------------------------------------------------------------
+     formName, timeZone, dateStyle — set per live page by the build: the
+       note's heading ("Service Quiz", "Service Quiz - TH", "Service Quiz -
+       AU") and the site-local _date, written like that site's Quform.
      dialCodes — the "Country Code" sent with a phone number typed without a
        "+" code, like the website form's default (+66 on .co.th, +61 here
        for AU).
@@ -108,6 +112,9 @@ window.MAM_CONFIG = {
        service in no list (the free strategy consultation) adds nothing.
      -------------------------------------------------------------------- */
   forms: {
+    formName: MAM_DEPLOY.formName || 'Service Quiz',
+    timeZone: MAM_DEPLOY.timeZone || 'Asia/Bangkok',
+    dateStyle: MAM_DEPLOY.dateStyle || 'd/m/Y',
     dialCodes: { TH: '+66', AU: '+61' },
     serviceInterest: {
       'SEO': ['seo-campaigns', 'ecommerce-seo', 'technical-seo', 'seo-audit',
@@ -153,9 +160,10 @@ window.MAM_CONFIG = {
        The SECRET key belongs in n8n credentials and must never appear in this
        file. Leave empty to disable — the quiz still works, and the payload
        reports configured:false so n8n can tell verification was skipped.
-       Off for the "mam-forms" format (the live websites): their relay has no
-       secret key to check a token with, so Google's script is not loaded for
-       nothing. Its spam checks are in deploy/relay/submit.php. */
+       Off for the "mam-forms" format (the live pages): "MAM Forms =>
+       PIPEDRIVE" does not check a token, so Google's script is not loaded
+       for nothing. A bot that fills in the hidden honeypot field is not
+       sent on at all (engine.js → request). */
     recaptchaSiteKey: MAM_DEPLOY.webhookFormat === 'mam-forms' ? '' : '6LfBdF8tAAAAABgwWbyFsy04A4u4VRBJJBNT0ZEV',
 
     /* Action name passed to grecaptcha.execute(). Verify this matches in n8n —

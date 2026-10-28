@@ -29,7 +29,6 @@ for (const [name, files] of Object.entries(SUITES)) {
   const context = {
     console, URL, URLSearchParams, setTimeout, clearTimeout, process: proc,
     MAM_UTM_PLUGIN_SOURCE: read('tests/fixtures/mam-quform-utms-scripts.js'),
-    MAM_RELAY_SOURCE: read('deploy/relay/submit.php'),
   };
   context.window = context;
   vm.createContext(context);

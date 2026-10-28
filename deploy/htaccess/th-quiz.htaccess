@@ -1,9 +1,11 @@
-# MAM service quiz, Thai page. Built and uploaded from the mam-th-quiz
-# repository (deploy/README.md); changes made here are overwritten.
+# MAM service quiz, Thai page. This folder is built from the mam-th-quiz
+# repository and deployed from its live branch (live-mam-th); edits made here
+# are overwritten by the next deploy. See deploy/README.md there.
 #
-# public_html/th/.htaccess sends every /th/ address that is not a file to
-# WordPress, and /th/quiz/ is a folder. A RewriteEngine of this folder's own
-# replaces those rules here, so the page in this folder is served instead.
+# public_html/th/.htaccess (the website's) sends every /th/ address that is
+# not a file to WordPress, and /th/quiz/ is a folder. A RewriteEngine of this
+# folder's own replaces those rules for this folder only, so the page here is
+# served. Nothing outside this folder is affected.
 RewriteEngine On
 DirectoryIndex index.html
 
