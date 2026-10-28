@@ -166,8 +166,8 @@ window.MAM_CONFIG = {
        reports configured:false so n8n can tell verification was skipped.
        Off for the "mam-forms" format (the live pages): "MAM Forms =>
        PIPEDRIVE" does not check a token, so Google's script is not loaded
-       for nothing. A bot that fills in the hidden honeypot field is not
-       sent on at all (engine.js → request). */
+       for nothing. Every lead is sent; anything that looks like spam is
+       only marked in the Pipedrive note (engine.js → spamCheck). */
     recaptchaSiteKey: MAM_DEPLOY.webhookFormat === 'mam-forms' ? '' : '6LfBdF8tAAAAABgwWbyFsy04A4u4VRBJJBNT0ZEV',
 
     /* Action name passed to grecaptcha.execute(). Verify this matches in n8n —
