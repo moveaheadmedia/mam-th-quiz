@@ -48,19 +48,23 @@ window.MAM_CONFIG = {
   market: ((typeof document !== 'undefined' &&
     document.documentElement.getAttribute('data-market')) || 'TH').toUpperCase(),
   markets: {
+    /* currency: the budget answers' currency (AU's are in data.js →
+       MARKET_ANSWERS); the lead's budget field is named after it. */
     TH: {
       site: 'https://www.moveaheadmedia.co.th',
       consultationUrl: 'https://www.moveaheadmedia.co.th/contact-us/',
       caseStudiesUrl: 'https://www.moveaheadmedia.co.th/about/case-studies/',
       phone: '02 260 0424',
-      phoneHref: 'tel:+6622600424'
+      phoneHref: 'tel:+6622600424',
+      currency: 'THB'
     },
     AU: {
       site: 'https://www.moveaheadmedia.com.au',
       consultationUrl: 'https://www.moveaheadmedia.com.au/contact-us/',
       caseStudiesUrl: 'https://www.moveaheadmedia.com.au/about/case-studies/',
       phone: '02 9161 8033',
-      phoneHref: 'tel:+61291618033'
+      phoneHref: 'tel:+61291618033',
+      currency: 'AUD'
     }
   },
   email: 'info@moveaheadmedia.com',
