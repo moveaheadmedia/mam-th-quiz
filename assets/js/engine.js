@@ -201,31 +201,38 @@
     if (typed) { dialCode = typed[1]; phone = typed[2]; }
     else if (/^\+/.test(phone)) { dialCode = ""; }
 
-    return {
-      _Name: lead.name || "",
-      "_Email address": lead.email || "",
-      "_Country Code": dialCode,
-      "_Phone Number": phone,
-      _Website: lead.website || "",
-      /* The quiz's budget answers are in THB on every page. */
-      "_Monthly Project Budget (THB)": label(answers.budget),
-      "_Service of interest": serviceInterest(plan.primaries).join(", "),
-      "_Quiz: About you": label(answers.profile),
-      "_Quiz: Business type": label(answers.type),
-      "_Quiz: Goal": label(answers.objective),
-      "_Quiz: Challenge": [label(answers.challenge), label(answers.challenge_2)]
-        .filter(Boolean).join(" / "),
-      "_Quiz: Recommended": names(plan.primaries).join(" + "),
-      "_Quiz: Also in the plan": names(plan.supporting).join(", "),
-      "_Quiz: Budget tier": plan.budget_tier || "",
-      "_Quiz: Language": payload.language === "th" ? "Thai" : "English",
-      _utm_source: utm.utm_source || "",
-      _utm_medium: utm.utm_medium || "",
-      _utm_campaign: utm.utm_campaign || "",
-      /* The page address decides the Pipedrive label and owner
-         (.co.th → Thailand, .com.au → Australia). */
-      _formURL: (payload.meta && payload.meta.page_url) || "",
-    };
+    /* The budget, named and written like the website form's on that site:
+       "Monthly Project Budget (AUD)" = "1,001 - 2,000 AUD" on the AU page
+       (data.js → MARKET_ANSWERS), the quiz's own THB wording elsewhere. */
+    var currency = ((window.MAM_CONFIG.markets || {})[payload.market] || {}).currency || "THB";
+    var budget = answerOption("budget", (answers.budget || {}).id);
+
+    /* Built field by field: the Pipedrive note lists them in this order. */
+    var fields = {};
+    fields._Name = lead.name || "";
+    fields["_Email address"] = lead.email || "";
+    fields["_Country Code"] = dialCode;
+    fields["_Phone Number"] = phone;
+    fields._Website = lead.website || "";
+    fields["_Monthly Project Budget (" + currency + ")"] =
+      (budget && budget.formValue) || label(answers.budget);
+    fields["_Service of interest"] = serviceInterest(plan.primaries).join(", ");
+    fields["_Quiz: About you"] = label(answers.profile);
+    fields["_Quiz: Business type"] = label(answers.type);
+    fields["_Quiz: Goal"] = label(answers.objective);
+    fields["_Quiz: Challenge"] = [label(answers.challenge), label(answers.challenge_2)]
+      .filter(Boolean).join(" / ");
+    fields["_Quiz: Recommended"] = names(plan.primaries).join(" + ");
+    fields["_Quiz: Also in the plan"] = names(plan.supporting).join(", ");
+    fields["_Quiz: Budget tier"] = plan.budget_tier || "";
+    fields["_Quiz: Language"] = payload.language === "th" ? "Thai" : "English";
+    fields._utm_source = utm.utm_source || "";
+    fields._utm_medium = utm.utm_medium || "";
+    fields._utm_campaign = utm.utm_campaign || "";
+    /* The page address decides the Pipedrive label and owner
+       (.co.th → Thailand, .com.au → Australia). */
+    fields._formURL = (payload.meta && payload.meta.page_url) || "";
+    return fields;
   }
 
   /** Site-local date and time, written the way Quform writes _date on that
