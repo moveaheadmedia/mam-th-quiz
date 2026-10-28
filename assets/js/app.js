@@ -273,7 +273,10 @@
           field('phone', T.t('form.phone'), 'tel', '08X XXX XXXX', '', true) +
           field('website', T.t('form.website'), 'text', 'yourcompany.com', T.t('form.websiteHint'), false) +
         '</div>' +
-        '<div class="hp" aria-hidden="true"><label>Do not fill this in<input type="text" name="company_fax" tabindex="-1" autocomplete="off"></label></div>' +
+        /* Hidden from people. Its name matches nothing a browser or password
+           manager autofills (it used to be "company_fax", which autofill
+           filled in for real visitors). */
+        '<div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="mam_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore></label></div>' +
         '<p class="form__error" id="formError" role="alert"></p>' +
         '<button type="submit" class="btn btn--primary btn--lg btn--block" id="submitBtn">' +
           esc(T.t('form.submit')) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') +
@@ -717,7 +720,7 @@
       secondsOnForm: Math.round((Date.now() - state.formShownAt) / 100) / 10,
       secondsTotal: Math.round((Date.now() - state.startedAt) / 1000)
     };
-    var assessment = ENGINE.spamSignals(state.lead, timing, form.company_fax.value);
+    var assessment = ENGINE.spamSignals(state.lead, timing, form.mam_hp.value);
 
     ENGINE.recaptchaToken().then(function (token) {
       var spam = CFG.spam || {};
