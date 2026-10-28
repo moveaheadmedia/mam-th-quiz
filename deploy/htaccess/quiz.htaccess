@@ -1,0 +1,11 @@
+# MAM service quiz: the page(s), their assets and the lead relay submit.php.
+# Built and uploaded from the mam-th-quiz repository (deploy/README.md);
+# changes made here are overwritten by the next deploy.
+DirectoryIndex index.html
+
+# Assets carry ?v=<build> in the page, so only the page itself must be fresh.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

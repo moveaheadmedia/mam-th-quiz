@@ -1,22 +1,36 @@
 /* ==========================================================================
    CONFIG — the only file you should need to edit to go live.
    ========================================================================== */
+
+/* On the live websites the build (deploy/build.mjs) puts a small
+   window.MAM_DEPLOY block in each page, from deploy/sites.mjs. It overrides
+   where leads go; everything else below applies everywhere. */
+var MAM_DEPLOY = window.MAM_DEPLOY || {};
+
 window.MAM_CONFIG = {
 
   /* --------------------------------------------------------------------
-     1. n8n WEBHOOK  ← REPLACE THIS BEFORE LAUNCH
+     1. Where leads go
      --------------------------------------------------------------------
-     Paste the *Production* URL from your n8n Webhook node, e.g.
-       https://n8n.yourdomain.com/webhook/mam-service-quiz
-     Leave it as the placeholder below and the quiz still works end-to-end —
-     the payload is logged to the browser console instead of being sent.
+     webhookFormat "quiz" (the preview on GitHub Pages): the whole quiz
+     payload goes straight to n8n "MAM Service Quiz — save leads to data
+     table" (README → Storing leads in an n8n data table).
 
-     In the n8n Webhook node set:
+     webhookFormat "mam-forms" (moveaheadmedia.co.th/quiz/, /th/quiz/ and
+     the AU site): the lead goes to the website's relay, /quiz/submit.php,
+     which passes it on to n8n "MAM Forms => PIPEDRIVE" like a website
+     enquiry form. See engine.js → formFields and deploy/README.md.
+
+     An empty webhookUrl still runs the quiz end to end: the request body is
+     logged to the browser console instead of being sent.
+
+     For the "quiz" format, set in the n8n Webhook node:
        HTTP Method .......... POST
        Respond .............. "Immediately" (or "Using Respond to Webhook")
-       Allowed Origins (CORS) ... https://moveaheadmedia.github.io, https://www.moveaheadmedia.co.th
+       Allowed Origins (CORS) ... https://moveaheadmedia.github.io
      -------------------------------------------------------------------- */
-  webhookUrl: 'https://n8n.moveaheadmedia.com/webhook/mam-service-quiz',
+  webhookUrl: MAM_DEPLOY.webhookUrl || 'https://n8n.moveaheadmedia.com/webhook/mam-service-quiz',
+  webhookFormat: MAM_DEPLOY.webhookFormat || 'quiz',
 
   /* Milliseconds to wait for n8n before we give up and show results anyway.
      The user never gets blocked by a slow automation. */
@@ -82,6 +96,40 @@ window.MAM_CONFIG = {
   },
 
   /* --------------------------------------------------------------------
+     2c. The enquiry-form fields ("mam-forms" format only)
+     --------------------------------------------------------------------
+     dialCodes — the "Country Code" sent with a phone number typed without a
+       "+" code, like the website form's default (+66 on .co.th, +61 here
+       for AU).
+     serviceInterest — the Pipedrive "Service Interest" option each
+       recommended service counts as. The lead's main recommendation(s) are
+       sent as "Service of interest", the field the website form's service
+       picker fills; n8n matches the option names exactly (any case). A
+       service in no list (the free strategy consultation) adds nothing.
+     -------------------------------------------------------------------- */
+  forms: {
+    dialCodes: { TH: '+66', AU: '+61' },
+    serviceInterest: {
+      'SEO': ['seo-campaigns', 'ecommerce-seo', 'technical-seo', 'seo-audit',
+              'seo-ai-visibility-audit', 'on-page-seo', 'keyword-mapping',
+              'link-building', 'video-seo', 'seo-reseller'],
+      'AI SEO': ['ai-seo'],
+      'GBP / Local SEO': ['local-seo', 'google-business-profile'],
+      'Content Marketing': ['content-marketing'],
+      'Google Ads': ['google-ads-campaigns', 'google-shopping', 'performance-max',
+                     'google-display-ads', 'youtube-ads'],
+      'Social Media': ['social-media-campaigns', 'facebook-ads', 'cpas-ads',
+                       'line-ads', 'reddit-ads', 'x-ads', 'premium-creative'],
+      'LinkedIn': ['linkedin-ads'],
+      'TikTok Ads': ['tiktok-ads'],
+      'Website Design and Development': ['web-design', 'ui-ux', 'cro', 'heat-maps'],
+      'Website Maintenance': ['web-maintenance'],
+      'Email Campaigns': ['email-marketing'],
+      'Digital Marketing': ['programmatic-ads', 'outcome-marketing']
+    }
+  },
+
+  /* --------------------------------------------------------------------
      3. Behaviour
      -------------------------------------------------------------------- */
   persistAnswers: true,  // remember progress on refresh (sessionStorage)
@@ -104,8 +152,11 @@ window.MAM_CONFIG = {
     /* Google reCAPTCHA v3 SITE key (the public one, safe to expose here).
        The SECRET key belongs in n8n credentials and must never appear in this
        file. Leave empty to disable — the quiz still works, and the payload
-       reports configured:false so n8n can tell verification was skipped. */
-    recaptchaSiteKey: '6LfBdF8tAAAAABgwWbyFsy04A4u4VRBJJBNT0ZEV',
+       reports configured:false so n8n can tell verification was skipped.
+       Off for the "mam-forms" format (the live websites): their relay has no
+       secret key to check a token with, so Google's script is not loaded for
+       nothing. Its spam checks are in deploy/relay/submit.php. */
+    recaptchaSiteKey: MAM_DEPLOY.webhookFormat === 'mam-forms' ? '' : '6LfBdF8tAAAAABgwWbyFsy04A4u4VRBJJBNT0ZEV',
 
     /* Action name passed to grecaptcha.execute(). Verify this matches in n8n —
        it stops a token farmed from another page on your domain being replayed. */

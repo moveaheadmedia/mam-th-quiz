@@ -474,6 +474,30 @@
     '</section>';
   }
 
+  /* ── Analytics ──────────────────────────────────────────────────────── */
+
+  /* dataLayer events for Google Tag Manager; the live pages load the
+     website's container. Nothing personal is pushed — no name, email or
+     phone. GTM needs a Custom Event trigger on these names to use them:
+       mam_quiz_step  a new screen: quiz_step 1–5 = questions, 6 = the form,
+                      7 = results; quiz_screen = question id, form or results
+       mam_quiz_lead  the lead form was sent; quiz_delivered false means the
+                      relay or n8n did not confirm it */
+  var lastScreen = null;
+
+  function track(event, data) {
+    var item = { event: event, quiz_market: CFG.market, quiz_language: T.lang };
+    for (var key in data) item[key] = data[key];
+    (window.dataLayer = window.dataLayer || []).push(item);
+  }
+
+  function trackScreen() {
+    var screen = state.screen === 'question' ? D.QUESTIONS[state.index].id : state.screen;
+    if (screen === lastScreen) return;
+    lastScreen = screen;
+    track('mam_quiz_step', { quiz_step: currentStepNumber(), quiz_screen: screen });
+  }
+
   /* ── Render ─────────────────────────────────────────────────────────── */
 
   function render(focusTarget) {
@@ -500,6 +524,7 @@
       if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
     }
     announceHeight();
+    trackScreen();
   }
 
   /* ── Flow ───────────────────────────────────────────────────────────── */
@@ -714,6 +739,11 @@
       return ENGINE.submit(payload);
     }).then(function (delivery) {
       state.delivery = delivery;
+      track('mam_quiz_lead', {
+        quiz_delivered: !!delivery.ok,
+        quiz_recommended: state.result.primaries.join(' + '),
+        quiz_budget: chosenIds('budget')[0] || ''
+      });
       state.screen = 'results';
       save();
       render();
@@ -772,7 +802,7 @@
   /* ── Boot ───────────────────────────────────────────────────────────── */
 
   document.getElementById('year').textContent = new Date().getFullYear();
-  /* The EN | TH | AU switch keeps the campaign tags (utm_…, gclid) in the address. */
+  /* The EN | TH switch keeps the campaign tags (utm_…, gclid) in the address. */
   Array.prototype.forEach.call(document.querySelectorAll('.lang-switch a'), function (link) {
     if (window.location.search) link.setAttribute('href', link.getAttribute('href') + window.location.search);
   });

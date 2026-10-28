@@ -3,16 +3,57 @@
 An interactive 5-step quiz that recommends which digital marketing services a
 visitor actually needs, then captures the lead to an n8n webhook.
 
-**Live:** https://moveaheadmedia.github.io/mam-th-quiz/ (English) ·
-https://moveaheadmedia.github.io/mam-th-quiz/th/ (Thai) ·
-https://moveaheadmedia.github.io/mam-th-quiz/au/ (English, Australia)
+**Live:** https://www.moveaheadmedia.co.th/quiz/ (English) ·
+https://www.moveaheadmedia.co.th/th/quiz/ (Thai) ·
+https://www.moveaheadmedia.com.au/quiz/ (Australia)
 
-No build step, no dependencies — plain HTML, CSS and JavaScript.
+**Preview** of this repository as it is (GitHub Pages):
+https://moveaheadmedia.github.io/mam-th-quiz/ · [/th/](https://moveaheadmedia.github.io/mam-th-quiz/th/) ·
+[/au/](https://moveaheadmedia.github.io/mam-th-quiz/au/)
+
+No dependencies — plain HTML, CSS and JavaScript. The preview has no build
+step; the websites get a small one ([deploy/README.md](deploy/README.md)).
 
 ---
 
-## Go live
+## On the websites
 
+The quiz has its own pages on moveaheadmedia.co.th (English `/quiz/`, Thai
+`/th/quiz/`) and moveaheadmedia.com.au (`/quiz/`), as plain files beside
+WordPress on Hostinger. [deploy/README.md](deploy/README.md) covers the build,
+the upload, the checks and how to roll back. On those pages:
+
+- **Leads go where the website's enquiry forms send theirs:** n8n
+  **"MAM Forms => PIPEDRIVE"**, which creates the Pipedrive person, lead and
+  note. The page posts to `/quiz/submit.php` on its own site, and that relay
+  passes the lead on from the server like WordPress does for Quform, so the
+  webhook URL is never in the page. The lead is titled `<Lead Source> | <name>`,
+  labelled and assigned from the page address (.co.th → Thailand,
+  .com.au → Australia), its "Service Interest" is the main recommendation
+  (`config.js` → `forms.serviceInterest`), and the note lists the answers and
+  the plan. Field list: `engine.js` → `formFields`.
+- **Attribution is the website's own.** `assets/js/utm.js` applies the rules
+  of the website's "MAM UTM To Forms" plugin and shares its cookies
+  (`user_utm_source/medium/campaign`), so a visitor who came in through the
+  website keeps that first touch, and one who lands on the quiz is classified
+  the same way. `tests/utm.test.js` runs every rule through both the quiz and
+  a copy of the plugin's script (`tests/fixtures/`); when the plugin changes,
+  replace the copy and the test shows what the quiz must learn.
+- **Google Tag Manager:** each site's own container (GTM-NHTDCN6S on .co.th,
+  GTM-NRK28BX5 on .com.au). The quiz pushes `mam_quiz_step` (every new screen)
+  and `mam_quiz_lead` (lead sent) to the dataLayer, with no personal data;
+  a tag needs a Custom Event trigger on those names. Link clicks on the
+  results page (phone, LINE, WhatsApp) reach the containers' existing
+  link-click triggers as on any page.
+- **Language switch:** EN | TH on the co.th pages; none on the Australian page.
+
+---
+
+## The preview's n8n workflow
+
+The GitHub Pages preview sends the whole quiz payload (below) to n8n
+**"MAM Service Quiz — save leads to data table"** instead of Pipedrive
+(`webhookFormat: 'quiz'`, the default when a page has no `window.MAM_DEPLOY`).
 Everything the browser needs lives in `assets/js/config.js`, and both values are
 already set:
 
@@ -296,6 +337,12 @@ a browser — it runs on load. Or from the command line on macOS:
   assets/js/data.js assets/js/planner.js tests/planner.test.js
 ```
 
+Run every suite with Node (planner, Thai text, UTM attribution, lead fields):
+
+```bash
+node tests/run-node.mjs
+```
+
 Open `tests/i18n.html` to check the Thai translation is complete, or:
 
 ```bash
@@ -320,20 +367,24 @@ Open `tests/i18n.html` to check the Thai translation is complete, or:
 | Thai wording — everything a visitor sees on `/th/` | `assets/js/i18n/th.js` |
 | Google rating under question 1 (both languages) | `config.js` → `reviews` |
 | Styling | `assets/css/styles.css` |
+| UTM rules (keep in step with the website's plugin) | `assets/js/utm.js`, `tests/utm.test.js` |
+| The lead's fields for "MAM Forms => PIPEDRIVE" | `assets/js/engine.js` → `formFields`; Service Interest names in `config.js` → `forms` |
+| GTM container, live addresses, form names, time zone — per website | `deploy/sites.mjs` |
+| What the relay accepts and passes on | `deploy/relay/submit.php` |
 
 ## Languages and markets
 
 | Address | Shows | Market |
 | --- | --- | --- |
-| `/` | English — the original address, unchanged so existing links and embeds keep working | TH |
-| `/th/` | Thai | TH |
-| `/au/` | English, the same text as `/` | AU |
-| `/en/` | forwards to `/` (keeps `utm_…` tags) | — |
+| `/` | English — live at moveaheadmedia.co.th/quiz/ | TH |
+| `/th/` | Thai — live at moveaheadmedia.co.th/th/quiz/ | TH |
+| `/au/` | English, the same text as `/` — live at moveaheadmedia.com.au/quiz/ | AU |
+| `/en/` | forwards to `/` (keeps `utm_…` tags); preview only | — |
 
 All three pages run the same quiz logic; only the text and links differ. The
-`<html lang>` of the page decides which text `assets/js/i18n.js` serves. An
-EN | TH | AU switch sits in the header (like the website's language and location
-pickers, in one), and answers carry across when a visitor switches mid-quiz.
+`<html lang>` of the page decides which text `assets/js/i18n.js` serves. The
+English and Thai pages have an EN | TH switch in the header, and answers carry
+across when a visitor switches mid-quiz. The Australian page has no switch.
 
 - **Change English wording:** questions, answers and service cards in `data.js`;
   everything else on screen in `i18n/en.js`.
@@ -384,7 +435,8 @@ were added and are marked with a leading `+` in the token block at the top of
 
 ## Embedding in WordPress
 
-The quiz posts its height to the parent window, so it can be dropped into a page
+Not needed on moveaheadmedia.co.th and .com.au, where the quiz has its own
+pages (above). For another site, the quiz posts its height to the parent window, so it can be dropped into a page
 as a self-sizing iframe:
 
 ```html

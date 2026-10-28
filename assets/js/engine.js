@@ -149,19 +149,113 @@
     return { signals: signals, client_spam_score: Math.min(score, 100) };
   }
 
+  /* ── The website's enquiry-form workflow ──────────────────────────────
+     On moveaheadmedia.co.th and .com.au a lead goes where the website's own
+     enquiry forms send theirs: n8n "MAM Forms => PIPEDRIVE". That workflow
+     reads Quform's field names with a leading "_" and builds the Pipedrive
+     person, lead and note from them, so a quiz lead is sent in that shape.
+     The website's relay (deploy/relay/submit.php, served at
+     /quiz/submit.php) adds _Form Name, _ip and _date and passes it on from
+     the server, as WordPress does for Quform.
+     ------------------------------------------------------------------ */
+
+  function label(answer) {
+    return (answer && answer.label) || "";
+  }
+
+  /** Pipedrive "Service Interest" options for the recommended services. */
+  function serviceInterest(services) {
+    var map = ((window.MAM_CONFIG.forms || {}).serviceInterest) || {};
+    var out = [];
+    (services || []).forEach(function (service) {
+      Object.keys(map).forEach(function (option) {
+        if (map[option].indexOf(service.id) !== -1 && out.indexOf(option) === -1) {
+          out.push(option);
+        }
+      });
+    });
+    return out;
+  }
+
   /**
-   * POST the lead to n8n. Never rejects — the visitor sees their results
-   * regardless of what the automation layer does.
+   * The lead as the enquiry-form fields n8n "MAM Forms => PIPEDRIVE" reads.
+   * Everything is a string; the note in Pipedrive lists every non-empty one.
+   * @param {Object} payload  PLANNER.buildPayload(), plus .language and .market
+   * @param {Object} utm      { utm_source, utm_medium, utm_campaign }
+   */
+  function formFields(payload, utm) {
+    var forms = window.MAM_CONFIG.forms || {};
+    var lead = payload.lead || {};
+    var answers = payload.answers || {};
+    var plan = payload.recommendation || {};
+    var names = function (list) {
+      return (list || []).map(function (service) { return service.name; });
+    };
+    utm = utm || {};
+
+    /* Pipedrive gets "<Country Code> <Phone Number>". Like the website's
+       phone field, the code defaults to the market's; a number typed with
+       its own "+code " keeps it. */
+    var phone = String(lead.phone || "").trim();
+    var dialCode = (forms.dialCodes || {})[payload.market] || "";
+    var typed = /^(\+\d{1,4})[\s.-]+(\S.*)$/.exec(phone);
+    if (typed) { dialCode = typed[1]; phone = typed[2]; }
+    else if (/^\+/.test(phone)) { dialCode = ""; }
+
+    return {
+      _Name: lead.name || "",
+      "_Email address": lead.email || "",
+      "_Country Code": dialCode,
+      "_Phone Number": phone,
+      _Website: lead.website || "",
+      /* The quiz's budget answers are in THB on every page. */
+      "_Monthly Project Budget (THB)": label(answers.budget),
+      "_Service of interest": serviceInterest(plan.primaries).join(", "),
+      "_Quiz: About you": label(answers.profile),
+      "_Quiz: Business type": label(answers.type),
+      "_Quiz: Goal": label(answers.objective),
+      "_Quiz: Challenge": [label(answers.challenge), label(answers.challenge_2)]
+        .filter(Boolean).join(" / "),
+      "_Quiz: Recommended": names(plan.primaries).join(" + "),
+      "_Quiz: Also in the plan": names(plan.supporting).join(", "),
+      "_Quiz: Budget tier": plan.budget_tier || "",
+      "_Quiz: Language": payload.language === "th" ? "Thai" : "English",
+      _utm_source: utm.utm_source || "",
+      _utm_medium: utm.utm_medium || "",
+      _utm_campaign: utm.utm_campaign || "",
+      /* The page address decides the Pipedrive label and owner
+         (.co.th → Thailand, .com.au → Australia). */
+      _formURL: (payload.meta && payload.meta.page_url) || "",
+    };
+  }
+
+  /** The request body for the configured webhook format. */
+  function requestBody(payload) {
+    if (window.MAM_CONFIG.webhookFormat !== "mam-forms") return payload;
+    var signals = (payload.security && payload.security.signals) || {};
+    var utm = window.MAM_UTM ? window.MAM_UTM.values() : {};
+    return {
+      fields: formFields(payload, utm),
+      lang: payload.language === "th" ? "th" : "en",
+      /* A filled-in honeypot: the relay thanks the bot and sends nothing on. */
+      hp: signals.honeypot_filled ? 1 : 0,
+    };
+  }
+
+  /**
+   * POST the lead to n8n (or to the website's relay). Never rejects — the
+   * visitor sees their results regardless of what the automation layer does.
    * @returns {Promise<{ok:boolean, reason?:string}>}
    */
   function submit(payload) {
     var config = window.MAM_CONFIG;
     var url = config.webhookUrl;
+    var body = requestBody(payload);
 
     if (!url || url.indexOf("REPLACE_WITH") === 0) {
       console.warn(
         "[MAM quiz] No webhook configured — payload not sent:",
-        payload,
+        body,
       );
       return Promise.resolve({ ok: false, reason: "not-configured" });
     }
@@ -174,7 +268,7 @@
     return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
       signal: controller.signal,
       keepalive: true,
     })
@@ -208,6 +302,8 @@
 
   window.MAM_ENGINE = {
     submit: submit,
+    formFields: formFields,
+    requestBody: requestBody,
     answerIds: answerIds,
     answerOption: answerOption,
     answerOptions: answerOptions,
