@@ -1,0 +1,765 @@
+/* ==========================================================================
+   Move Ahead Media — Service Recommendation Quiz
+   Built on the Elementor kit tokens (.elementor-kit-201) with a small number
+   of additions needed for UI states the kit does not define. Additions are
+   marked with a leading "+" so they are easy to audit against brand.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Tokens
+   -------------------------------------------------------------------------- */
+:root {
+  /* Kit colours */
+  --mam-primary:      #EC3737;
+  --mam-secondary:    #FFFFFF;
+  --mam-text:         #000000;
+  --mam-accent:       #F1F1F1;
+  --mam-white-45:     #FFFFFF45;
+  --mam-white-94:     #FFFFFF94;
+  --mam-grey-94:      #80808094;
+
+  /* + UI additions (hover, borders, muted text, validation, dark panels) */
+  --mam-primary-dark: #C82A2A;
+  --mam-primary-soft: #FDECEC;
+  --mam-ink:          #101013;
+  --mam-ink-soft:     #1C1C21;
+  --mam-line:         #E5E5E8;
+  --mam-line-strong:  #D2D2D8;
+  --mam-muted:        #6A6A73;
+  --mam-page:         #F6F6F8;
+  --mam-success:      #129B5C;
+
+  /* Kit typography */
+  /* Same pair as moveaheadmedia.co.th: Be Vietnam Pro draws the Latin letters,
+     Noto Sans Thai the Thai ones (it is only downloaded on the Thai page). */
+  --font: "Be Vietnam Pro", "Noto Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* + Shape & depth (the kit defines neither) */
+  --radius-sm: 10px;
+  --radius:    14px;
+  --radius-lg: 22px;
+  --shadow-sm: 0 1px 2px rgba(16,16,19,.05), 0 4px 12px -6px rgba(16,16,19,.10);
+  --shadow-md: 0 24px 56px -28px rgba(16,16,19,.28), 0 2px 6px rgba(16,16,19,.04);
+  --shadow-red: 0 12px 28px -12px rgba(236,55,55,.55);
+
+  --shell: 940px;
+  --ease: cubic-bezier(.32,.72,.28,1);
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  /* + kit body is 15px; bumped to 16px so form inputs stay legible on mobile */
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--mam-text);
+  background: var(--mam-page);
+  background-image:
+    radial-gradient(1000px 460px at 50% -180px, rgba(236,55,55,.13), transparent 70%);
+  background-repeat: no-repeat;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+h1, h2, h3 { margin: 0; line-height: 1.2; font-weight: 800; letter-spacing: -.015em; }
+p { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+a { color: var(--mam-primary); }
+
+img, svg { display: block; max-width: 100%; }
+
+.shell { width: 100%; max-width: var(--shell); margin-inline: auto; padding-inline: 20px; }
+
+:where(a, button, input, [tabindex]):focus-visible {
+  outline: 3px solid var(--mam-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.skip-link {
+  position: absolute; left: 12px; top: -60px; z-index: 20;
+  background: var(--mam-ink); color: #fff; padding: 10px 16px;
+  border-radius: var(--radius-sm); font-weight: 700; text-decoration: none;
+  transition: top .2s var(--ease);
+}
+.skip-link:focus { top: 12px; }
+
+.icon {
+  width: 20px; height: 20px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.9;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.icon--arrow { width: 18px; height: 18px; margin-left: 8px; }
+.icon--arrow-back { width: 18px; height: 18px; margin-right: 6px; }
+.icon--tick { stroke-width: 2.6; }
+
+/* --------------------------------------------------------------------------
+   Header / footer
+   -------------------------------------------------------------------------- */
+.site-header {
+  background: var(--mam-secondary);
+  border-bottom: 1px solid var(--mam-line);
+}
+
+.site-header__inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; min-height: 72px;
+}
+.site-header__logo img { height: 34px; width: auto; }
+.site-header__actions { display: flex; align-items: center; gap: 18px; }
+.site-header__cta { white-space: nowrap; }
+
+/* EN | TH | AU. The current page is marked, not linked away from. */
+.lang-switch { display: flex; align-items: center; font-size: 13px; font-weight: 700; }
+.lang-switch a {
+  color: var(--mam-muted); text-decoration: none; padding: 4px 9px; line-height: 1;
+}
+.lang-switch a + a { border-left: 1.5px solid var(--mam-line-strong); }
+.lang-switch a:hover { color: var(--mam-primary); }
+.lang-switch a[aria-current="page"] { color: var(--mam-text); }
+
+/* .btn--ghost is designed for dark panels (the results CTA still uses it there),
+   so it needs a light-background variant inside the now-white header. */
+.site-header .btn--ghost { border-color: var(--mam-line-strong); color: var(--mam-text); }
+.site-header .btn--ghost:hover {
+  border-color: var(--mam-primary); color: var(--mam-primary); background: transparent;
+}
+
+.site-footer {
+  margin-top: auto;
+  padding: 28px 0;
+  border-top: 1px solid var(--mam-line);
+  font-size: 13px;
+  color: var(--mam-muted);
+}
+.site-footer__inner {
+  display: flex; flex-wrap: wrap; gap: 10px 24px;
+  align-items: center; justify-content: space-between;
+}
+.site-footer__links { display: flex; gap: 20px; }
+.site-footer a { color: var(--mam-muted); text-decoration: none; }
+.site-footer a:hover { color: var(--mam-primary); }
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0; border: 1.5px solid transparent; border-radius: 999px;
+  font-family: var(--font);
+  /* kit --e-global-typography-d2be5a1: 15px / 800 / uppercase / ls .6px */
+  font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  line-height: 1; text-decoration: none; cursor: pointer;
+  padding: 14px 26px;
+  transition: background-color .18s var(--ease), color .18s var(--ease),
+              border-color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
+}
+.btn:disabled { cursor: default; opacity: .75; }
+
+.btn--primary { background: var(--mam-primary); color: #fff; box-shadow: var(--shadow-red); }
+.btn--primary:hover:not(:disabled) { background: var(--mam-primary-dark); transform: translateY(-1px); }
+.btn--primary:active:not(:disabled) { transform: translateY(0); }
+
+.btn--ghost { border-color: var(--mam-white-45); color: #fff; background: transparent; }
+.btn--ghost:hover { border-color: #fff; background: rgba(255,255,255,.08); }
+
+/* Chat buttons (logic v7) — each app's own green, so the button is recognised
+   at a glance. Dark ink text rather than white: white on these greens falls
+   below readable contrast. */
+.btn--chat { color: var(--mam-ink); }
+.btn--chat:hover { transform: translateY(-1px); }
+.btn--chat .icon--chat { width: 18px; height: 18px; margin-right: 8px; }
+.btn--chat-line { background: #06C755; }
+.btn--chat-line:hover { background: #05B34C; }
+.btn--chat-whatsapp { background: #25D366; }
+.btn--chat-whatsapp:hover { background: #1FBE5B; }
+
+.btn--text {
+  background: none; color: var(--mam-muted); padding: 10px 4px;
+  text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 14px;
+}
+.btn--text:hover { color: var(--mam-primary); }
+
+.btn--sm { padding: 10px 18px; font-size: 12px; }
+.btn--lg { padding: 18px 34px; font-size: 15px; }
+.btn--block { width: 100%; }
+
+/* --------------------------------------------------------------------------
+   Progress
+   -------------------------------------------------------------------------- */
+.progress { padding-top: 34px; }
+
+/* A connected stepper: numbered dots sit on a single line, joined by
+   connectors that fill up to the current step, with a label under each dot.
+   Equal flex columns keep any number of steps evenly spaced. */
+.progress__steps {
+  display: flex;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pstep {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+/* Connector from the previous dot to this one, behind the opaque dots so each
+   end is capped by a dot. It colours in once its step is reached. */
+.pstep::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: 50%;
+  left: -50%;
+  height: 2px;
+  background: var(--mam-line-strong);
+  z-index: 0;
+  transition: background .4s var(--ease);
+}
+.pstep:first-child::before { display: none; }
+.pstep.is-done::before,
+.pstep.is-active::before { background: var(--mam-ink); }
+
+.pstep__dot {
+  position: relative;
+  z-index: 1;
+  display: grid; place-items: center; flex: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--mam-secondary);
+  border: 1.5px solid var(--mam-line-strong);
+  color: var(--mam-muted);
+  font-size: 13px; font-weight: 800;
+  transition: all .3s var(--ease);
+}
+.pstep.is-active .pstep__dot {
+  background: var(--mam-primary); border-color: var(--mam-primary); color: #fff;
+  box-shadow: 0 0 0 5px rgba(236,55,55,.14);
+}
+.pstep.is-done .pstep__dot { background: var(--mam-ink); border-color: var(--mam-ink); color: #fff; }
+.pstep.is-done .icon { width: 15px; height: 15px; }
+
+.pstep__text {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 0; max-width: 100%;
+}
+.pstep__label {
+  font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  line-height: 1.2; color: var(--mam-muted); white-space: nowrap;
+}
+.pstep__caption {
+  font-size: 12.5px; font-weight: 500; line-height: 1.25; color: var(--mam-grey-94);
+  max-width: 14ch;
+}
+.pstep.is-active .pstep__label { color: var(--mam-primary); }
+.pstep.is-active .pstep__caption { color: var(--mam-text); font-weight: 600; }
+.pstep.is-done .pstep__label { color: var(--mam-ink); }
+
+/* The connectors above now carry progress, so the old track bar is retired.
+   #progressFill still receives a width from app.js; keeping the rule inert
+   avoids touching JS. */
+.progress__track { display: none; }
+.progress__fill { width: 0; }
+
+/* --------------------------------------------------------------------------
+   Card
+   -------------------------------------------------------------------------- */
+.stage { padding: 24px 0 8px; }
+
+.card {
+  background: var(--mam-secondary);
+  border: 1px solid var(--mam-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 44px;
+}
+.card.is-entering { animation: cardIn .42s var(--ease) both; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.card__nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--mam-line);
+}
+.card__nav--form { margin-top: 18px; border-top: 0; padding-top: 0; }
+.card__nav--results { justify-content: center; }
+
+.eyebrow {
+  /* kit --e-global-typography-accent */
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+  line-height: 1.3; color: var(--mam-primary);
+  margin-bottom: 14px;
+}
+
+.stage-note {
+  text-align: center; font-size: 12px; color: var(--mam-grey-94);
+  margin: 18px 0 6px; min-height: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   Trust strip — sits below question 1 only
+   -------------------------------------------------------------------------- */
+.trust {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 12px;
+  margin: 26px 0 0;
+}
+.trust li {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--mam-accent); border-radius: 999px;
+  padding: 9px 16px 9px 13px;
+  font-size: 13px; font-weight: 600;
+}
+.trust .icon { width: 17px; height: 17px; color: var(--mam-primary); }
+
+.trust__meta {
+  margin-top: 14px; font-size: 12px; color: var(--mam-grey-94); text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Questions
+   -------------------------------------------------------------------------- */
+.question__title {
+  /* kit secondary is 34px */
+  font-size: clamp(23px, 3.4vw, 33px);
+  line-height: 1.25;
+  max-width: 24ch;
+}
+.question__subtitle {
+  margin-top: 12px; color: var(--mam-muted); font-size: 15px;
+  max-width: 56ch;
+}
+
+.options {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  margin-top: 28px;
+}
+.options > .option:only-child,
+.options > .option:nth-child(odd):last-child { grid-column: 1 / -1; }
+
+.option {
+  display: flex; align-items: flex-start; gap: 14px;
+  width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--font);
+  background: var(--mam-secondary);
+  border: 1.5px solid var(--mam-line);
+  border-radius: var(--radius);
+  padding: 18px 18px 18px 16px;
+  transition: border-color .18s var(--ease), background-color .18s var(--ease),
+              transform .18s var(--ease), box-shadow .18s var(--ease);
+}
+.option:hover {
+  border-color: var(--mam-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.option.is-selected {
+  border-color: var(--mam-primary);
+  background: var(--mam-primary-soft);
+  box-shadow: 0 0 0 1px var(--mam-primary) inset;
+}
+
+.option__key {
+  display: grid; place-items: center; flex: none;
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--mam-accent); color: var(--mam-muted);
+  font-size: 12px; font-weight: 800;
+  transition: all .18s var(--ease);
+}
+.option.is-selected .option__key { background: var(--mam-primary); color: #fff; }
+
+.option__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.option__label { font-size: 16px; font-weight: 700; line-height: 1.35; }
+.option__desc { font-size: 13px; line-height: 1.5; color: var(--mam-muted); }
+
+.option__check {
+  margin-left: auto; flex: none;
+  display: grid; place-items: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--mam-primary); color: #fff;
+  opacity: 0; transform: scale(.6);
+  transition: all .22s var(--ease);
+}
+.option__check .icon { width: 13px; height: 13px; }
+.option.is-selected .option__check { opacity: 1; transform: scale(1); }
+
+/* Multi-select step. The main pick and the second pick must look different —
+   the main one carries twice the scoring weight, so the visitor has to be able
+   to see which is which at a glance. */
+.option.is-rank1 {
+  border-color: var(--mam-primary);
+  background: var(--mam-primary-soft);
+  box-shadow: 0 0 0 1px var(--mam-primary) inset;
+}
+.option.is-rank1 .option__key { background: var(--mam-primary); color: #fff; }
+.option.is-rank1 .option__check { opacity: 1; transform: scale(1); }
+
+.option.is-rank2 {
+  border-color: var(--mam-line-strong);
+  background: var(--mam-accent);
+}
+.option.is-rank2 .option__key { background: var(--mam-ink-soft); color: #fff; }
+.option.is-rank2 .option__check {
+  opacity: 1; transform: scale(1); background: var(--mam-ink-soft);
+}
+
+.option__rank {
+  font-size: 11px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.option.is-rank1 .option__rank { color: var(--mam-primary); }
+.option.is-rank2 .option__rank { color: var(--mam-muted); }
+
+/* The one line that tells the visitor what to do next. It has to be readable
+   at a glance, so it sits on its own tinted row rather than as grey small print. */
+.options__hint {
+  margin-top: 18px; padding: 12px 16px;
+  font-size: 15px; line-height: 1.5; font-weight: 600;
+  color: var(--mam-text);
+  background: var(--mam-accent);
+  border-radius: var(--radius-sm);
+}
+.options__hint--warn {
+  color: var(--mam-primary-dark, var(--mam-primary));
+  background: rgba(224, 62, 45, .09);
+  box-shadow: inset 3px 0 0 var(--mam-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Form
+   -------------------------------------------------------------------------- */
+.form { margin-top: 28px; }
+
+.form__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+
+.field { display: flex; flex-direction: column; }
+.field__label {
+  font-size: 13px; font-weight: 700; margin-bottom: 7px;
+  display: flex; align-items: center; gap: 6px;
+}
+.field__req { color: var(--mam-primary); }
+.field__opt {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--mam-grey-94);
+}
+
+.field__input {
+  font-family: var(--font); font-size: 16px; color: var(--mam-text);
+  background: var(--mam-secondary);
+  border: 1.5px solid var(--mam-line-strong);
+  border-radius: var(--radius-sm);
+  padding: 13px 15px; width: 100%;
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+}
+.field__input::placeholder { color: #B2B2BA; }
+.field__input:hover { border-color: var(--mam-muted); }
+.field__input:focus {
+  outline: none;
+  border-color: var(--mam-primary);
+  box-shadow: 0 0 0 4px rgba(236,55,55,.13);
+}
+.field__input.is-invalid { border-color: var(--mam-primary); background: var(--mam-primary-soft); }
+
+.field__hint { font-size: 12px; color: var(--mam-grey-94); margin-top: 6px; }
+.field__error { font-size: 12.5px; font-weight: 600; color: var(--mam-primary); margin-top: 6px; }
+.field__error:empty { display: none; }
+
+.form__error { font-size: 13px; font-weight: 600; color: var(--mam-primary); margin-top: 16px; }
+.form__error:empty { display: none; }
+
+.form button[type="submit"] { margin-top: 26px; }
+
+.form__consent {
+  margin-top: 14px; font-size: 12px; line-height: 1.55;
+  color: var(--mam-grey-94); text-align: center;
+}
+
+/* Honeypot — off-screen rather than display:none so bots still fill it. */
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* Google's required reCAPTCHA disclosure — present but deliberately quiet. */
+.form__legal {
+  margin-top: 10px; font-size: 11px; line-height: 1.5;
+  color: var(--mam-grey-94); text-align: center; opacity: .75;
+}
+.form__legal a { color: inherit; text-decoration: underline; }
+.form__legal a:hover { color: var(--mam-primary); }
+
+.spinner {
+  width: 15px; height: 15px; margin-right: 10px; flex: none;
+  border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --------------------------------------------------------------------------
+   Results
+   -------------------------------------------------------------------------- */
+.results__title { font-size: clamp(25px, 3.8vw, 36px); line-height: 1.2; }
+.results__lead {
+  margin-top: 14px; font-size: 16px; color: var(--mam-muted); max-width: 62ch;
+}
+
+.results__rank {
+  margin: 34px 0 12px;
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--mam-primary);
+  display: flex; align-items: center; gap: 12px;
+}
+.results__rank::after {
+  content: ""; flex: 1; height: 1px; background: var(--mam-line);
+}
+.results__rank--support { color: var(--mam-muted); }
+
+.results__support { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+/* Two primaries carry equal weight — the budget decides how many there are,
+   so they sit side by side rather than one leading the other. */
+.results__primary--pair { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+
+/* Platform choice happens in the consultation, so the social card names the
+   platforms instead of the quiz guessing at one. */
+.rec__platforms {
+  margin-top: 12px; font-size: 12.5px; line-height: 1.55; color: var(--mam-muted);
+}
+.rec--primary .rec__platforms { color: var(--mam-white-94); }
+
+/* Services a strategist would raise in the meeting. Deliberately quieter than
+   a card — these are not what the quiz chose. */
+.results__also {
+  margin-top: 22px; font-size: 13.5px; line-height: 1.9; color: var(--mam-muted);
+}
+.results__also span { font-weight: 700; color: var(--mam-text); }
+.results__also a { color: var(--mam-primary); text-decoration: none; font-weight: 600; }
+.results__also a:hover { text-decoration: underline; }
+.results__also i { font-style: normal; padding: 0 8px; color: var(--mam-line-strong); }
+
+/* How the work is delivered, not what the work is. */
+.overlays {
+  margin-top: 26px; padding: 18px 22px;
+  border: 1px dashed var(--mam-line-strong); border-radius: var(--radius-sm);
+}
+.overlays__title {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--mam-muted); margin-bottom: 10px;
+}
+.overlays__list { display: grid; gap: 8px; }
+.overlays__list li { font-size: 14px; line-height: 1.6; color: var(--mam-muted); }
+.overlays__list strong { color: var(--mam-text); font-weight: 700; }
+
+.rec {
+  border: 1px solid var(--mam-line);
+  border-radius: var(--radius);
+  padding: 24px;
+  background: var(--mam-secondary);
+  display: flex; flex-direction: column;
+}
+
+.rec--primary {
+  background: var(--mam-ink);
+  border-color: var(--mam-ink);
+  color: var(--mam-secondary);
+  padding: 30px;
+  position: relative; overflow: hidden;
+}
+.rec--primary::before {
+  content: ""; position: absolute; inset: -60% 55% 40% -20%;
+  background: radial-gradient(circle, rgba(236,55,55,.30), transparent 68%);
+  pointer-events: none;
+}
+.rec--primary > * { position: relative; }
+
+.rec__head { display: flex; align-items: center; gap: 14px; }
+.rec__icon {
+  display: grid; place-items: center; flex: none;
+  width: 46px; height: 46px; border-radius: 12px;
+  background: var(--mam-primary-soft); color: var(--mam-primary);
+}
+.rec--primary .rec__icon { background: var(--mam-primary); color: #fff; }
+.rec__icon .icon { width: 23px; height: 23px; }
+
+.rec__kicker {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--mam-muted);
+}
+.rec--primary .rec__kicker { color: var(--mam-white-94); }
+
+.rec__name { font-size: 20px; line-height: 1.25; margin-top: 2px; }
+.rec--primary .rec__name { font-size: clamp(22px, 3vw, 28px); }
+
+.rec__blurb {
+  margin-top: 14px; font-size: 14.5px; line-height: 1.62; color: var(--mam-muted);
+}
+.rec--primary .rec__blurb { color: var(--mam-white-94); font-size: 16px; }
+
+.rec__reason {
+  margin-top: 14px; padding: 10px 13px;
+  display: flex; align-items: flex-start; gap: 9px;
+  background: var(--mam-accent); border-radius: var(--radius-sm);
+  font-size: 13px; line-height: 1.5; color: var(--mam-muted);
+}
+.rec__reason .icon { width: 15px; height: 15px; margin-top: 3px; flex: none; color: var(--mam-success); }
+.rec__reason span { flex: 1; }
+.rec__reason strong { color: var(--mam-text); font-weight: 700; }
+.rec--primary .rec__reason { background: rgba(255,255,255,.09); color: var(--mam-white-94); }
+.rec--primary .rec__reason strong { color: #fff; }
+
+.rec__chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+.rec__chips li {
+  font-size: 12px; font-weight: 600; line-height: 1.3;
+  padding: 6px 11px; border-radius: 999px;
+  border: 1px solid var(--mam-line-strong); color: var(--mam-muted);
+}
+.rec--primary .rec__chips li { border-color: var(--mam-white-45); color: var(--mam-secondary); }
+
+.rec__link {
+  margin-top: auto; padding-top: 18px;
+  display: inline-flex; align-items: center; align-self: flex-start;
+  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--mam-primary); text-decoration: none;
+}
+.rec__link:hover { color: var(--mam-primary-dark); }
+.rec__link:hover .icon--arrow { transform: translateX(3px); }
+.rec__link .icon--arrow { transition: transform .18s var(--ease); }
+.rec--primary .rec__link { color: #fff; }
+.rec--primary .rec__link:hover { color: var(--mam-primary); }
+
+.budget-note {
+  margin-top: 30px; padding: 20px 22px;
+  background: var(--mam-accent);
+  border-left: 3px solid var(--mam-primary);
+  border-radius: var(--radius-sm);
+}
+.budget-note__tier {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--mam-primary); margin-bottom: 6px;
+}
+.budget-note__text { font-size: 14.5px; line-height: 1.6; color: var(--mam-muted); }
+
+.cta {
+  margin-top: 34px; padding: 34px;
+  background: var(--mam-ink-soft); color: var(--mam-secondary);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.cta__title { font-size: clamp(20px, 2.8vw, 26px); }
+.cta__text {
+  margin: 12px auto 0; max-width: 56ch;
+  font-size: 15px; line-height: 1.65; color: var(--mam-white-94);
+}
+.cta__actions {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 24px;
+}
+.cta__meta { margin-top: 20px; font-size: 13px; }
+.cta__meta a { color: var(--mam-white-94); text-decoration: none; font-weight: 600; }
+.cta__meta a:hover { color: #fff; text-decoration: underline; }
+
+.notice {
+  padding: 14px 16px; border-radius: var(--radius-sm);
+  font-size: 13.5px; line-height: 1.55; margin-bottom: 22px;
+}
+.notice--warn {
+  background: var(--mam-primary-soft);
+  border: 1px solid rgba(236,55,55,.32);
+  color: #8E1F1F;
+}
+.notice--warn a { color: inherit; font-weight: 700; }
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 780px) {
+  .card { padding: 30px 22px; border-radius: 18px; }
+
+  .trust { gap: 8px; margin-top: 20px; }
+  .trust li { font-size: 12px; padding: 7px 13px 7px 11px; }
+
+  .options,
+  .form__grid,
+  .results__primary--pair,
+  .results__support { grid-template-columns: 1fr; }
+
+  /* On phones the labels don't fit six-across, so the stepper collapses to a
+     clean row of connected dots. Each card carries its own "Step 4 of 6 —
+     Goal" eyebrow, so no wording is lost. */
+  .progress { padding-top: 22px; }
+  .pstep { gap: 0; padding: 0 3px; }
+  .pstep__dot { width: 26px; height: 26px; font-size: 12px; }
+  .pstep::before { top: 13px; }
+  .pstep.is-done .icon { width: 13px; height: 13px; }
+  .pstep__text { display: none; }
+
+  .cta { padding: 26px 20px; }
+  .cta__actions .btn { width: 100%; }
+  .site-header__inner { min-height: 62px; }
+  .site-footer__inner { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 420px) {
+  /* Logo, EN | TH and "Talk to us" share one row on a phone. */
+  .site-header__logo img { height: 28px; }
+  .site-header__actions { gap: 8px; }
+  .lang-switch a { padding: 4px 7px; }
+  .site-header__cta { padding: 9px 13px; }
+
+  .btn--lg { padding: 16px 22px; font-size: 14px; }
+  .rec--primary { padding: 22px; }
+}
+
+/* --------------------------------------------------------------------------
+   Thai page (decision D-06)
+   Thai has no capital letters, and letter spacing pulls Thai vowel and tone
+   marks away from their letters — so the small spaced-out labels lose it.
+   Thai also needs a little more line height for marks above and below.
+   -------------------------------------------------------------------------- */
+:lang(th) .btn,
+:lang(th) .rec__link,
+:lang(th) .eyebrow,
+:lang(th) .pstep__label,
+:lang(th) .option__rank,
+:lang(th) .field__opt,
+:lang(th) .results__rank,
+:lang(th) .rec__kicker,
+:lang(th) .overlays__title,
+:lang(th) .budget-note__tier,
+:lang(th) h1, :lang(th) h2, :lang(th) h3 { letter-spacing: 0; }
+:lang(th) body { line-height: 1.65; }
+
+/* --------------------------------------------------------------------------
+   Motion & print
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .site-header, .site-footer, .progress, .card__nav, .stage-note { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border: 0; padding: 0; }
+  .rec--primary { background: #fff; color: #000; border: 2px solid #000; }
+  .rec--primary .rec__blurb, .rec--primary .rec__kicker { color: #333; }
+  .cta { background: #fff; color: #000; border: 1px solid #000; }
+  .cta__text { color: #333; }
+}
