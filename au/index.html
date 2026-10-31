@@ -11,13 +11,14 @@
       content="Answer 5 quick questions and get a personalised digital marketing plan — SEO + AI Visibility, Google Ads, Social Media or Website Development. Takes 60 seconds."
     />
     <meta name="robots" content="index, follow" />
-    <!-- The Australian quiz: the English quiz, with its links going to
-         moveaheadmedia.com.au (data-market="AU" above, see config.js). -->
-    <link rel="canonical" href="https://moveaheadmedia.github.io/mam-th-quiz/au/" />
-    <link rel="alternate" hreflang="en" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
-    <link rel="alternate" hreflang="en-AU" href="https://moveaheadmedia.github.io/mam-th-quiz/au/" />
-    <link rel="alternate" hreflang="th" href="https://moveaheadmedia.github.io/mam-th-quiz/th/" />
-    <link rel="alternate" hreflang="x-default" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
+    <!-- The Australian quiz, live at moveaheadmedia.com.au/quiz/: the English
+         quiz, with its links going to moveaheadmedia.com.au (data-market="AU"
+         above, see config.js). It has no language switch. -->
+    <link rel="canonical" href="https://www.moveaheadmedia.com.au/quiz/" />
+    <link rel="alternate" hreflang="en-AU" href="https://www.moveaheadmedia.com.au/quiz/" />
+    <link rel="alternate" hreflang="en-TH" href="https://www.moveaheadmedia.co.th/quiz/" />
+    <link rel="alternate" hreflang="th-TH" href="https://www.moveaheadmedia.co.th/th/quiz/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.moveaheadmedia.com.au/quiz/" />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_AU" />
@@ -85,13 +86,10 @@
           />
         </a>
         <div class="site-header__actions">
-          <nav class="lang-switch" aria-label="Language and country">
-            <a href="../" lang="en" hreflang="en">EN</a>
-            <a href="../th/" lang="th" hreflang="th">TH</a>
-            <a href="./" lang="en-AU" hreflang="en-AU" title="Australia" aria-current="page">AU</a>
-          </nav>
           <a
             class="btn btn--ghost btn--sm site-header__cta"
+            data-quiz-cta="consultation"
+            data-cta-location="header"
             href="https://www.moveaheadmedia.com.au/contact-us/"
             target="_blank"
             rel="noopener"
@@ -146,6 +144,7 @@
     </footer>
 
     <script src="../assets/js/config.js"></script>
+    <script src="../assets/js/utm.js"></script>
     <script src="../assets/js/data.js"></script>
     <script src="../assets/js/engine.js"></script>
     <!-- Logic v5. Loaded but not yet called — app.js switches to it in

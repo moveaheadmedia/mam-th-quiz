@@ -11,14 +11,14 @@
       content="Answer 5 quick questions and get a personalised digital marketing plan — SEO + AI Visibility, Google Ads, Social Media or Website Development. Takes 60 seconds."
     />
     <meta name="robots" content="index, follow" />
-    <!-- The quiz in each language. This address stays English (decision
-         2026-10-16); en/ forwards here, th/ is the Thai page, au/ is the
-         English page for Australia. -->
-    <link rel="canonical" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
-    <link rel="alternate" hreflang="en" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
-    <link rel="alternate" hreflang="en-AU" href="https://moveaheadmedia.github.io/mam-th-quiz/au/" />
-    <link rel="alternate" hreflang="th" href="https://moveaheadmedia.github.io/mam-th-quiz/th/" />
-    <link rel="alternate" hreflang="x-default" href="https://moveaheadmedia.github.io/mam-th-quiz/" />
+    <!-- The quiz is live on the websites: English at moveaheadmedia.co.th/quiz/,
+         Thai at /th/quiz/, Australia at moveaheadmedia.com.au/quiz/. This copy
+         (GitHub Pages) is the preview, so it names the live pages. -->
+    <link rel="canonical" href="https://www.moveaheadmedia.co.th/quiz/" />
+    <link rel="alternate" hreflang="en-TH" href="https://www.moveaheadmedia.co.th/quiz/" />
+    <link rel="alternate" hreflang="th-TH" href="https://www.moveaheadmedia.co.th/th/quiz/" />
+    <link rel="alternate" hreflang="en-AU" href="https://www.moveaheadmedia.com.au/quiz/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.moveaheadmedia.co.th/quiz/" />
 
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_GB" />
@@ -85,13 +85,14 @@
           />
         </a>
         <div class="site-header__actions">
-          <nav class="lang-switch" aria-label="Language and country">
+          <nav class="lang-switch" aria-label="Language">
             <a href="./" lang="en" hreflang="en" aria-current="page">EN</a>
             <a href="th/" lang="th" hreflang="th">TH</a>
-            <a href="au/" lang="en-AU" hreflang="en-AU" title="Australia">AU</a>
           </nav>
           <a
             class="btn btn--ghost btn--sm site-header__cta"
+            data-quiz-cta="consultation"
+            data-cta-location="header"
             href="https://www.moveaheadmedia.co.th/contact-us/"
             target="_blank"
             rel="noopener"
@@ -146,6 +147,8 @@
     </footer>
 
     <script src="assets/js/config.js"></script>
+    <!-- utm_… → the website's attribution cookies, before anything else. -->
+    <script src="assets/js/utm.js"></script>
     <script src="assets/js/data.js"></script>
     <script src="assets/js/engine.js"></script>
     <!-- Logic v5. Loaded but not yet called — app.js switches to it in

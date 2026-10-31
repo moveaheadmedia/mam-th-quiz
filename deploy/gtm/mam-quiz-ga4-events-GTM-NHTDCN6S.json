@@ -1,0 +1,991 @@
+{
+    "exportFormatVersion": 2,
+    "exportTime": "2026-10-28 08:00:00",
+    "containerVersion": {
+        "path": "accounts/0/containers/222690399/versions/0",
+        "accountId": "0",
+        "containerId": "222690399",
+        "containerVersionId": "0",
+        "container": {
+            "path": "accounts/0/containers/222690399",
+            "accountId": "0",
+            "containerId": "222690399",
+            "name": "www.moveaheadmedia.co.th",
+            "publicId": "GTM-NHTDCN6S",
+            "usageContext": [
+                "WEB"
+            ],
+            "fingerprint": "1793170000000",
+            "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/0/containers/222690399/workspaces?apiLink=container"
+        },
+        "tag": [
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "tagId": "9001",
+                "name": "GA4 - Quiz Started (mam_quiz_start)",
+                "type": "gaawe",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableUserProperties",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableEuid",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "migratedToV2",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "demoV2",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "mam_quiz_start"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-2X3GGXFP04"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_market"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_market}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_language"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_language}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "firingTriggerId": [
+                    "9101"
+                ],
+                "parentFolderId": "9301",
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "tagId": "9002",
+                "name": "GA4 - Quiz Step Completed (mam_quiz_step_complete)",
+                "type": "gaawe",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableUserProperties",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableEuid",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "migratedToV2",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "demoV2",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "mam_quiz_step_complete"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-2X3GGXFP04"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_market"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_market}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_language"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_language}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_step"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_step}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_step_name"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_step_name}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_answer"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_answer}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "firingTriggerId": [
+                    "9102"
+                ],
+                "parentFolderId": "9301",
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "tagId": "9003",
+                "name": "GA4 - Quiz Completed (mam_quiz_complete)",
+                "type": "gaawe",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableUserProperties",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableEuid",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "migratedToV2",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "demoV2",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "mam_quiz_complete"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-2X3GGXFP04"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_market"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_market}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_language"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_language}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_recommended"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_recommended}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_budget"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_budget}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "firingTriggerId": [
+                    "9103"
+                ],
+                "parentFolderId": "9301",
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "tagId": "9004",
+                "name": "GA4 - Consultation CTA Clicked (mam_quiz_consultation_click)",
+                "type": "gaawe",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableUserProperties",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableEuid",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "migratedToV2",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "demoV2",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "mam_quiz_consultation_click"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-2X3GGXFP04"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_market"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_market}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_language"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_language}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "cta_location"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - cta_location}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "firingTriggerId": [
+                    "9104"
+                ],
+                "parentFolderId": "9301",
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "tagId": "9005",
+                "name": "GA4 - LINE / WhatsApp Clicked (mam_quiz_chat_click)",
+                "type": "gaawe",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableUserProperties",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "enableEuid",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "migratedToV2",
+                        "value": "true"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "demoV2",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "eventName",
+                        "value": "mam_quiz_chat_click"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-2X3GGXFP04"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_market"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_market}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "quiz_language"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - quiz_language}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "chat_app"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - chat_app}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "cta_location"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{MAM Quiz DLV - cta_location}}"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "firingTriggerId": [
+                    "9105"
+                ],
+                "parentFolderId": "9301",
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            }
+        ],
+        "trigger": [
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "triggerId": "9101",
+                "name": "MAM Quiz CE - mam_quiz_start",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "mam_quiz_start"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301"
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "triggerId": "9102",
+                "name": "MAM Quiz CE - mam_quiz_step_complete",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "mam_quiz_step_complete"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301"
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "triggerId": "9103",
+                "name": "MAM Quiz CE - mam_quiz_complete",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "mam_quiz_complete"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301"
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "triggerId": "9104",
+                "name": "MAM Quiz CE - mam_quiz_consultation_click",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "mam_quiz_consultation_click"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301"
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "triggerId": "9105",
+                "name": "MAM Quiz CE - mam_quiz_chat_click",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "mam_quiz_chat_click"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301"
+            }
+        ],
+        "variable": [
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9201",
+                "name": "MAM Quiz DLV - quiz_market",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_market"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9202",
+                "name": "MAM Quiz DLV - quiz_language",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_language"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9203",
+                "name": "MAM Quiz DLV - quiz_step",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_step"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9204",
+                "name": "MAM Quiz DLV - quiz_step_name",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_step_name"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9205",
+                "name": "MAM Quiz DLV - quiz_answer",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_answer"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9206",
+                "name": "MAM Quiz DLV - quiz_recommended",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_recommended"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9207",
+                "name": "MAM Quiz DLV - quiz_budget",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "quiz_budget"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9208",
+                "name": "MAM Quiz DLV - cta_location",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "cta_location"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            },
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "variableId": "9209",
+                "name": "MAM Quiz DLV - chat_app",
+                "type": "v",
+                "parameter": [
+                    {
+                        "type": "INTEGER",
+                        "key": "dataLayerVersion",
+                        "value": "2"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "setDefaultValue",
+                        "value": "false"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "name",
+                        "value": "chat_app"
+                    }
+                ],
+                "fingerprint": "1793170000000",
+                "parentFolderId": "9301",
+                "formatValue": {}
+            }
+        ],
+        "folder": [
+            {
+                "accountId": "0",
+                "containerId": "222690399",
+                "folderId": "9301",
+                "name": "MAM Quiz",
+                "fingerprint": "1793170000000"
+            }
+        ],
+        "fingerprint": "1793170000000"
+    }
+}

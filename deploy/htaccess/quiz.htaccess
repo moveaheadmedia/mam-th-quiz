@@ -1,0 +1,11 @@
+# MAM service quiz. This folder is built from the mam-th-quiz repository and
+# deployed from its live branch (live-mam-en / live-mam-au); edits made here
+# are overwritten by the next deploy. See deploy/README.md there.
+DirectoryIndex index.html
+
+# Assets carry ?v=<build> in the page, so only the page itself must be fresh.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
