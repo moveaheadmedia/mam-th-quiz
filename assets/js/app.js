@@ -273,7 +273,10 @@
           field('phone', T.t('form.phone'), 'tel', '08X XXX XXXX', '', true) +
           field('website', T.t('form.website'), 'text', 'yourcompany.com', T.t('form.websiteHint'), false) +
         '</div>' +
-        '<div class="hp" aria-hidden="true"><label>Do not fill this in<input type="text" name="company_fax" tabindex="-1" autocomplete="off"></label></div>' +
+        /* Hidden from people. Its name matches nothing a browser or password
+           manager autofills (it used to be "company_fax", which autofill
+           filled in for real visitors). */
+        '<div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="mam_hp" tabindex="-1" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore></label></div>' +
         '<p class="form__error" id="formError" role="alert"></p>' +
         '<button type="submit" class="btn btn--primary btn--lg btn--block" id="submitBtn">' +
           esc(T.t('form.submit')) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') +
@@ -325,7 +328,8 @@
       '<ul class="rec__chips">' + chips + '</ul>' +
       (platforms.length ? '<p class="rec__platforms">' +
         esc(T.t('card.platforms', { 'platform names': platforms.join(' \u00b7 ') })) + '</p>' : '') +
-      (service.url ? '<a class="rec__link" href="' + esc(service.url) + '" target="_blank" rel="noopener">' +
+      (service.url ? '<a class="rec__link" href="' + esc(service.url) + '" target="_blank" rel="noopener"' +
+        (serviceId === 'strategy-consultation' ? ' data-quiz-cta="consultation" data-cta-location="plan"' : '') + '>' +
         esc(copy.linkText || T.t('card.explore', { 'service name': copy.name })) +
         icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' : '') +
     '</article>';
@@ -355,7 +359,8 @@
     }
     if (!href) return '';
     return '<a class="btn btn--lg btn--chat btn--chat-' + esc(chat.app) + '" href="' + esc(href) +
-      '" target="_blank" rel="noopener">' + icon(D.ICONS.chat, 'icon--chat') + esc(T.t('chat.' + chat.app)) + '</a>';
+      '" target="_blank" rel="noopener" data-quiz-cta="chat" data-chat-app="' + esc(chat.app) + '">' +
+      icon(D.ICONS.chat, 'icon--chat') + esc(T.t('chat.' + chat.app)) + '</a>';
   }
 
   function resultsHTML() {
@@ -459,7 +464,8 @@
           : '<h2 class="cta__title">' + esc(T.t('cta.title')) + '</h2>' +
             '<p class="cta__text">' + esc(T.t('cta.text')) + '</p>') +
         '<div class="cta__actions">' +
-          '<a class="btn btn--primary btn--lg" href="' + esc(CFG.consultationUrl) + '" target="_blank" rel="noopener">' +
+          '<a class="btn btn--primary btn--lg" href="' + esc(CFG.consultationUrl) + '" target="_blank" rel="noopener"' +
+            ' data-quiz-cta="consultation" data-cta-location="results">' +
             esc(T.t('cta.book')) + icon('<path d="M5 12h13"/><path d="m12.5 6 6 6-6 6"/>', 'icon--arrow') + '</a>' +
           '<a class="btn btn--ghost btn--lg" href="' + esc(CFG.phoneHref) + '">' + esc(T.t('cta.call', { phone: CFG.phone })) + '</a>' +
           chatButtonHTML(result) +
@@ -472,6 +478,62 @@
         '<button type="button" class="btn btn--text" data-action="restart">' + esc(T.t('cta.retake')) + '</button>' +
       '</div>' +
     '</section>';
+  }
+
+  /* ── Analytics ──────────────────────────────────────────────────────── */
+
+  /* dataLayer events for Google Tag Manager; the live pages load the
+     website's container. Nothing personal is pushed — no name, email or
+     phone. Every event carries quiz_market (TH/AU) and quiz_language (en/th).
+     deploy/gtm/ has the matching GA4 tags, ready to import into GTM.
+       mam_quiz_start         the first answer of a quiz (there is no start
+                              button: question 1 is the landing view)
+       mam_quiz_step_complete a step done: quiz_step 1–5 = Continue on a
+                              question (quiz_step_name = question id,
+                              quiz_answer = the answer ids), 6 = the contact
+                              form sent (quiz_step_name "contact_form")
+       mam_quiz_lead          the lead form was sent; quiz_delivered false
+                              means n8n did not confirm it
+       mam_quiz_complete      all 6 steps done, the plan is shown
+                              (quiz_recommended, quiz_budget)
+       mam_quiz_consultation_click  a consultation link: cta_location
+                              "results" (Book your free consultation),
+                              "header" (Talk to us) or "plan" (the Free
+                              Strategy Consultation card)
+       mam_quiz_chat_click    the LINE (TH) or WhatsApp (AU) button:
+                              chat_app "line" / "whatsapp"
+       mam_quiz_step          every new screen (quiz_step 1–7, quiz_screen)
+     A key an event does not use is pushed as undefined, so GTM never reads
+     a value left over from an earlier event. */
+  var lastScreen = null;
+
+  function track(event, data) {
+    var item = {
+      event: event, quiz_market: CFG.market, quiz_language: T.lang,
+      quiz_step: undefined, quiz_step_name: undefined, quiz_answer: undefined,
+      cta_location: undefined, chat_app: undefined
+    };
+    for (var key in data) item[key] = data[key];
+    (window.dataLayer = window.dataLayer || []).push(item);
+  }
+
+  /* The first answer on a fresh quiz is its start. A quiz restored from
+     this tab's session has started already; Retake starts a new one. */
+  function trackStart() {
+    if (state.started || answeredCount() > 0) return;
+    state.started = true;
+    track('mam_quiz_start', {});
+  }
+
+  function trackStepComplete(step, name, answer) {
+    track('mam_quiz_step_complete', { quiz_step: step, quiz_step_name: name, quiz_answer: answer });
+  }
+
+  function trackScreen() {
+    var screen = state.screen === 'question' ? D.QUESTIONS[state.index].id : state.screen;
+    if (screen === lastScreen) return;
+    lastScreen = screen;
+    track('mam_quiz_step', { quiz_step: currentStepNumber(), quiz_screen: screen });
   }
 
   /* ── Render ─────────────────────────────────────────────────────────── */
@@ -500,6 +562,7 @@
       if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
     }
     announceHeight();
+    trackScreen();
   }
 
   /* ── Flow ───────────────────────────────────────────────────────────── */
@@ -529,6 +592,7 @@
       return;
     }
     state.notice = '';
+    trackStepComplete(state.index + 1, questionId, chosenIds(questionId).join(','));
     if (state.index < D.QUESTIONS.length - 1) {
       goToQuestion(state.index + 1);
     } else {
@@ -550,6 +614,7 @@
      step there may be a second answer still to add — so Continue is always
      an explicit choice. */
   function selectOption(optionId) {
+    trackStart();
     var question = D.QUESTIONS[state.index];
     state.answers[question.id] = optionId;
     state.notice = '';
@@ -561,6 +626,7 @@
   }
 
   function toggleOption(optionId) {
+    trackStart();
     var question = D.QUESTIONS[state.index];
     var limit = question.maxSelections || 1;
     var option = ENGINE.answerOption(question.id, optionId);
@@ -604,6 +670,7 @@
   function restart() {
     try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* noop */ }
     state.answers = {};
+    state.started = false;
     state.lead = null;
     state.result = null;
     state.delivery = null;
@@ -675,6 +742,7 @@
     var button = document.getElementById('submitBtn');
     if (button.disabled) return;                       // guard against double-submit
     button.disabled = true;
+    trackStepComplete(6, 'contact_form', undefined);
     button.classList.add('is-loading');
     button.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + esc(T.t('form.loading'));
 
@@ -692,7 +760,7 @@
       secondsOnForm: Math.round((Date.now() - state.formShownAt) / 100) / 10,
       secondsTotal: Math.round((Date.now() - state.startedAt) / 1000)
     };
-    var assessment = ENGINE.spamSignals(state.lead, timing, form.company_fax.value);
+    var assessment = ENGINE.spamSignals(state.lead, timing, form.mam_hp.value);
 
     ENGINE.recaptchaToken().then(function (token) {
       var spam = CFG.spam || {};
@@ -714,9 +782,18 @@
       return ENGINE.submit(payload);
     }).then(function (delivery) {
       state.delivery = delivery;
+      track('mam_quiz_lead', {
+        quiz_delivered: !!delivery.ok,
+        quiz_recommended: state.result.primaries.join(' + '),
+        quiz_budget: chosenIds('budget')[0] || ''
+      });
       state.screen = 'results';
       save();
       render();
+      track('mam_quiz_complete', {
+        quiz_recommended: state.result.primaries.join(' + '),
+        quiz_budget: chosenIds('budget')[0] || ''
+      });
       scrollToTop();
     });
   }
@@ -769,10 +846,21 @@
 
   window.addEventListener('resize', announceHeight);
 
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('[data-quiz-cta]');
+    if (!link) return;
+    var kind = link.getAttribute('data-quiz-cta');
+    if (kind === 'consultation') {
+      track('mam_quiz_consultation_click', { cta_location: link.getAttribute('data-cta-location') || '' });
+    } else if (kind === 'chat') {
+      track('mam_quiz_chat_click', { chat_app: link.getAttribute('data-chat-app') || '', cta_location: 'results' });
+    }
+  });
+
   /* ── Boot ───────────────────────────────────────────────────────────── */
 
   document.getElementById('year').textContent = new Date().getFullYear();
-  /* The EN | TH | AU switch keeps the campaign tags (utm_…, gclid) in the address. */
+  /* The EN | TH switch keeps the campaign tags (utm_…, gclid) in the address. */
   Array.prototype.forEach.call(document.querySelectorAll('.lang-switch a'), function (link) {
     if (window.location.search) link.setAttribute('href', link.getAttribute('href') + window.location.search);
   });

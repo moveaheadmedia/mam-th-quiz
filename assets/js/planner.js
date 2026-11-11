@@ -478,6 +478,73 @@
     return { primaries: primaries, supporting: supporting, trace: trace };
   }
 
+  /* ── ChatGPT Ads (added Nov 2026, signed off by the team) ────────────
+     Paid advertising inside ChatGPT, kept apart from AI SEO. It is a
+     supporting card only, and shows only when all five checks pass:
+       goal        leads, sales, traffic or brand awareness
+       challenge   not "not visible in AI Search" (an AI SEO job), "traffic
+                   but no sales" or "website needs an upgrade" (fix the site
+                   before buying more traffic)
+       type        not a Local Business / SME
+       profile     not an Agency / Consultant
+       market      switched on for the page's market (config.js → markets)
+     The budget then decides how it shows. It never adds a card:
+       100K+       it takes the place of the LAST supporting card that is not
+                   the challenge's own fix; that card moves to the top of
+                   "Also often relevant"
+       50–100K,    named under "Also often relevant" (the one supporting card
+       not sure    these budgets have is needed for the fix)
+       below 50K   not shown
+     ------------------------------------------------------------------ */
+  var CHATGPT_ADS = {
+    goals: ["leads", "sales", "traffic", "awareness"],
+    notChallenges: ["ai", "no-sales", "website"],
+    cardBudgets: FUNDED,
+    ideaBudgets: ["50to100", "unsure"],
+  };
+
+  /* On unless the page's market switches it off. Without a config (the test
+     suites load data.js + planner.js only) it is on. */
+  function chatgptAdsOn() {
+    var cfg = window.MAM_CONFIG;
+    if (!cfg || !cfg.markets) return true;
+    return (cfg.markets[cfg.market] || {}).chatgptAds !== false;
+  }
+
+  /** "card", "idea" or "" — how this plan may show ChatGPT Ads. */
+  function chatgptAdsFit(ctx) {
+    if (!D.CATALOGUE["chatgpt-ads"] || !chatgptAdsOn()) return "";
+    if (!has(CHATGPT_ADS.goals, ctx.objective)) return "";
+    if (has(CHATGPT_ADS.notChallenges, ctx.challenge)) return "";
+    if (ctx.type === "local" || ctx.profile === "agency") return "";
+    if (has(CHATGPT_ADS.cardBudgets, ctx.budget)) return "card";
+    if (has(CHATGPT_ADS.ideaBudgets, ctx.budget)) return "idea";
+    return "";
+  }
+
+  /**
+   * Puts ChatGPT Ads on a built plan (changes built in place) and returns
+   * what "Also often relevant" needs to know: { moved: the card it replaced,
+   * idea: true when it is named there instead of shown as a card }.
+   */
+  function placeChatgptAds(built, ctx) {
+    var fit = chatgptAdsFit(ctx);
+    if (fit === "card") {
+      for (var i = built.supporting.length - 1; i >= 0; i--) {
+        var id = built.supporting[i];
+        var entry = built.trace.filter(function (t) { return t.service === id; })[0];
+        if (entry && has(ctx.challengeNeeds || [], entry.need)) continue; // the fix stays
+        built.supporting[i] = "chatgpt-ads";
+        built.trace.push({ need: "chatgpt-ads", service: "chatgpt-ads",
+          outcome: "supporting (chatgpt-ads)", replaced: id });
+        return { moved: [id], idea: false };
+      }
+      /* Every supporting card is the challenge's fix: name it instead. */
+      fit = "idea";
+    }
+    return { moved: [], idea: fit === "idea" };
+  }
+
   /* ── Overlays — how the work is delivered, not what it is ─────────── */
 
   function overlaysFor(ctx) {
@@ -531,6 +598,7 @@
     "technical-seo": "AI search can only cite a site it can crawl and understand",
     "seo-ai-visibility-audit": "an audit shows what is holding you back on Google and in AI search",
     "strategy-consultation": "we should understand your goals before recommending where to spend",
+    "chatgpt-ads": "people now research and compare options in ChatGPT, and ads let you reach them there",
   };
 
   /* v7 — "My ads aren't generating enough results" means the ads come first
@@ -565,7 +633,9 @@
    * but real options a strategist would raise in the conversation.
    */
   function alsoRelevant(needs, ctx, chosen, limit) {
-    var out = [];
+    /* ChatGPT Ads — a card it replaced leads the list (placeChatgptAds). */
+    var gpt = ctx.chatgptAds || { moved: [], idea: false };
+    var out = gpt.moved.slice();
     var cap = limit || 3;
 
     /* v7 — the challenge's own list comes first, and all of it: whatever the
@@ -587,6 +657,11 @@
         out.push(id);
       });
     });
+
+    /* ChatGPT Ads as an idea comes straight after the challenge's own list. */
+    if (gpt.idea && !has(chosen, "chatgpt-ads") && !has(out, "chatgpt-ads")) {
+      out.push("chatgpt-ads");
+    }
 
     needs.forEach(function (raw) {
       if (out.length >= cap) return;
@@ -852,6 +927,9 @@
       built = build(["paid"].concat(needs), ctx, maxPrimary, total);
     }
 
+    /* ChatGPT Ads swaps into a supporting slot, or becomes an idea. */
+    ctx.chatgptAds = placeChatgptAds(built, ctx);
+
     /* Budget fixes the TOTAL number of cards; the split reports what the brief
        actually produced (e.g. 1 main + 2 support), so the labels stay honest. */
     var quota = {
@@ -895,6 +973,7 @@
     })(),
     buildPayload: buildPayload,
     paidOrder: paidOrder,
+    chatgptAdsFit: chatgptAdsFit,
     candidates: candidates,
     mergeNeeds: mergeNeeds,
   };

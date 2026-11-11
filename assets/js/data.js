@@ -67,6 +67,9 @@
     "premium-creative":
       "https://www.moveaheadmedia.co.th/social-media-marketing/premium-creative/",
 
+    /* ── ChatGPT Ads ── */
+    "chatgpt-ads": "",
+
     /* ── Website Development ── */
     "web-design": "https://www.moveaheadmedia.co.th/website/design/",
     "web-maintenance": "https://www.moveaheadmedia.co.th/website/maintenance/",
@@ -151,12 +154,15 @@
       '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-.9 2-1.8 0-1.2-1-1.6-1-2.7 0-.8.7-1.5 1.5-1.5H16a4.5 4.5 0 0 0 4.5-4.5C20.5 6.4 16.7 3.5 12 3.5Z"/><circle cx="8" cy="10" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/>',
     /* Logic v7 — the consultation card and the results-page chat button. */
     chat: '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5Z"/><path d="M8 10h8M8 13h5"/>',
+    /* ChatGPT Ads — the chat bubble with a spark inside, so it reads apart
+       from the consultation card's chat icon. */
+    aichat: '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5Z"/><path d="m12 7.5.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6Z"/>',
   };
 
   /* ── CATALOGUE (logic v5, extended in v7) ───────────────────────────
      The 35 services exactly as signed off on the service sheet, plus two
      quiz-only cards added in logic v7: the SEO & AI Visibility Audit and the
-     Free Strategy Consultation.
+     Free Strategy Consultation. ChatGPT Ads joined in Nov 2026 (38 in all).
 
      Each entry carries three fields the old catalogue did not have:
 
@@ -682,6 +688,30 @@
         "Social assets",
         "Campaign concepts",
         "Creative variations",
+      ],
+    },
+
+    /* ══ ChatGPT Ads ═══════════════════════════════════════════════ */
+    /* Added Nov 2026 with the team's copy. Paid advertising inside ChatGPT,
+       kept apart from AI SEO: its own family, so it never stands in for AI
+       SEO, and support only — planner.js (placeChatgptAds) decides where it
+       may show. Its copy must never suggest the ads improve organic AI Search
+       rankings or citations. */
+    "chatgpt-ads": {
+      name: "ChatGPT Ads",
+      category: "Paid Media",
+      family: "paid-ai",
+      role: "support",
+      kicker: "Reach Customers Through AI Conversations",
+      icon: ICONS.aichat,
+      url: SERVICE_URLS["chatgpt-ads"],
+      blurb:
+        "Explore advertising opportunities within ChatGPT to help your business reach relevant audiences through AI-powered conversations.",
+      deliverables: [
+        "ChatGPT Ads consultation",
+        "Campaign strategy & planning",
+        "Audience & budget assessment",
+        "Campaign performance tracking",
       ],
     },
 
@@ -1259,6 +1289,34 @@
       requiresSizing: true,
     },
   };
+
+  /* ── Answers per market ─────────────────────────────────────────────
+     The Australian page shows the budget brackets of the website's own
+     enquiry form on moveaheadmedia.com.au, in AUD (figures confirmed by
+     Thanya, 2026-10-28). Only the words change: each bracket keeps its id,
+     so a budget leads to the same plan in every market. formValue is what
+     the website form sends for that bracket, so the budget on a quiz lead
+     reads the same in Pipedrive as on a website enquiry. */
+  var MARKET_ANSWERS = {
+    AU: {
+      budget: {
+        under50: { label: "500 – 1,000 AUD", formValue: "500 - 1,000 AUD" },
+        "50to100": { label: "1,001 – 2,000 AUD", formValue: "1,001 - 2,000 AUD" },
+        "100to300": { label: "2,001 – 3,000 AUD", formValue: "2,001 - 3,000 AUD" },
+        over300: { label: "Over 3,000 AUD", formValue: "Over 3,000 AUD" },
+      },
+    },
+  };
+
+  var ownAnswers = MARKET_ANSWERS[CFG.market] || {};
+  QUESTIONS.forEach(function (question) {
+    var changes = ownAnswers[question.id] || {};
+    question.options.forEach(function (option) {
+      var change = changes[option.id];
+      if (!change) return;
+      for (var key in change) option[key] = change[key];
+    });
+  });
 
   window.MAM_DATA = {
     ICONS: ICONS,

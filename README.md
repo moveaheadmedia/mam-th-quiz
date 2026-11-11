@@ -3,16 +3,60 @@
 An interactive 5-step quiz that recommends which digital marketing services a
 visitor actually needs, then captures the lead to an n8n webhook.
 
-**Live:** https://moveaheadmedia.github.io/mam-th-quiz/ (English) ·
-https://moveaheadmedia.github.io/mam-th-quiz/th/ (Thai) ·
-https://moveaheadmedia.github.io/mam-th-quiz/au/ (English, Australia)
+**Live:** https://www.moveaheadmedia.co.th/quiz/ (English) ·
+https://www.moveaheadmedia.co.th/th/quiz/ (Thai) ·
+https://www.moveaheadmedia.com.au/quiz/ (Australia)
 
-No build step, no dependencies — plain HTML, CSS and JavaScript.
+**Preview** of this repository as it is (GitHub Pages):
+https://moveaheadmedia.github.io/mam-th-quiz/ · [/th/](https://moveaheadmedia.github.io/mam-th-quiz/th/) ·
+[/au/](https://moveaheadmedia.github.io/mam-th-quiz/au/)
+
+No dependencies — plain HTML, CSS and JavaScript. The preview has no build
+step; the websites get a small one ([deploy/README.md](deploy/README.md)).
 
 ---
 
-## Go live
+## On the websites
 
+The quiz has its own pages on moveaheadmedia.co.th (English `/quiz/`, Thai
+`/th/quiz/`) and moveaheadmedia.com.au (`/quiz/`). Each is a separate folder of
+plain files on Hostinger, apart from the website's WordPress code, and each has
+its own **live branch** in this repository: `live-mam-en`, `live-mam-th` and
+`live-mam-au` hold exactly what is in those folders.
+[deploy/README.md](deploy/README.md) covers the build, the branches, the upload,
+the checks and how to roll back. On those pages:
+
+- **Leads go where the website's enquiry forms send theirs:** the page posts
+  straight to the webhook of n8n **"MAM Forms => PIPEDRIVE"**, which creates
+  the Pipedrive person, lead and note. The lead is titled `<Lead Source> | <name>`,
+  labelled and assigned from the page address (.co.th → Thailand,
+  .com.au → Australia), its "Service Interest" is the main recommendation
+  (`config.js` → `forms.serviceInterest`), and the note lists the answers and
+  the plan. Field list: `engine.js` → `formFields`.
+- **Attribution is the website's own.** `assets/js/utm.js` applies the rules
+  of the website's "MAM UTM To Forms" plugin and shares its cookies
+  (`user_utm_source/medium/campaign`), so a visitor who came in through the
+  website keeps that first touch, and one who lands on the quiz is classified
+  the same way. `tests/utm.test.js` runs every rule through both the quiz and
+  a copy of the plugin's script (`tests/fixtures/`); when the plugin changes,
+  replace the copy and the test shows what the quiz must learn.
+- **Google Tag Manager:** each site's own container (GTM-NHTDCN6S on .co.th,
+  GTM-NRK28BX5 on .com.au). The quiz pushes `mam_quiz_start`,
+  `mam_quiz_step_complete`, `mam_quiz_lead`, `mam_quiz_complete`,
+  `mam_quiz_consultation_click` and `mam_quiz_chat_click` to the dataLayer, with no
+  personal data (list in `app.js` → Analytics). [deploy/gtm/](deploy/gtm/) has the
+  matching GA4 tags as GTM import files. Link clicks on the
+  results page (phone, LINE, WhatsApp) reach the containers' existing
+  link-click triggers as on any page.
+- **Language switch:** EN | TH on the co.th pages; none on the Australian page.
+
+---
+
+## The preview's n8n workflow
+
+The GitHub Pages preview sends the whole quiz payload (below) to n8n
+**"MAM Service Quiz — save leads to data table"** instead of Pipedrive
+(`webhookFormat: 'quiz'`, the default when a page has no `window.MAM_DEPLOY`).
 Everything the browser needs lives in `assets/js/config.js`, and both values are
 already set:
 
@@ -296,6 +340,13 @@ a browser — it runs on load. Or from the command line on macOS:
   assets/js/data.js assets/js/planner.js tests/planner.test.js
 ```
 
+Run every suite with Node (planner, Thai text, UTM attribution, lead fields,
+the Australian page):
+
+```bash
+node tests/run-node.mjs
+```
+
 Open `tests/i18n.html` to check the Thai translation is complete, or:
 
 ```bash
@@ -320,20 +371,24 @@ Open `tests/i18n.html` to check the Thai translation is complete, or:
 | Thai wording — everything a visitor sees on `/th/` | `assets/js/i18n/th.js` |
 | Google rating under question 1 (both languages) | `config.js` → `reviews` |
 | Styling | `assets/css/styles.css` |
+| UTM rules (keep in step with the website's plugin) | `assets/js/utm.js`, `tests/utm.test.js` |
+| The lead's fields for "MAM Forms => PIPEDRIVE" | `assets/js/engine.js` → `formFields`; Service Interest names in `config.js` → `forms` |
+| GTM container, live addresses, form names, time zone, webhook — per live page | `deploy/sites.mjs` |
+| How a release reaches the live branches and the server | `deploy/README.md` |
 
 ## Languages and markets
 
 | Address | Shows | Market |
 | --- | --- | --- |
-| `/` | English — the original address, unchanged so existing links and embeds keep working | TH |
-| `/th/` | Thai | TH |
-| `/au/` | English, the same text as `/` | AU |
-| `/en/` | forwards to `/` (keeps `utm_…` tags) | — |
+| `/` | English — live at moveaheadmedia.co.th/quiz/ | TH |
+| `/th/` | Thai — live at moveaheadmedia.co.th/th/quiz/ | TH |
+| `/au/` | English, the same text as `/` — live at moveaheadmedia.com.au/quiz/ | AU |
+| `/en/` | forwards to `/` (keeps `utm_…` tags); preview only | — |
 
 All three pages run the same quiz logic; only the text and links differ. The
-`<html lang>` of the page decides which text `assets/js/i18n.js` serves. An
-EN | TH | AU switch sits in the header (like the website's language and location
-pickers, in one), and answers carry across when a visitor switches mid-quiz.
+`<html lang>` of the page decides which text `assets/js/i18n.js` serves. The
+English and Thai pages have an EN | TH switch in the header, and answers carry
+across when a visitor switches mid-quiz. The Australian page has no switch.
 
 - **Change English wording:** questions, answers and service cards in `data.js`;
   everything else on screen in `i18n/en.js`.
@@ -363,12 +418,17 @@ The market is set by the page itself: `<html data-market="AU">` in
   stay as they are.
 - **The chat button.** TH shows LINE. AU shows WhatsApp, on the Sydney number
   in `config.js` → `chat.AU` (set it to `''` to hide the button).
+- **The budget answers.** AU shows the brackets of the moveaheadmedia.com.au
+  enquiry form, in AUD: 500 – 1,000 / 1,001 – 2,000 / 2,001 – 3,000 / Over
+  3,000 AUD (`data.js` → `MARKET_ANSWERS`). The lead sends them as that form
+  does: `Monthly Project Budget (AUD)` = `1,001 - 2,000 AUD`. Each bracket keeps
+  its id, so the plan for a budget is the same in both markets.
 - **The lead.** Every lead carries `"market": "TH"` or `"AU"` next to
   `"language"`. Add both as columns in the n8n *Build lead row* step to keep
   them.
 
-Everything else is the English page as it is: the questions, the THB budget
-answers, the free audit on LINE and the Google rating.
+Everything else is the English page as it is: the questions, the free audit
+on LINE and the Google rating.
 
 ### Branding notes
 
@@ -384,7 +444,8 @@ were added and are marked with a leading `+` in the token block at the top of
 
 ## Embedding in WordPress
 
-The quiz posts its height to the parent window, so it can be dropped into a page
+Not needed on moveaheadmedia.co.th and .com.au, where the quiz has its own
+pages (above). For another site, the quiz posts its height to the parent window, so it can be dropped into a page
 as a self-sizing iframe:
 
 ```html

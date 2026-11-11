@@ -149,6 +149,152 @@
     return { signals: signals, client_spam_score: Math.min(score, 100) };
   }
 
+  /* ── The website's enquiry-form workflow ──────────────────────────────
+     On the live pages (moveaheadmedia.co.th/quiz/, /th/quiz/ and
+     moveaheadmedia.com.au/quiz/) a lead goes where the websites' own enquiry
+     forms send theirs: n8n "MAM Forms => PIPEDRIVE". That workflow reads
+     Quform's field names with a leading "_" and builds the Pipedrive person,
+     lead and note from them, so the page posts a quiz lead to its webhook in
+     that shape, form-encoded like Quform.
+     ------------------------------------------------------------------ */
+
+  function label(answer) {
+    return (answer && answer.label) || "";
+  }
+
+  /** Pipedrive "Service Interest" options for the recommended services. */
+  function serviceInterest(services) {
+    var map = ((window.MAM_CONFIG.forms || {}).serviceInterest) || {};
+    var out = [];
+    (services || []).forEach(function (service) {
+      Object.keys(map).forEach(function (option) {
+        if (map[option].indexOf(service.id) !== -1 && out.indexOf(option) === -1) {
+          out.push(option);
+        }
+      });
+    });
+    return out;
+  }
+
+  /**
+   * The lead as the enquiry-form fields n8n "MAM Forms => PIPEDRIVE" reads.
+   * Everything is a string; the note in Pipedrive lists every non-empty one.
+   * @param {Object} payload  PLANNER.buildPayload(), plus .language and .market
+   * @param {Object} utm      { utm_source, utm_medium, utm_campaign }
+   */
+  function formFields(payload, utm) {
+    var forms = window.MAM_CONFIG.forms || {};
+    var lead = payload.lead || {};
+    var answers = payload.answers || {};
+    var plan = payload.recommendation || {};
+    var names = function (list) {
+      return (list || []).map(function (service) { return service.name; });
+    };
+    utm = utm || {};
+
+    /* Pipedrive gets "<Country Code> <Phone Number>". Like the website's
+       phone field, the code defaults to the market's; a number typed with
+       its own "+code " keeps it. */
+    var phone = String(lead.phone || "").trim();
+    var dialCode = (forms.dialCodes || {})[payload.market] || "";
+    var typed = /^(\+\d{1,4})[\s.-]+(\S.*)$/.exec(phone);
+    if (typed) { dialCode = typed[1]; phone = typed[2]; }
+    else if (/^\+/.test(phone)) { dialCode = ""; }
+
+    /* The budget, named and written like the website form's on that site:
+       "Monthly Project Budget (AUD)" = "1,001 - 2,000 AUD" on the AU page
+       (data.js → MARKET_ANSWERS), the quiz's own THB wording elsewhere. */
+    var currency = ((window.MAM_CONFIG.markets || {})[payload.market] || {}).currency || "THB";
+    var budget = answerOption("budget", (answers.budget || {}).id);
+
+    /* Built field by field: the Pipedrive note lists them in this order. */
+    var fields = {};
+    fields._Name = lead.name || "";
+    fields["_Email address"] = lead.email || "";
+    fields["_Country Code"] = dialCode;
+    fields["_Phone Number"] = phone;
+    fields._Website = lead.website || "";
+    fields["_Monthly Project Budget (" + currency + ")"] =
+      (budget && budget.formValue) || label(answers.budget);
+    fields["_Service of interest"] = serviceInterest(plan.primaries).join(", ");
+    fields["_Quiz: About you"] = label(answers.profile);
+    fields["_Quiz: Business type"] = label(answers.type);
+    fields["_Quiz: Goal"] = label(answers.objective);
+    fields["_Quiz: Challenge"] = [label(answers.challenge), label(answers.challenge_2)]
+      .filter(Boolean).join(" / ");
+    fields["_Quiz: Recommended"] = names(plan.primaries).join(" + ");
+    fields["_Quiz: Also in the plan"] = names(plan.supporting).join(", ");
+    fields["_Quiz: Budget tier"] = plan.budget_tier || "";
+    fields["_Quiz: Language"] = payload.language === "th" ? "Thai" : "English";
+    fields._utm_source = utm.utm_source || "";
+    fields._utm_medium = utm.utm_medium || "";
+    fields._utm_campaign = utm.utm_campaign || "";
+    /* The page address decides the Pipedrive label and owner
+       (.co.th → Thailand, .com.au → Australia). */
+    fields._formURL = (payload.meta && payload.meta.page_url) || "";
+    return fields;
+  }
+
+  /** Site-local date and time, written the way Quform writes _date on that
+      site: "d/m/Y" → 28/10/2026 9:47 (co.th), "m/d/Y" → 10/28/2026 5:57 AM
+      (com.au). */
+  function formDate(date, timeZone, style) {
+    var parts = {};
+    try {
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone || "Asia/Bangkok",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "numeric", minute: "2-digit", hourCycle: "h23",
+      }).formatToParts(date).forEach(function (part) { parts[part.type] = part.value; });
+    } catch (e) {
+      return date.toISOString();
+    }
+    var hour = Number(parts.hour) % 24;
+    if (style === "m/d/Y") {
+      return parts.month + "/" + parts.day + "/" + parts.year + " " +
+        (hour % 12 || 12) + ":" + parts.minute + " " + (hour < 12 ? "AM" : "PM");
+    }
+    return parts.day + "/" + parts.month + "/" + parts.year + " " + hour + ":" + parts.minute;
+  }
+
+  /** What looks like spam about a lead, in words for the Pipedrive note;
+      "" when nothing does. Only a hint: every lead is sent (operator's
+      decision 2026-10-28 — spam is removed in Pipedrive, never here). */
+  function spamCheck(signals) {
+    var flags = [];
+    if (signals.honeypot_filled) flags.push("the hidden anti-bot field was filled in");
+    if (signals.faster_than_minimum) flags.push("the contact form took " + signals.seconds_on_form + " s");
+    if (signals.name_contains_url) flags.push("a link in the name");
+    if (signals.name_has_no_letters) flags.push("no letters in the name");
+    if (signals.email_disposable) flags.push("a throwaway email domain");
+    if (signals.phone_repeated_digit) flags.push("the phone is one digit repeated");
+    return flags.length ? "Possible spam: " + flags.join("; ") : "";
+  }
+
+  /**
+   * The request for the configured webhook format.
+   * @returns {{type:string, body:string}}
+   */
+  function request(payload) {
+    var config = window.MAM_CONFIG;
+    if (config.webhookFormat !== "mam-forms") {
+      return { type: "application/json", body: JSON.stringify(payload) };
+    }
+    var forms = config.forms || {};
+    var signals = (payload.security && payload.security.signals) || {};
+    var fields = formFields(payload, window.MAM_UTM ? window.MAM_UTM.values() : {});
+    var spam = spamCheck(signals);
+    if (spam) fields["_Quiz: Spam check"] = spam;
+    fields["_Form Name"] = forms.formName || "Service Quiz";
+    fields._date = formDate(new Date(), forms.timeZone, forms.dateStyle);
+    /* Form-encoded, like Quform: a "simple" cross-site request, so the
+       browser sends it without asking n8n first (no CORS preflight). */
+    return {
+      type: "application/x-www-form-urlencoded;charset=UTF-8",
+      body: new URLSearchParams(fields).toString(),
+    };
+  }
+
   /**
    * POST the lead to n8n. Never rejects — the visitor sees their results
    * regardless of what the automation layer does.
@@ -157,11 +303,12 @@
   function submit(payload) {
     var config = window.MAM_CONFIG;
     var url = config.webhookUrl;
+    var req = request(payload);
 
     if (!url || url.indexOf("REPLACE_WITH") === 0) {
       console.warn(
-        "[MAM quiz] No webhook configured — payload not sent:",
-        payload,
+        "[MAM quiz] No webhook configured — request not sent:",
+        req.body,
       );
       return Promise.resolve({ ok: false, reason: "not-configured" });
     }
@@ -173,19 +320,33 @@
 
     return fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      headers: { "Content-Type": req.type },
+      body: req.body,
       signal: controller.signal,
       keepalive: true,
     })
       .then(function (response) {
         clearTimeout(timer);
-        if (!response.ok) throw new Error("HTTP " + response.status);
+        if (!response.ok) {
+          console.error("[MAM quiz] Webhook answered HTTP " + response.status);
+          return { ok: false, reason: "HTTP " + response.status };
+        }
         return { ok: true };
       })
       .catch(function (error) {
         clearTimeout(timer);
         console.error("[MAM quiz] Webhook failed:", error);
+        /* No answer at all (network, timeout, a blocker): send it once more
+           as a beacon, which the browser delivers in the background even if
+           the page is closed. A lead counts more than the rare duplicate. */
+        var form = req.type.indexOf("application/x-www-form-urlencoded") === 0;
+        if (form && typeof navigator !== "undefined" && navigator.sendBeacon) {
+          try {
+            if (navigator.sendBeacon(url, new URLSearchParams(req.body))) {
+              return { ok: true, reason: "beacon" };
+            }
+          } catch (e) { /* fall through */ }
+        }
         return { ok: false, reason: String((error && error.message) || error) };
       });
   }
@@ -208,6 +369,10 @@
 
   window.MAM_ENGINE = {
     submit: submit,
+    formFields: formFields,
+    formDate: formDate,
+    spamCheck: spamCheck,
+    request: request,
     answerIds: answerIds,
     answerOption: answerOption,
     answerOptions: answerOptions,

@@ -106,9 +106,9 @@
 
   /* ══ 1. The catalogue ═══════════════════════════════════════════════ */
 
-  test("the catalogue holds the 35 services + 2 quiz cards, with everything a card needs", function () {
+  test("the catalogue holds the 35 services + 2 quiz cards + ChatGPT Ads, with everything a card needs", function () {
     var ids = Object.keys(D.CATALOGUE);
-    equal(ids.length, 37, "service count");
+    equal(ids.length, 38, "service count");
 
     var roles = { lead: 0, support: 0, platform: 0, overlay: 0 };
     ids.forEach(function (id) {
@@ -127,9 +127,10 @@
     });
 
     /* v7: + Free Strategy Consultation (lead), + SEO & AI Visibility Audit
-       (support), and TikTok Ads moved from platform to support. */
-    same(roles, { lead: 12, support: 19, platform: 4, overlay: 2 }, "role split");
-    equal(Object.keys(D.SERVICE_URLS).length, 37, "URL slots");
+       (support), and TikTok Ads moved from platform to support.
+       Nov 2026: + ChatGPT Ads (support). */
+    same(roles, { lead: 12, support: 20, platform: 4, overlay: 2 }, "role split");
+    equal(Object.keys(D.SERVICE_URLS).length, 38, "URL slots");
     Object.keys(D.SERVICE_URLS).forEach(function (id) {
       assert(D.CATALOGUE[id], "URL slot " + id + " has no service");
     });
@@ -220,7 +221,10 @@
        sales goal .......... 6                  (CPAS replaces Facebook Ads)
        website challenge ... 5, 9, 13, 18       (UI/UX before CRO)
        brand challenge ..... 11                 (TikTok is the reach card)
-       not-sure challenge .. 19, 20             (SEO & AI Visibility Audit) */
+       not-sure challenge .. 19, 20             (SEO & AI Visibility Audit)
+     Nov 2026 — ChatGPT Ads (team sign-off) changed two: 11 and 20 take
+     ChatGPT Ads in place of CRO, their last supporting card that is not the
+     challenge's fix; CRO now leads "Also often relevant". */
   var PERSONAS = [
     [1,  "sme","local","under50","leads","ai",                    ["Facebook Ads"],                        ["AI SEO"]],
     [2,  "sme","local","under50","leads","ranking",               ["Google Ads Campaigns"],                ["SEO Campaigns"]],
@@ -232,7 +236,7 @@
     [8,  "inhouse","national","100to300","leads","ai",            ["Google Ads Campaigns","AI SEO"],       ["Content Marketing","SEO Campaigns"]],
     [9,  "inhouse","ecommerce","100to300","leads","website",      ["Google Shopping","Web Design"],        ["UI/UX","Conversion Rate Optimisation (CRO)"]],
     [10, "enterprise","enterprise","100to300","search-visibility","ranking",["AI SEO","SEO Campaigns"],    ["SEO & AI Visibility Audit","Content Marketing"]],
-    [11, "enterprise","enterprise","over300","leads","brand",     ["Google Ads Campaigns","Facebook Ads"], ["TikTok Ads","Conversion Rate Optimisation (CRO)"]],
+    [11, "enterprise","enterprise","over300","leads","brand",     ["Google Ads Campaigns","Facebook Ads"], ["TikTok Ads","ChatGPT Ads"]],
     [12, "enterprise","national","over300","search-visibility","ai",["AI SEO","SEO Campaigns"],            ["Content Marketing","SEO & AI Visibility Audit"]],
     [13, "enterprise","ecommerce","over300","leads","website",    ["Google Shopping","Web Design"],        ["UI/UX","Conversion Rate Optimisation (CRO)"]],
     [14, "agency","mixed","50to100","search-visibility","ranking",["AI SEO","SEO Campaigns"],              ["Link Building"]],
@@ -241,7 +245,7 @@
     [17, "inhouse","mixed","50to100","search-visibility","website",["AI SEO","Web Design"],                ["UI/UX"]],
     [18, "enterprise","enterprise","over300","leads","website",   ["Google Ads Campaigns","Web Design"],   ["UI/UX","Conversion Rate Optimisation (CRO)"]],
     [19, "sme","local","under50","leads","unsure",                ["Facebook Ads"],                        ["SEO & AI Visibility Audit"]],
-    [20, "enterprise","mixed","over300","leads","unsure",         ["Google Ads Campaigns","Facebook Ads"], ["SEO & AI Visibility Audit","Conversion Rate Optimisation (CRO)"]],
+    [20, "enterprise","mixed","over300","leads","unsure",         ["Google Ads Campaigns","Facebook Ads"], ["SEO & AI Visibility Audit","ChatGPT Ads"]],
   ];
 
   test("all 20 personas produce exactly the agreed v7 plan", function () {
@@ -627,6 +631,61 @@
           label(c) + " never named " + id);
       });
     });
+  });
+
+  /* ══ ChatGPT Ads (Nov 2026, team sign-off) ══════════════════════════ */
+
+  var GPT = "chatgpt-ads";
+  function gptShown(c) {
+    return c.result.all.indexOf(GPT) !== -1 ? "card"
+      : (c.result.alsoRelevant || []).indexOf(GPT) !== -1 ? "idea" : "";
+  }
+
+  test("ChatGPT Ads shows only when all five checks pass, and never as a main card", function () {
+    var seen = { card: 0, idea: 0 };
+    everyCase.forEach(function (c) {
+      var shown = gptShown(c);
+      if (shown) seen[shown]++;
+      assert(c.result.primaries.indexOf(GPT) === -1, label(c) + " made ChatGPT Ads a main card");
+      var passes =
+        ["leads", "sales", "traffic", "awareness"].indexOf(c.objective) !== -1 &&
+        ["ai", "no-sales", "website"].indexOf(c.challenge) === -1 &&
+        c.type !== "local" && c.profile !== "agency" && c.budget !== "under50";
+      assert(passes || !shown, label(c) + " showed ChatGPT Ads (" + shown + ")");
+      if (!passes) return;
+      var funded = c.budget === "100to300" || c.budget === "over300";
+      /* 100K+ is a card unless every supporting card is the challenge's fix. */
+      if (!funded) equal(shown, "idea", label(c) + " below 100K");
+      else assert(shown, label(c) + " at 100K+ should show ChatGPT Ads");
+    });
+    assert(seen.card > 0 && seen.idea > 0, "ChatGPT Ads should appear both as a card and as an idea");
+  });
+
+  test("ChatGPT Ads is kept apart from AI SEO: never on an AI Search goal or problem", function () {
+    everyCase.forEach(function (c) {
+      if (c.objective !== "search-visibility" && c.challenge !== "ai") return;
+      equal(gptShown(c), "", label(c));
+    });
+  });
+
+  test("ChatGPT Ads never adds a card or replaces the challenge's fix", function () {
+    everyCase.forEach(function (c) {
+      var swap = c.result.trace.filter(function (t) { return t.service === GPT; })[0];
+      if (!swap) return;
+      var without = c.result.supporting.map(function (id) { return id === GPT ? swap.replaced : id; });
+      var fix = D.CHALLENGE_NEEDS[c.challenge] || [];
+      var replaced = c.result.trace.filter(function (t) { return t.service === swap.replaced; })[0];
+      assert(replaced && fix.indexOf(replaced.need) === -1,
+        label(c) + " replaced the challenge's fix " + swap.replaced);
+      equal(c.result.alsoRelevant[0], swap.replaced, label(c) + " the replaced card should lead 'Also often relevant'");
+      equal(without.length, c.result.supporting.length, label(c));
+    });
+  });
+
+  test("ChatGPT Ads has a reason that makes no organic AI Search claim", function () {
+    var reason = P.REASONS[GPT] + " " + D.CATALOGUE[GPT].blurb + " " + D.CATALOGUE[GPT].deliverables.join(" ");
+    assert(P.REASONS[GPT], "no reason");
+    assert(!/organic|ranking|citation|cited|SEO/i.test(reason), "copy suggests organic AI Search: " + reason);
   });
 
   /* ── Runner ──────────────────────────────────────────────────────────── */

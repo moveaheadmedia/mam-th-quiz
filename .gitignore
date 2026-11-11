@@ -12,3 +12,6 @@ Desktop.ini
 
 # Logs
 *.log
+
+# Builds for the live websites (deploy/build.mjs) — they can hold the n8n webhook URL
+dist/
