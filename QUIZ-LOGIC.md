@@ -398,6 +398,39 @@ unrelated — Google Business Profile under Local SEO, Heat Maps under CRO. This
 fires in about **3%** of combinations (v7 menus are fuller, so it is needed
 less often).
 
+### ChatGPT Ads (added Nov 2026)
+
+Paid advertising inside ChatGPT, signed off by the team on 2026-11-11. It is
+a separate service from AI SEO: its own family (`paid-ai`), and its copy never
+suggests the ads improve organic AI Search rankings or citations. It is a
+**supporting card only**, never a main, and it shows only when **all five
+checks** pass:
+
+| Check | Shows for | Never for |
+| --- | --- | --- |
+| Goal | Leads · Online sales · Website traffic · Brand awareness | Google + AI Search · Local customers · Website conversions · Not sure |
+| Challenge | Doesn't rank · Ads not working · Brand · Not sure | Not visible in AI Search · Traffic but no sales · Website needs an upgrade |
+| Business type | National · E-commerce · Enterprise · Mixed | Local Business / SME |
+| Profile | SME · In-house · Enterprise | Agency / Consultant |
+| Market | `chatgptAds: true` in config.js → `markets` (TH and AU are on) | a market set to `false` |
+
+Then the budget decides how it shows. It **never adds a card**:
+
+- **100K+ THB (AU 2,001+ AUD):** it takes the place of the **last supporting
+  card that is not the challenge's own fix**, and that card moves to the top
+  of "Also often relevant". If every supporting card is the fix, it is named
+  as an idea instead.
+- **50–100K THB (AU 1,001–2,000 AUD) or "not sure":** named under "Also often
+  relevant", straight after the challenge's own list.
+- **Below 50K THB:** not shown.
+
+Across the 5,600 combinations it is a card in **342** and an idea in **426**.
+Two personas changed (11 and 20): ChatGPT Ads takes CRO's supporting slot, and
+CRO leads "Also often relevant". It reaches Pipedrive in the note line *Quiz:
+Also in the plan*. It has no "Service of interest" option, because that field
+is filled from the mains only. The card has no "Learn more" link until a
+service page exists; paste it into `SERVICE_URLS["chatgpt-ads"]` in data.js.
+
 ---
 
 ## 5. Budget and quantity
@@ -553,6 +586,11 @@ merged goal arrives as `answers.objective.id = "search-visibility"` (older rows
 say `google-visibility` / `ai-visibility`), and a lead who answered "not sure"
 twice arrives with `recommendation.primary.name = "Free Strategy
 Consultation"` — a lead that needs a conversation first.
+
+**ChatGPT Ads (Nov 2026).** Nothing to change. As a supporting card it arrives
+in `recommendation.supporting` (and, on the live pages, the note's *Quiz: Also
+in the plan* line). It is never a primary, so it never fills "Service of
+interest".
 
 **Worth mapping when there's time:** v6 sends both answers cleanly —
 `answers.objective` (the Goal) and `answers.challenge` (the single Problem),

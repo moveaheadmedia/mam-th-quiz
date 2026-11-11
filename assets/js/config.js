@@ -49,14 +49,18 @@ window.MAM_CONFIG = {
     document.documentElement.getAttribute('data-market')) || 'TH').toUpperCase(),
   markets: {
     /* currency: the budget answers' currency (AU's are in data.js →
-       MARKET_ANSWERS); the lead's budget field is named after it. */
+       MARKET_ANSWERS); the lead's budget field is named after it.
+       chatgptAds: false stops the quiz recommending ChatGPT Ads on that
+       market's page — for when ads aren't available to advertisers there.
+       The rest of the plan is unchanged (planner.js → placeChatgptAds). */
     TH: {
       site: 'https://www.moveaheadmedia.co.th',
       consultationUrl: 'https://www.moveaheadmedia.co.th/contact-us/',
       caseStudiesUrl: 'https://www.moveaheadmedia.co.th/about/case-studies/',
       phone: '02 260 0424',
       phoneHref: 'tel:+6622600424',
-      currency: 'THB'
+      currency: 'THB',
+      chatgptAds: true
     },
     AU: {
       site: 'https://www.moveaheadmedia.com.au',
@@ -64,7 +68,8 @@ window.MAM_CONFIG = {
       caseStudiesUrl: 'https://www.moveaheadmedia.com.au/about/case-studies/',
       phone: '02 9161 8033',
       phoneHref: 'tel:+61291618033',
-      currency: 'AUD'
+      currency: 'AUD',
+      chatgptAds: true
     }
   },
   email: 'info@moveaheadmedia.com',

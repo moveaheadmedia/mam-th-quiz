@@ -118,6 +118,23 @@
     same(fields["_Quiz: Recommended"], "Free Strategy Consultation");
   });
 
+  var CHATGPT_ADS_ANSWERS = { profile: "inhouse", type: "national", budget: "100to300", objective: "traffic", challenge: "ads" };
+
+  test("ChatGPT Ads reaches the Pipedrive note with the plan, never as the service of interest", function () {
+    var fields = E.formFields(payloadFor(CHATGPT_ADS_ANSWERS), UTM);
+    assert(/ChatGPT Ads/.test(fields["_Quiz: Also in the plan"]), "Also in the plan: " + fields["_Quiz: Also in the plan"]);
+    assert(!/ChatGPT/.test(fields["_Service of interest"]), "Service of interest: " + fields["_Service of interest"]);
+    assert(!/ChatGPT/.test(fields["_Quiz: Recommended"]), "Recommended: " + fields["_Quiz: Recommended"]);
+  });
+
+  test("a market switched off never recommends ChatGPT Ads", function () {
+    var markets = { TH: { chatgptAds: false }, AU: { chatgptAds: false } };
+    var result = withConfig({ markets: markets }, function () { return P.plan(CHATGPT_ADS_ANSWERS); });
+    assert(result.all.indexOf("chatgpt-ads") === -1, "still a card");
+    assert(result.alsoRelevant.indexOf("chatgpt-ads") === -1, "still an idea");
+    assert(P.plan(CHATGPT_ADS_ANSWERS).all.indexOf("chatgpt-ads") !== -1, "switched on, it is a card");
+  });
+
   test("missing UTM values are sent blank, like an empty Quform field", function () {
     var fields = E.formFields(payloadFor(LEADS_ANSWERS), {});
     same([fields._utm_source, fields._utm_medium, fields._utm_campaign], ["", "", ""]);
@@ -130,11 +147,16 @@
     });
   });
 
-  test("every service maps to one Pipedrive option, except the consultation", function () {
+  /* ChatGPT Ads is a supporting card only, and "Service of interest" is
+     filled from the mains, so it needs no Pipedrive option (it reaches the
+     note under "Quiz: Also in the plan"). */
+  var NO_PIPEDRIVE_OPTION = ["strategy-consultation", "chatgpt-ads"];
+
+  test("every service maps to one Pipedrive option, except the consultation and ChatGPT Ads", function () {
     var map = CFG.forms.serviceInterest;
     Object.keys(D.CATALOGUE).forEach(function (id) {
       var options = Object.keys(map).filter(function (option) { return map[option].indexOf(id) !== -1; });
-      if (id === "strategy-consultation") same(options, [], id);
+      if (NO_PIPEDRIVE_OPTION.indexOf(id) !== -1) same(options, [], id);
       else assert(options.length === 1, id + " maps to " + JSON.stringify(options));
     });
   });
